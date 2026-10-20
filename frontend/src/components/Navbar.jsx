@@ -1,15 +1,15 @@
 import React from 'react';
 import { Scissors, Film, RefreshCw, Cpu, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, health, onReset, isResetting }) {
+export default function Navbar({ projectId, projectTitle, activeTab, setActiveTab, health, onBackToProjects, onReset, isResetting }) {
   const ninerouterOk = health?.ninerouter;
   const ffmpegOk = health?.ffmpeg;
   const yunetOk = health?.yunet;
 
   return (
     <header className="h-16 border-b border-dark-border bg-dark-surface/90 backdrop-blur sticky top-0 z-40 px-4 md:px-6 flex items-center justify-between">
-      {/* Brand Logo & Name */}
-      <div className="flex items-center gap-3">
+      {/* Brand Logo & Name — clickable back to Projects */}
+      <button type="button" onClick={onBackToProjects} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
         <div className="w-9 h-9 rounded-xl bg-neon text-dark-bg font-extrabold flex items-center justify-center text-xl shadow-[0_0_15px_rgba(187,244,81,0.35)]">
           ツ
         </div>
@@ -22,38 +22,43 @@ export default function Navbar({ activeTab, setActiveTab, health, onReset, isRes
               SCL-VSL CORE
             </span>
           </div>
-          <p className="text-[11px] text-gray-400 hidden sm:block">
+          <p className="text-[11px] text-gray-400 hidden sm:block text-left">
             AI Vertical Video Clipper • Local 9Router Engine
           </p>
         </div>
-      </div>
+        {projectTitle && (
+          <span className="hidden md:block text-xs text-gray-400 max-w-[220px] truncate">▸ {projectTitle}</span>
+        )}
+      </button>
 
-      {/* Center Navigation Tabs */}
-      <div className="flex items-center bg-dark-bg p-1 rounded-xl border border-dark-border">
-        <button
-          onClick={() => setActiveTab('studio')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'studio'
-              ? 'bg-neon text-dark-bg shadow-sm font-bold'
-              : 'text-gray-300 hover:text-white hover:bg-dark-surface'
-          }`}
-        >
-          <Scissors className="w-3.5 h-3.5" />
-          <span>Studio Clipper</span>
-        </button>
+      {/* Center Navigation Tabs — only when inside a project */}
+      {projectId && (
+        <div className="flex items-center bg-dark-bg p-1 rounded-xl border border-dark-border">
+          <button
+            onClick={() => setActiveTab('studio')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'studio'
+                ? 'bg-neon text-dark-bg shadow-sm font-bold'
+                : 'text-gray-300 hover:text-white hover:bg-dark-surface'
+            }`}
+          >
+            <Scissors className="w-3.5 h-3.5" />
+            <span>Studio Clipper</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('library')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'library'
-              ? 'bg-neon text-dark-bg shadow-sm font-bold'
-              : 'text-gray-300 hover:text-white hover:bg-dark-surface'
-          }`}
-        >
-          <Film className="w-3.5 h-3.5" />
-          <span>Galeri Klip</span>
-        </button>
-      </div>
+          <button
+            onClick={() => setActiveTab('library')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeTab === 'library'
+                ? 'bg-neon text-dark-bg shadow-sm font-bold'
+                : 'text-gray-300 hover:text-white hover:bg-dark-surface'
+            }`}
+          >
+            <Film className="w-3.5 h-3.5" />
+            <span>Galeri Klip</span>
+          </button>
+        </div>
+      )}
 
       {/* Right System Diagnostics & Actions */}
       <div className="flex items-center gap-2 md:gap-3">
@@ -84,15 +89,17 @@ export default function Navbar({ activeTab, setActiveTab, health, onReset, isRes
           </span>
         </div>
 
-        {/* Reset Workspace Button */}
-        <button
-          onClick={onReset}
-          disabled={isResetting}
-          title="Reset Workspace & Cache"
-          className="p-2 text-gray-400 hover:text-red-400 hover:bg-dark-card rounded-lg border border-transparent hover:border-dark-border transition-all"
-        >
-          <RefreshCw className={`w-4 h-4 ${isResetting ? 'animate-spin text-red-400' : ''}`} />
-        </button>
+        {/* Reset Workspace Button — only when inside a project */}
+        {projectId && (
+          <button
+            onClick={onReset}
+            disabled={isResetting}
+            title="Reset Workspace & Cache"
+            className="p-2 text-gray-400 hover:text-red-400 hover:bg-dark-card rounded-lg border border-transparent hover:border-dark-border transition-all"
+          >
+            <RefreshCw className={`w-4 h-4 ${isResetting ? 'animate-spin text-red-400' : ''}`} />
+          </button>
+        )}
       </div>
     </header>
   );

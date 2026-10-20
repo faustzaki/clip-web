@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Film, Download, Copy, Check, Play, Clock, HardDrive, RefreshCw } from 'lucide-react';
 import { fetchClips } from '../api';
 
-export default function GalleryView() {
+export default function GalleryView({ projectId }) {
   const [clips, setClips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedIdx, setCopiedIdx] = useState(null);
@@ -11,7 +11,7 @@ export default function GalleryView() {
   const loadClips = async () => {
     try {
       setIsLoading(true);
-      const res = await fetchClips();
+      const res = await fetchClips(projectId);
       setClips(res.clips || []);
       setIsLoading(false);
     } catch (err) {
@@ -21,7 +21,7 @@ export default function GalleryView() {
 
   useEffect(() => {
     loadClips();
-  }, []);
+  }, [projectId]);
 
   const copyMetadata = (c, idx) => {
     const meta = c.meta || {};
@@ -62,9 +62,9 @@ export default function GalleryView() {
       ) : clips.length === 0 ? (
         <div className="h-72 flex flex-col items-center justify-center text-center text-gray-500 space-y-3 bg-dark-card border border-dark-border rounded-2xl p-6">
           <Film className="w-12 h-12 text-gray-600" />
-          <p className="text-sm font-semibold text-gray-400">Belum ada video yang selesai dirender.</p>
+          <p className="text-sm font-semibold text-gray-400">Belum ada klip untuk project ini.</p>
           <p className="text-xs text-gray-600">
-            Kembali ke Studio Clipper, pilih momen viral, lalu klik tombol Render.
+            Buka Studio Clipper project ini, pilih momen viral, lalu klik Render.
           </p>
         </div>
       ) : (

@@ -1,51 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
+import ProjectsView from './components/ProjectsView';
+import NewProjectView from './components/NewProjectView';
 import StudioView from './components/StudioView';
 import GalleryView from './components/GalleryView';
 import CropStudioModal from './components/CropStudioModal';
 import CaptionEditorModal from './components/CaptionEditorModal';
-import { fetchHealth, fetchState, fetchOptions, resetWorkspace } from './api';
+import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace } from './api';
 
 export default function App() {
+  const [view, setView] = useState('projects');
+  const [activeProjectId, setActiveProjectId] = useState(null);
   const [activeTab, setActiveTab] = useState('studio');
   const [health, setHealth] = useState(null);
   const [state, setState] = useState(null);
   const [options, setOptions] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
-  // Active Modals
   const [cropStudioCandidate, setCropStudioCandidate] = useState(null);
   const [captionEditorCandidate, setCaptionEditorCandidate] = useState(null);
 
-  const loadAll = async () => {
+  const loadProjects = async () => {
     try {
-      const [h, s, o] = await Promise.all([
-        fetchHealth().catch(() => null),
-        fetchState().catch(() => null),
-        fetchOptions().catch(() => null)
-      ]);
-      setHealth(h);
-      setState(s);
-      setOptions(o);
+      setIsLoadingProjects(true);
+      const p = await fetchProjects();
+      setProjects(p);
     } catch (err) {
-      console.error('Failed to load initial data:', err);
+      console.error('Failed to load projects:', err);
+    } finally {
+      setIsLoadingProjects(false);
     }
   };
 
+  const loadProjectState = async (pid) => {
+    try {
+      const s = await fetchState(pid);
+      setState(s);
+    } catch (err) {
+      console.error('Failed to load project state:', err);
+    }
+  };
+
+  const openProject = (pid) => {
+    setActiveProjectId(pid);
+    setState(null);
+    setActiveTab('studio');
+    setView('project');
+    loadProjectState(pid);
+  };
+
+  const backToProjects = () => {
+    setActiveProjectId(null);
+    setState(null);
+    setView('projects');
+    loadProjects();
+  };
+
   useEffect(() => {
-    loadAll();
+    fetchHealth().then(setHealth).catch(() => {});
+    fetchOptions().then(setOptions).catch(() => {});
+    loadProjects();
     const interval = setInterval(() => {
       fetchHealth().then(setHealth).catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const s = state?.ingest?.status;
+    if (!activeProjectId || (s !== 'running' && s !== 'starting')) return;
+    const t = setInterval(() => loadProjectState(activeProjectId), 1500);
+    return () => clearInterval(t);
+  }, [activeProjectId, state?.ingest?.status]);
+
   const handleReset = async () => {
-    if (!window.confirm('Reset semua video source, transkrip, dan kandidat?')) return;
+    if (!activeProjectId) return;
+    if (!window.confirm('Reset video source, transkrip, dan kandidat project ini?')) return;
     try {
       setIsResetting(true);
-      await resetWorkspace();
-      await loadAll();
+      await resetWorkspace(activeProjectId);
+      await loadProjectState(activeProjectId);
       setIsResetting(false);
     } catch (err) {
       setIsResetting(false);
@@ -56,29 +92,51 @@ export default function App() {
   return (
     <div className="min-h-screen bg-dark-bg text-gray-100 flex flex-col font-sans selection:bg-neon selection:text-dark-bg">
       <Navbar
+        projectId={view === 'project' ? activeProjectId : null}
+        projectTitle={state?.project?.title || null}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         health={health}
+        onBackToProjects={backToProjects}
         onReset={handleReset}
         isResetting={isResetting}
       />
 
       <main className="flex-1">
-        {activeTab === 'studio' ? (
-          <StudioView
-            state={state}
-            options={options}
-            onRefreshState={loadAll}
-            onOpenCropStudio={(cand) => setCropStudioCandidate(cand)}
-            onOpenCaptionEditor={(cand) => setCaptionEditorCandidate(cand)}
-            onClipRendered={() => loadAll()}
+        {view === 'projects' && (
+          <ProjectsView
+            projects={projects}
+            isLoading={isLoadingProjects}
+            onOpen={openProject}
+            onNew={() => setView('new')}
+            onRefresh={loadProjects}
           />
-        ) : (
-          <GalleryView />
+        )}
+        {view === 'new' && (
+          <NewProjectView
+            options={options}
+            onCreated={(pid) => openProject(pid)}
+            onCancel={backToProjects}
+          />
+        )}
+        {view === 'project' && (
+          activeTab === 'studio' ? (
+            <StudioView
+              projectId={activeProjectId}
+              state={state}
+              options={options}
+              onRefreshState={() => loadProjectState(activeProjectId)}
+              onBackToProjects={backToProjects}
+              onOpenCropStudio={(cand) => setCropStudioCandidate(cand)}
+              onOpenCaptionEditor={(cand) => setCaptionEditorCandidate(cand)}
+              onClipRendered={() => loadProjectState(activeProjectId)}
+            />
+          ) : (
+            <GalleryView projectId={activeProjectId} />
+          )
         )}
       </main>
 
-      {/* Modal 1: Crop Studio Keyframe Framing */}
       {cropStudioCandidate && (
         <CropStudioModal
           candidate={cropStudioCandidate}
@@ -91,7 +149,6 @@ export default function App() {
         />
       )}
 
-      {/* Modal 2: Caption Editor */}
       {captionEditorCandidate && (
         <CaptionEditorModal
           candidate={captionEditorCandidate}

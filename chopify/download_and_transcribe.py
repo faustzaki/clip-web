@@ -16,7 +16,10 @@ from pathlib import Path
 
 def run(cmd):
     print(">", " ".join(str(c) for c in cmd), flush=True)
-    subprocess.run(cmd, check=True)
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        err = res.stderr.strip() or res.stdout.strip()
+        raise RuntimeError(f"Command failed ({res.returncode}): {err}")
 
 
 def download(url, workdir):

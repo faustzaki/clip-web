@@ -44,10 +44,27 @@ def get_9router_key() -> str:
 def heuristic_score(data: dict, min_score: float = 6.0, max_clips: int = 8,
                     min_len: int = 15, max_len: int = 60) -> list:
     """Offline heuristic scoring using Chopify's lexical cues & arc completion."""
-    sentences = sentenceize(data["words"])
+    words = data.get("words", [])
+    if not words:
+        return []
+    sentences = sentenceize(words)
     cands = build_candidates(sentences, min_len, max_len, max_clips)
     filtered = [s for s in cands if s.get("overall", 0) >= min_score]
-    return filtered or (cands[:1] if cands else [])
+    if filtered:
+        return filtered
+    if cands:
+        return cands[:1]
+    # ponytail: naive boundary slice; upgrade to NLP chunking if transcripts lack punctuation
+    start = round(float(words[0].get("start", 0.0)), 2)
+    end = round(float(words[-1].get("end", start + min_len)), 2)
+    if end - start > max_len:
+        end = round(start + max_len, 2)
+    return [{
+        "start": start,
+        "end": max(round(start + 1.0, 2), end),
+        "hook": make_hook(sentences[0]["text"] if sentences else "clip"),
+        "overall": 5.0
+    }]
 
 
 YT_PRESETS = {
@@ -295,44 +312,48 @@ def ninerouter_score(data: dict, model_name: str = "ag/gemini-3.8-flash",
                      min_len: int = 15, max_len: int = 60, timeout: int = 60,
                      api_endpoint: str = None, api_key: str = None) -> list:
     """Score viral moments using any OpenAI-compatible LLM gateway (9Router, Ollama, Groq, OpenAI)."""
-    sentences = sentenceize(data["words"])
+    words = data.get("words", [])
+    if not words:
+        return []
+    sentences = sentenceize(words)
     if not sentences:
         return []
 
-    lines = "\n".join(f"{s['start']:.1f}-{s['end']:.1f}: {s['text']}" for s in sentences[:300])
-    sys_msg = LLM_SYSTEM.format(
-        min_len=min_len, max_len=max_len, max_clips=max_clips, min_score=min_score
-    )
-
-    payload = {
-        "model": model_name,
-        "temperature": 0.2,
-        "stream": False,
-        "messages": [
-            {"role": "system", "content": sys_msg},
-            {"role": "user", "content": f"Video duration: {data['duration']:.0f}s\n\nTranscript:\n{lines}"}
-        ]
-    }
-
-    headers = {"Content-Type": "application/json"}
-    token = (api_key or "").strip()
-    endpoint = (api_endpoint or NINEROUTER_API).strip()
-    if not token and "127.0.0.1:20128" in endpoint:
-        token = get_9router_key()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    if endpoint.endswith("/chat/completions"):
-        target_url = endpoint
-    else:
-        target_url = f"{endpoint.rstrip('/')}/chat/completions"
-
-    req = urllib.request.Request(
-        target_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers
-    )
     try:
+        lines = "\n".join(f"{s['start']:.1f}-{s['end']:.1f}: {s['text']}" for s in sentences[:300])
+        sys_msg = LLM_SYSTEM.format(
+            min_len=min_len, max_len=max_len, max_clips=max_clips, min_score=min_score
+        )
+
+        duration = data.get('duration') or (sentences[-1]['end'] if sentences else 0)
+        payload = {
+            "model": model_name,
+            "temperature": 0.2,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": f"Video duration: {duration:.0f}s\n\nTranscript:\n{lines}"}
+            ]
+        }
+
+        headers = {"Content-Type": "application/json"}
+        token = (api_key or "").strip()
+        endpoint = (api_endpoint or NINEROUTER_API).strip()
+        if not token and "127.0.0.1:20128" in endpoint:
+            token = get_9router_key()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        if endpoint.endswith("/chat/completions"):
+            target_url = endpoint
+        else:
+            target_url = f"{endpoint.rstrip('/')}/chat/completions"
+
+        req = urllib.request.Request(
+            target_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers
+        )
         with urllib.request.urlopen(req, timeout=timeout) as r:
             res_data = json.loads(r.read().decode("utf-8"))
         content = res_data["choices"][0]["message"]["content"]
@@ -343,6 +364,7 @@ def ninerouter_score(data: dict, model_name: str = "ag/gemini-3.8-flash",
         return heuristic_score(data, min_score, max_clips, min_len, max_len)
 
     valid = []
+    dur = data.get("duration") or (sentences[-1]["end"] if sentences else 0)
     for it in raw:
         try:
             start, end = float(it["start"]), float(it["end"])
@@ -350,8 +372,8 @@ def ninerouter_score(data: dict, model_name: str = "ag/gemini-3.8-flash",
             hook = str(it.get("hook") or "clip")
         except (KeyError, TypeError, ValueError):
             continue
-        start = max(0.0, min(start, data["duration"] - min_len))
-        end = max(start + min_len, min(end, data["duration"]))
+        start = max(0.0, min(start, max(0.0, dur - min_len)))
+        end = max(start + min_len, min(end, dur)) if dur > 0 else max(start + min_len, end)
         if end - start > max_len + 15:
             end = start + max_len
         valid.append({

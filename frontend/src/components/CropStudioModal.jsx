@@ -34,8 +34,7 @@ export default function CropStudioModal({
     [videoAspect]
   );
 
-  const [ratio, setRatio] = useState('9:16');
-  const [rect, setRect] = useState(() => {
+  const initialRect = (() => {
     if (cropRect && typeof cropRect.w === 'number') {
       return {
         x: Math.max(0, Math.min(1, cropRect.x || 0)),
@@ -45,7 +44,64 @@ export default function CropStudioModal({
       };
     }
     return getCenteredRect('9:16');
+  })();
+
+  const [ratio, setRatio] = useState(() => {
+    const a = (initialRect.w * vW) / Math.max(0.0001, initialRect.h * vH);
+    const near = (t) => Math.abs(a - t) < 0.02;
+    return near(9 / 16) ? '9:16' : near(1) ? '1:1' : near(16 / 9) ? '16:9' : 'free';
   });
+  const [rect, setRect] = useState(initialRect);
+
+  const [draft, setDraft] = useState({});
+
+  const normAspectOf = (r) => (r.w * vW) / Math.max(0.0001, r.h * vH);
+  const outAspect = normAspectOf(rect);
+  const boxW = outAspect >= 1 ? 320 : Math.round(320 * outAspect);
+  const boxH = outAspect >= 1 ? Math.round(320 / outAspect) : 320;
+
+  const display = (field) => draft[field] ?? String(Math.round(rect[field] * 100));
+
+  const lockAspect = (r) => {
+    const t = r === '9:16' ? 9 / 16 : r === '1:1' ? 1 : r === '16:9' ? 16 / 9 : null;
+    return t ? t / videoAspect : null;
+  };
+
+  const resizeRect = (r, field, val, normAspect) => {
+    const next = { ...r };
+    if (field === 'x') {
+      next.x = Math.min(Math.max(0, val), 1 - r.w);
+    } else if (field === 'y') {
+      next.y = Math.min(Math.max(0, val), 1 - r.h);
+    } else if (field === 'w') {
+      next.w = Math.min(Math.max(0.05, val), 1 - r.x);
+      if (normAspect) {
+        next.h = Math.min(next.w / normAspect, 1 - r.y);
+        next.w = next.h * normAspect;
+      }
+    } else if (field === 'h') {
+      next.h = Math.min(Math.max(0.05, val), 1 - r.y);
+      if (normAspect) {
+        next.w = Math.min(next.h * normAspect, 1 - r.x);
+        next.h = next.w / normAspect;
+      }
+    }
+    return next;
+  };
+
+  const commitNumber = (field, raw) => {
+    setDraft((d) => {
+      const n = { ...d };
+      delete n[field];
+      return n;
+    });
+    const s = String(raw).trim();
+    if (s === '') return;
+    const num = Number(s.replace(',', '.'));
+    if (!Number.isFinite(num)) return;
+    const val = Math.min(100, Math.max(0, num)) / 100;
+    setRect((prev) => resizeRect(prev, field, val, lockAspect(ratio)));
+  };
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(candidate?.start || 0);
@@ -130,8 +186,7 @@ export default function CropStudioModal({
       }
 
       // Resizing
-      const targetAspect = ratio === '9:16' ? 9 / 16 : ratio === '1:1' ? 1 : ratio === '16:9' ? 16 / 9 : null;
-      const normAspect = targetAspect ? targetAspect / videoAspect : null;
+      const normAspect = lockAspect(ratio);
 
       let nextX = r0.x;
       let nextY = r0.y;
@@ -259,17 +314,6 @@ export default function CropStudioModal({
     window.addEventListener('pointerup', handlePointerUp);
   };
 
-  const handleNumberInput = (field, valPct) => {
-    const val = Math.max(0, Math.min(100, Number(valPct) || 0)) / 100;
-    setRect((prev) => {
-      let next = { ...prev, [field]: val };
-      if (field === 'w') next.w = Math.max(0.05, Math.min(1 - next.x, val));
-      if (field === 'h') next.h = Math.max(0.05, Math.min(1 - next.y, val));
-      if (field === 'x') next.x = Math.max(0, Math.min(1 - next.w, val));
-      if (field === 'y') next.y = Math.max(0, Math.min(1 - next.h, val));
-      return next;
-    });
-  };
 
   const handleApply = () => {
     onApply?.({ rect });
@@ -439,9 +483,12 @@ export default function CropStudioModal({
             {/* Live Crop Preview Box (9:16 Mockup) */}
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-2">
-                Preview Hasil Crop (9:16)
+                Preview Hasil Crop ({ratio === 'free' ? `${outAspect.toFixed(2)}:1` : ratio})
               </label>
-              <div className="w-[180px] h-[320px] mx-auto rounded-xl overflow-hidden border-2 border-dark-border bg-black relative shadow-xl">
+              <div
+                style={{ width: boxW, height: boxH }}
+                className="mx-auto rounded-xl overflow-hidden border-2 border-dark-border bg-black relative shadow-xl"
+              >
                 <video
                   ref={previewVideoRef}
                   src={videoUrl}
@@ -472,9 +519,10 @@ export default function CropStudioModal({
                     type="number"
                     min="0"
                     max="100"
-                    step="1"
-                    value={Math.round(rect.x * 100)}
-                    onChange={(e) => handleNumberInput('x', e.target.value)}
+                    value={display('x')}
+                    onChange={(e) => setDraft((d) => ({ ...d, x: e.target.value }))}
+                    onBlur={(e) => commitNumber('x', e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                     className="w-full bg-dark-bg border border-dark-border rounded-lg px-2 py-1 text-white font-mono text-xs focus:border-neon focus:outline-none"
                   />
                 </div>
@@ -485,8 +533,10 @@ export default function CropStudioModal({
                     min="0"
                     max="100"
                     step="1"
-                    value={Math.round(rect.y * 100)}
-                    onChange={(e) => handleNumberInput('y', e.target.value)}
+                    value={display('y')}
+                    onChange={(e) => setDraft((d) => ({ ...d, y: e.target.value }))}
+                    onBlur={(e) => commitNumber('y', e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                     className="w-full bg-dark-bg border border-dark-border rounded-lg px-2 py-1 text-white font-mono text-xs focus:border-neon focus:outline-none"
                   />
                 </div>
@@ -497,8 +547,10 @@ export default function CropStudioModal({
                     min="5"
                     max="100"
                     step="1"
-                    value={Math.round(rect.w * 100)}
-                    onChange={(e) => handleNumberInput('w', e.target.value)}
+                    value={display('w')}
+                    onChange={(e) => setDraft((d) => ({ ...d, w: e.target.value }))}
+                    onBlur={(e) => commitNumber('w', e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                     className="w-full bg-dark-bg border border-dark-border rounded-lg px-2 py-1 text-white font-mono text-xs focus:border-neon focus:outline-none"
                   />
                 </div>
@@ -509,8 +561,10 @@ export default function CropStudioModal({
                     min="5"
                     max="100"
                     step="1"
-                    value={Math.round(rect.h * 100)}
-                    onChange={(e) => handleNumberInput('h', e.target.value)}
+                    value={display('h')}
+                    onChange={(e) => setDraft((d) => ({ ...d, h: e.target.value }))}
+                    onBlur={(e) => commitNumber('h', e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                     className="w-full bg-dark-bg border border-dark-border rounded-lg px-2 py-1 text-white font-mono text-xs focus:border-neon focus:outline-none"
                   />
                 </div>

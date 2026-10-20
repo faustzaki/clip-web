@@ -16,6 +16,9 @@ import urllib.request
 import urllib.parse
 from pathlib import Path
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger("autoclip")
 
 # Fix Windows registry MIME type quirk for .js and .css
 mimetypes.init()
@@ -44,6 +47,7 @@ DEFAULT_RENDER_PREFS = {
     "title_enabled": True,
     "watermark_enabled": False,
     "watermark": "",
+    "aspect": "9:16",
     "subtitle_style": dict(subtitle_burn.DEFAULT_STYLE),
 }
 WORKDIR = ROOT_DIR / "work"
@@ -955,24 +959,49 @@ def score_moments(project_id: str, payload: ScoreRequest):
 
     cfg = load_global_config()
     try:
-        if payload.use_llm:
-            cands = core_engine.ninerouter_score(
-                data=transcript,
-                model_name=payload.model_name or cfg.get("llm_model") or "ag/gemini-3.8-flash",
-                min_score=payload.min_score or 6.0,
-                max_clips=payload.max_clips or 8,
-                min_len=payload.min_len or 15,
-                max_len=payload.max_len or 60,
-                api_endpoint=cfg.get("llm_endpoint"),
-                api_key=cfg.get("llm_api_key")
-            )
+        if payload.use_llm and payload.model_name != 'heuristic':
+            try:
+                cands = core_engine.ninerouter_score(
+                    data=transcript,
+                    model_name=payload.model_name or cfg.get("llm_model") or "ag/gemini-3.8-flash",
+                    min_score=payload.min_score or 6.0,
+                    max_clips=payload.max_clips or 8,
+                    min_len=payload.min_len or 15,
+                    max_len=payload.max_len or 60,
+                    api_endpoint=cfg.get("llm_endpoint"),
+                    api_key=cfg.get("llm_api_key")
+                )
+            except Exception as e:
+                logger.warning(f"LLM scoring failed ({e}), falling back to heuristic")
+                cands = core_engine.heuristic_score(
+                    data=transcript,
+                    min_score=payload.min_score or 6.0,
+                    max_clips=payload.max_clips or 8,
+                    min_len=payload.min_len or 15,
+                    max_len=payload.max_len or 60
+                )
+        else:
             cands = core_engine.heuristic_score(
                 data=transcript,
                 min_score=payload.min_score or 6.0,
                 max_clips=payload.max_clips or 8,
                 min_len=payload.min_len or 15,
-                max_len=payload.max_len or 60)
+                max_len=payload.max_len or 60
+            )
 
+        if not cands and transcript.get("words"):
+            # ponytail: single window fallback; split to multiple if user requests more chunks
+            words_ref = transcript["words"]
+            start = round(float(words_ref[0].get("start", 0.0)), 2)
+            end = round(float(words_ref[-1].get("end", start + (payload.min_len or 15))), 2)
+            if end - start > (payload.max_len or 60):
+                end = round(start + (payload.max_len or 60), 2)
+            cands = [{
+                "start": start,
+                "end": max(round(start + 1.0, 2), end),
+                "hook": "clip",
+                "overall": 5.0
+            }]
         words = transcript.get("words", [])
         for i, c in enumerate(cands):
             c["id"] = i
@@ -1107,6 +1136,12 @@ def update_prefs(project_id: str, payload: PrefsRequest):
     if "watermark" in new_prefs:
         merged["watermark"] = str(new_prefs["watermark"])
 
+    if "aspect" in new_prefs:
+        aspect_in = str(new_prefs["aspect"])
+        if aspect_in not in render_clips.ASPECTS:
+            raise HTTPException(400, "Rasio tidak valid: aspect")
+        merged["aspect"] = aspect_in
+
     if "subtitle_style" in new_prefs:
         style_in = new_prefs["subtitle_style"]
         if not isinstance(style_in, dict):
@@ -1151,6 +1186,13 @@ def update_prefs(project_id: str, payload: PrefsRequest):
             merged_style["words_per_line"] = wpl
         except Exception:
             raise HTTPException(400, "Setelan subtitle tidak valid: words_per_line")
+
+        try:
+            ang = int(round(float(merged_style.get("angle", 0))))
+            if not (-180 <= ang <= 180): raise ValueError()
+            merged_style["angle"] = ang
+        except Exception:
+            raise HTTPException(400, "Setelan subtitle tidak valid: angle")
 
         pos = merged_style.get("position")
         if pos not in subtitle_burn.POSITION_ALIGN:

@@ -43,7 +43,7 @@ export default function SubtitleStyleEditor({ value, onChange, fonts, positions 
           </div>
           <input
             type="range"
-            min="48"
+            min="24"
             max="180"
             value={current.font_size ?? 96}
             onChange={(e) => update({ font_size: Number(e.target.value) })}
@@ -88,6 +88,34 @@ export default function SubtitleStyleEditor({ value, onChange, fonts, positions 
           max="900"
           value={current.margin_v ?? 300}
           onChange={(e) => update({ margin_v: Number(e.target.value) })}
+          className="w-full accent-neon cursor-pointer"
+        />
+      </div>
+
+      {/* Rotation Angle */}
+      <div>
+        <div className="flex justify-between items-center mb-1 text-[11px] text-gray-400">
+          <span>Sudut Rotasi (Angle)</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-neon font-mono">{current.angle ?? 0}°</span>
+            {Number(current.angle ?? 0) !== 0 && (
+              <button
+                type="button"
+                onClick={() => update({ angle: 0 })}
+                className="text-[10px] text-gray-400 hover:text-white px-1.5 py-0.5 rounded bg-dark-bg border border-dark-border"
+                title="Reset ke 0°"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+        <input
+          type="range"
+          min="-180"
+          max="180"
+          value={current.angle ?? 0}
+          onChange={(e) => update({ angle: Number(e.target.value) })}
           className="w-full accent-neon cursor-pointer"
         />
       </div>

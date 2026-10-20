@@ -27,6 +27,7 @@ DEFAULT_STYLE: dict[str, Any] = {
     "words_per_line": 3,
     "position": "bottom",
     "margin_v": 300,
+    "angle": 0,
 }
 
 
@@ -70,6 +71,7 @@ def resolved(style: dict[str, Any], th: int) -> dict[str, Any]:
     st["margin_v"] = max(0, round(float(st.get("margin_v", 300)) * scale))
     st["outline_width"] = max(0, round(float(st.get("outline_width", 5)) * scale))
     st["shadow"] = max(0, round(float(st.get("shadow", 2)) * scale))
+    st["angle"] = int(round(float(st.get("angle", 0))))
     return st
 
 
@@ -121,6 +123,7 @@ def build_caption_ass(words: list[dict[str, Any]], dur: float, path: Path, tw: i
     uppercase = bool(st.get("uppercase", True))
     prim_tag = ass_color(st.get("primary_color", "#FFFFFF"), None)
     high_tag = ass_color(st.get("highlight_color", "#FFE100"), None)
+    angle = st.get("angle", 0)
 
     header = (
         "[Script Info]\n"
@@ -134,7 +137,7 @@ def build_caption_ass(words: list[dict[str, Any]], dur: float, path: Path, tw: i
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
         f"Style: Cap,{font},{font_size},{prim_style_col},{prim_style_col},{out_col},{back_colour},"
-        f"{bold},0,0,0,100,100,0,0,{border_style},{outline_width},{shadow},{align},80,80,{margin_v},1\n\n"
+        f"{bold},0,0,0,100,100,0,{angle},{border_style},{outline_width},{shadow},{align},80,80,{margin_v},1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )

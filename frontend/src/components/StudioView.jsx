@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Play,
-  Pause,
   Sparkles,
   Sliders,
   Scissors,
@@ -24,10 +22,18 @@ import {
   Film,
   PanelBottom,
   PanelRight,
+  RotateCw,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+  Move,
+  Maximize2,
 } from 'lucide-react';
 import { scoreMoments, renderClip, putPrefs, publishClip } from '../api';
 import SubtitleStyleEditor from './SubtitleStyleEditor';
 import SubtitlePreview from './SubtitlePreview';
+
+const SUBTITLE_SAMPLE = ['CONTOH', 'TEKS', 'SUBTITLE', 'KARAOKE'];
 
 export default function StudioView({
   projectId,
@@ -192,6 +198,9 @@ export default function StudioView({
     }
   };
 
+  const prefsRef = useRef(prefs);
+  useEffect(() => { prefsRef.current = prefs; }, [prefs]);
+
   // Clipper settings state
   const [selectedModel, setSelectedModel] = useState(options?.default_model || 'ag/gemini-3.8-flash-high');
 
@@ -203,7 +212,6 @@ export default function StudioView({
   const [minDur, setMinDur] = useState(15);
   const [maxDur, setMaxDur] = useState(60);
   const [cropMode, setCropMode] = useState('speaker-tracked');
-  const [aspect, setAspect] = useState('9:16');
   const [tightenCuts, setTightenCuts] = useState(true);
   const [renderQuality, setRenderQuality] = useState('hd');
   const [isScoring, setIsScoring] = useState(false);
@@ -214,6 +222,32 @@ export default function StudioView({
 
   const videoRef = useRef(null);
   const bottomScrollRef = useRef(null);
+  const frameBoxRef = useRef(null);
+  const frameRef = useRef(null);
+  const trackRef = useRef(null);
+  const [frameSize, setFrameSize] = useState({ w: 0, h: 0 });
+  const candidates = state?.candidates || [];
+  const currentVideo = state?.video;
+  const clips = state?.clips || [];
+  const activeCandidate = candidates[activeCandidateIdx] || null;
+  const aspect = prefs?.aspect || '9:16';
+  const st = prefs?.subtitle_style || {};
+  const subPx = (v) => Math.max(2, Math.round((Number(v) || 0) * (frameSize.h || 800) / 1920));
+  const subAlign = st.position === 'top' ? 'flex-start' : st.position === 'middle' ? 'center' : 'flex-end';
+  const padTop = st.position === 'top' ? subPx(st.margin_v ?? 300) : 0;
+  const padBottom = st.position === 'bottom' ? subPx(st.margin_v ?? 300) : 0;
+
+  // Subtitle interactive transform state
+  const [isSubSelected, setIsSubSelected] = useState(false);
+  const [subOffsetX, setSubOffsetX] = useState(0);
+  const [subDragInfo, setSubDragInfo] = useState({ isDragging: false, isCenterSnapped: false, snapZone: null });
+  const [activeBadge, setActiveBadge] = useState(null);
+  const subBoxRef = useRef(null);
+
+  // Video view mode & freeform state
+  const [videoViewMode, setVideoViewMode] = useState('cover'); // 'fit' | 'cover' | 'freeform'
+  const [videoPos, setVideoPos] = useState({ x: 0, y: 0 });
+  const [videoScale, setVideoScale] = useState(1);
 
   useEffect(() => {
     const el = bottomScrollRef.current;
@@ -227,15 +261,28 @@ export default function StudioView({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, [pipelinePos, bottomCollapsed]);
-  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    const el = frameBoxRef.current;
+    if (!el) return;
+    const ratio = aspect === '1:1' ? 1 : aspect === '16:9' ? 16 / 9 : 9 / 16;
+    const measure = () => {
+      const b = el.getBoundingClientRect();
+      if (b.width <= 0 || b.height <= 0) return;
+      const w = Math.min(b.width, b.height * ratio);
+      setFrameSize({ w: Math.round(w), h: Math.round(w / ratio) });
+    };
+    measure();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+  }, [aspect]);
+
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-
-  const candidates = state?.candidates || [];
-  const currentVideo = state?.video;
-  const clips = state?.clips || [];
-  const activeCandidate = candidates[activeCandidateIdx] || null;
 
   const mmss = (s) => {
     const sec = Math.max(0, Number(s) || 0);
@@ -243,24 +290,257 @@ export default function StudioView({
     const rem = Math.floor(sec % 60);
     return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
   };
-
+  const pct = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
   const handleTimeUpdate = () => {
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime);
-      if (activeCandidate && videoRef.current.currentTime >= activeCandidate.end) {
-        videoRef.current.currentTime = activeCandidate.start;
+      if (activeCandidate && typeof activeCandidate.end === 'number' && videoRef.current.currentTime >= activeCandidate.end) {
+        videoRef.current.currentTime = activeCandidate.start || 0;
       }
     }
   };
 
   const togglePlay = () => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-    }
+    const v = videoRef.current;
+    if (!v || !currentVideo?.url) return;
+    if (v.paused) v.play().catch(() => {});
+    else v.pause();
+  };
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setIsMuted(v.muted);
+  };
+
+  const seekToClientX = (clientX) => {
+    const el = trackRef.current;
+    const v = videoRef.current;
+    if (!el || !v || !duration) return;
+    const b = el.getBoundingClientRect();
+    if (b.width <= 0) return;
+    const ratio = Math.min(1, Math.max(0, (clientX - b.left) / b.width));
+    const t = ratio * duration;
+    v.currentTime = t;
+    setCurrentTime(t);
+    const hit = candidates.findIndex((c) => t >= c.start && t <= c.end);
+    if (hit !== activeCandidateIdx) setActiveCandidateIdx(hit === -1 ? null : hit);
+  };
+
+  const startSeek = (e) => {
+    e.preventDefault();
+    seekToClientX(e.clientX);
+    const move = (ev) => seekToClientX(ev.clientX);
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  };
+
+  // Subtitle interactive handlers: Drag & Drop with sticky snap & center guidelines
+  const startSubtitleDrag = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsSubSelected(true);
+    const frameEl = frameRef.current;
+    if (!frameEl) return;
+    const frameRect = frameEl.getBoundingClientRect();
+    if (frameRect.height <= 0) return;
+    const frameCenterX = frameRect.left + frameRect.width / 2;
+
+    const move = (ev) => {
+      const dx = ev.clientX - frameCenterX;
+      const isCenterSnapped = Math.abs(dx) <= 16;
+      const offX = isCenterSnapped ? 0 : Math.round(dx * 0.4);
+
+      const r = Math.min(1, Math.max(0, (ev.clientY - frameRect.top) / frameRect.height));
+      let patch;
+      let snapZone = null;
+
+      if (r < 0.25) {
+        snapZone = 'top';
+        patch = { position: 'top', margin_v: 150 };
+      } else if (r >= 0.40 && r <= 0.60) {
+        snapZone = 'middle';
+        patch = { position: 'middle', margin_v: 0 };
+      } else if (r > 0.75) {
+        snapZone = 'bottom';
+        patch = { position: 'bottom', margin_v: 250 };
+      } else if (r < 0.5) {
+        patch = { position: 'top', margin_v: Math.round(Math.min(900, Math.max(0, r * 1920))) };
+      } else {
+        patch = { position: 'bottom', margin_v: Math.round(Math.min(900, Math.max(0, (1 - r) * 1920))) };
+      }
+
+      setSubDragInfo({ isDragging: true, isCenterSnapped, snapZone });
+      setSubOffsetX(offX);
+      setPrefs((cur) => ({
+        ...(cur || {}),
+        subtitle_style: { ...(cur?.subtitle_style || {}), ...patch },
+      }));
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setSubDragInfo({ isDragging: false, isCenterSnapped: false, snapZone: null });
+      setSubOffsetX(0);
+      putPrefs(projectId, prefsRef.current).catch((err) => console.error('Failed to save prefs:', err));
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  };
+
+  // Subtitle interactive handlers: Rotate with angle badge & ±5° snapping
+  const startSubtitleRotate = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsSubSelected(true);
+    const boxEl = subBoxRef.current;
+    if (!boxEl) return;
+    const boxRect = boxEl.getBoundingClientRect();
+    const centerX = boxRect.left + boxRect.width / 2;
+    const centerY = boxRect.top + boxRect.height / 2;
+
+    const move = (ev) => {
+      let angle = Math.round(Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * 180 / Math.PI) + 90;
+      while (angle > 180) angle -= 360;
+      while (angle < -180) angle += 360;
+
+      // Snap to 0° and ±90° when within ±5°
+      if (Math.abs(angle) <= 5) angle = 0;
+      else if (Math.abs(angle - 90) <= 5) angle = 90;
+      else if (Math.abs(angle + 90) <= 5) angle = -90;
+
+      setActiveBadge({ type: 'angle', text: `${angle}°` });
+      setPrefs((cur) => ({
+        ...(cur || {}),
+        subtitle_style: { ...(cur?.subtitle_style || {}), angle },
+      }));
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setActiveBadge(null);
+      putPrefs(projectId, prefsRef.current).catch((err) => console.error('Failed to save prefs:', err));
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  };
+
+  // Subtitle interactive handlers: Scale with corner handle & size badge
+  const startSubtitleScale = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsSubSelected(true);
+    const boxEl = subBoxRef.current;
+    if (!boxEl) return;
+    const boxRect = boxEl.getBoundingClientRect();
+    const centerX = boxRect.left + boxRect.width / 2;
+    const centerY = boxRect.top + boxRect.height / 2;
+    const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+    const startFontSize = Number(prefsRef.current?.subtitle_style?.font_size || 96);
+
+    const move = (ev) => {
+      const curDist = Math.hypot(ev.clientX - centerX, ev.clientY - centerY);
+      const ratio = startDist > 0 ? curDist / startDist : 1;
+      const newSize = Math.round(Math.min(180, Math.max(24, startFontSize * ratio)));
+
+      setActiveBadge({ type: 'size', text: `${newSize}px` });
+      setPrefs((cur) => ({
+        ...(cur || {}),
+        subtitle_style: { ...(cur?.subtitle_style || {}), font_size: newSize },
+      }));
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setActiveBadge(null);
+      putPrefs(projectId, prefsRef.current).catch((err) => console.error('Failed to save prefs:', err));
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  };
+
+  // Freeform video handlers: Pan & Zoom beyond canvas bounds
+  const startVideoDrag = (e) => {
+    if (videoViewMode !== 'freeform' || e.button !== 0) return;
+    if (e.target.closest?.('[data-subtitle-interactive]')) return;
+
+    e.preventDefault();
+    setIsSubSelected(false);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origPos = { ...videoPos };
+    let hasMoved = false;
+
+    const move = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+      setVideoPos({
+        x: Math.round(origPos.x + dx),
+        y: Math.round(origPos.y + dy),
+      });
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (!hasMoved) {
+        togglePlay();
+      }
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  };
+
+  const handleVideoWheel = (e) => {
+    if (videoViewMode !== 'freeform') return;
+    e.preventDefault();
+    const step = e.deltaY < 0 ? 0.08 : -0.08;
+    setVideoScale((prev) => Math.min(3.0, Math.max(0.3, Math.round((prev + step) * 100) / 100)));
+  };
+
+  const startVideoCornerScale = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startScale = videoScale;
+    const frameRect = frameRef.current?.getBoundingClientRect();
+    if (!frameRect) return;
+    const centerX = frameRect.left + frameRect.width / 2;
+    const centerY = frameRect.top + frameRect.height / 2;
+    const startDist = Math.hypot(startX - centerX, startY - centerY);
+
+    const move = (ev) => {
+      const curDist = Math.hypot(ev.clientX - centerX, ev.clientY - centerY);
+      const ratio = startDist > 0 ? curDist / startDist : 1;
+      const nextScale = Math.min(3.0, Math.max(0.3, Math.round(startScale * ratio * 100) / 100));
+      setVideoScale(nextScale);
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
   };
 
   const jumpToCandidate = (idx) => {
@@ -268,7 +548,7 @@ export default function StudioView({
     const cand = candidates[idx];
     if (cand && videoRef.current) {
       videoRef.current.currentTime = cand.start;
-      videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+      videoRef.current.play().catch(() => {});
     }
   };
 
@@ -294,7 +574,7 @@ export default function StudioView({
         setActiveCandidateIdx(0);
         if (videoRef.current) {
           videoRef.current.currentTime = scoreRes.candidates[0].start;
-          videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+          videoRef.current.play().catch(() => {});
         }
       }
     } catch (err) {
@@ -352,7 +632,7 @@ export default function StudioView({
   // Candidates ordered by start time earliest-first, preserving original index
   const orderedCandidates = candidates
     .map((c, i) => ({ c, i }))
-    .sort((a, b) => a.c.start - b.c.start);
+    .sort((a, b) => (a.c.start || 0) - (b.c.start || 0));
 
   // Render individual candidate card: ONLY thumbnail, minute range, and title
   const renderCard = ({ c, i, isHorizontal = false }) => {
@@ -753,97 +1033,422 @@ export default function StudioView({
 
         {/* Center Live Player & Preview */}
         <main className="flex-1 min-w-0 flex flex-col items-center justify-between overflow-hidden gap-1.5 py-1">
-          {/* Aspect Ratio Pills */}
-          <div className="flex items-center gap-1.5 bg-dark-card p-1 rounded-xl border border-dark-border shadow-md shrink-0">
-            {['9:16', '1:1', '16:9'].map((r) => (
-              <button
-                key={r}
-                onClick={() => setAspect(r)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  aspect === r
-                    ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {r}
-              </button>
-            ))}
+          {/* Top Bar: Aspect Ratio + Video View Mode */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-center px-1">
+            {/* Aspect Ratio Pills */}
+            <div className="flex items-center gap-1 bg-dark-card p-1 rounded-xl border border-dark-border shadow-md">
+              <span className="text-[10px] font-bold text-gray-400 uppercase px-1.5">Rasio</span>
+              {['9:16', '1:1', '16:9'].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => savePrefs({ ...(prefs || {}), aspect: r })}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    aspect === r
+                      ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+
+            {/* Video View Mode Selector */}
+            <div className="flex items-center gap-1 bg-dark-card p-1 rounded-xl border border-dark-border shadow-md">
+              <span className="text-[10px] font-bold text-gray-400 uppercase px-1.5">Video</span>
+              {[
+                { id: 'fit', label: 'Fit (Utuh)', desc: 'Tampilkan video utuh tanpa terpotong' },
+                { id: 'cover', label: 'Cover (Penuh)', desc: 'Penuhi layar (standard crop)' },
+                { id: 'freeform', label: 'Bebas (Transform)', desc: 'Bebas geser & scale video' },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setVideoViewMode(m.id);
+                    if (m.id !== 'freeform') {
+                      setVideoPos({ x: 0, y: 0 });
+                      setVideoScale(1);
+                    }
+                  }}
+                  title={m.desc}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    videoViewMode === m.id
+                      ? 'bg-neon text-black font-extrabold shadow-sm'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Vertical Mobile Phone Viewport (auto-scales cleanly to available height) */}
-          <div
-            className={`relative aspect-[9/16] h-full ${
-              pipelinePos === 'right' ? 'max-h-[calc(100%-4rem)] max-w-[420px]' : 'max-h-[calc(100%-4rem)] max-w-[340px]'
-            } bg-black rounded-[24px] border-4 border-dark-border overflow-hidden shadow-2xl flex flex-col justify-between group min-h-0 shrink`}
-          >
-            {/* Top Hook Banner Overlay (only if enabled) */}
-            {prefs?.title_enabled !== false && (
-              <div className="absolute top-6 left-0 right-0 z-20 flex justify-center px-4">
-                <div className="bg-black/90 backdrop-blur-sm border border-black/80 px-4 py-2 rounded-lg shadow-xl max-w-[90%] text-center">
-                  <span className="text-yellow-300 font-extrabold text-xs md:text-sm tracking-wide uppercase line-clamp-2">
-                    {activeCandidate?.hook || 'HOOK TITLE PREVIEW'}
+          <div ref={frameBoxRef} className="w-full flex-1 min-h-0 flex items-center justify-center">
+            <div
+              ref={frameRef}
+              onClick={() => setIsSubSelected(false)}
+              style={{
+                width: frameSize.w ? `${frameSize.w}px` : undefined,
+                height: frameSize.h ? `${frameSize.h}px` : undefined,
+                aspectRatio: aspect === '1:1' ? '1 / 1' : aspect === '16:9' ? '16 / 9' : '9 / 16',
+                maxHeight: '100%',
+                maxWidth: '100%',
+              }}
+              className="relative bg-black rounded-[24px] border-4 border-dark-border overflow-hidden shadow-2xl select-none"
+            >
+              {/* Top Hook Banner Overlay (only if enabled) */}
+              {prefs?.title_enabled !== false && (
+                <div className="absolute top-6 left-0 right-0 z-20 flex justify-center px-4">
+                  <div className="bg-black/90 backdrop-blur-sm border border-black/80 px-4 py-2 rounded-lg shadow-xl max-w-[90%] text-center">
+                    <span className="text-yellow-300 font-extrabold text-xs md:text-sm tracking-wide uppercase line-clamp-2">
+                      {activeCandidate?.hook || 'HOOK TITLE PREVIEW'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Top Right Watermark (only if enabled) */}
+              {prefs?.watermark_enabled && (prefs?.watermark || '').trim() && (
+                <div className="absolute top-4 right-4 z-20 text-[10px] text-white/60 font-semibold tracking-wider bg-black/40 px-2 py-0.5 rounded-full">
+                  {prefs.watermark}
+                </div>
+              )}
+
+              {/* Vertical Center Guideline */}
+              {subDragInfo.isDragging && (
+                <div
+                  className={`absolute top-0 bottom-0 left-1/2 -translate-x-1/2 pointer-events-none z-30 transition-all ${
+                    subDragInfo.isCenterSnapped
+                      ? 'w-1 bg-neon shadow-[0_0_14px_#00FFCC] opacity-100'
+                      : 'w-0.5 bg-neon/50 opacity-70'
+                  }`}
+                />
+              )}
+
+              {/* Horizontal Snap Guidelines */}
+              {subDragInfo.isDragging && subDragInfo.snapZone === 'top' && (
+                <div className="absolute left-0 right-0 top-[12%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
+                  <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
+                    Atas (Top)
                   </span>
                 </div>
-              </div>
-            )}
+              )}
+              {subDragInfo.isDragging && subDragInfo.snapZone === 'middle' && (
+                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
+                  <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
+                    Tengah (Middle)
+                  </span>
+                </div>
+              )}
+              {subDragInfo.isDragging && subDragInfo.snapZone === 'bottom' && (
+                <div className="absolute left-0 right-0 bottom-[12%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
+                  <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
+                    Bawah (Bottom)
+                  </span>
+                </div>
+              )}
 
-            {/* Top Right Watermark (only if enabled) */}
-            {prefs?.watermark_enabled && (prefs?.watermark || '').trim() && (
-              <div className="absolute top-4 right-4 z-20 text-[10px] text-white/60 font-semibold tracking-wider bg-black/40 px-2 py-0.5 rounded-full">
-                {prefs.watermark}
-              </div>
-            )}
+              {/* Freeform Video Frame Guides & Corner Handles */}
+              {videoViewMode === 'freeform' && (
+                <>
+                  <div className="absolute inset-0 border border-neon/30 pointer-events-none rounded-[20px] z-10" />
+                  {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map((c) => (
+                    <div
+                      key={c}
+                      onPointerDown={startVideoCornerScale}
+                      className={`absolute z-30 w-3.5 h-3.5 bg-neon border border-black rounded-sm shadow hover:scale-125 transition-transform ${
+                        c === 'top-left'
+                          ? 'top-2 left-2 cursor-nwse-resize'
+                          : c === 'top-right'
+                          ? 'top-2 right-2 cursor-nesw-resize'
+                          : c === 'bottom-left'
+                          ? 'bottom-2 left-2 cursor-nesw-resize'
+                          : 'bottom-2 right-2 cursor-nwse-resize'
+                      }`}
+                      title="Tarik untuk zoom video"
+                    />
+                  ))}
+                </>
+              )}
 
-            {/* Video Player */}
-            {currentVideo?.url ? (
-              <video
-                ref={videoRef}
-                src={currentVideo.url}
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
-                className={`w-full h-full object-cover ${
-                  cropMode === 'blur' ? 'object-contain bg-black' : ''
-                }`}
-                playsInline
-                loop={!activeCandidate}
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-gray-500 space-y-2">
-                <FileVideo className="w-12 h-12 text-gray-600" />
-                <p className="text-xs">Project ini belum punya video source.</p>
-                <p className="text-[11px] text-gray-600">
-                  Buat project baru dari link YouTube atau upload MP4, lalu kembali ke sini.
-                </p>
-              </div>
-            )}
+              {/* Subtitle Drag & Transform Overlay */}
+              {currentVideo?.url && prefs?.subtitles_enabled !== false && (
+                <div
+                  className="absolute inset-0 z-20 flex justify-center pointer-events-none"
+                  style={{
+                    alignItems: subAlign,
+                    paddingTop: padTop,
+                    paddingBottom: padBottom,
+                  }}
+                >
+                  <div
+                    ref={subBoxRef}
+                    data-subtitle-interactive="true"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsSubSelected(true);
+                    }}
+                    onPointerDown={startSubtitleDrag}
+                    title="Tarik untuk atur posisi subtitle"
+                    className={`relative pointer-events-auto cursor-grab active:cursor-grabbing select-none max-w-[92%] transition-shadow ${
+                      isSubSelected ? 'ring-2 ring-neon/90 ring-dashed ring-offset-2 ring-offset-black/40 rounded-lg p-1' : ''
+                    }`}
+                    style={{
+                      fontFamily: st.font || 'Arial Black',
+                      fontSize: subPx(st.font_size || 96),
+                      fontWeight: st.bold ? 900 : 400,
+                      color: st.primary_color || '#FFFFFF',
+                      WebkitTextStroke: `${subPx(st.outline_width ?? 5)}px ${st.outline_color || '#000000'}`,
+                      paintOrder: 'stroke fill',
+                      textShadow: `0 ${subPx(st.shadow ?? 2)}px ${subPx((st.shadow ?? 2) * 2)}px ${st.outline_color || '#000000'}`,
+                      background: st.box ? (st.box_color || '#000000') : 'transparent',
+                      padding: st.box ? `${subPx(6)}px ${subPx(12)}px` : 0,
+                      borderRadius: st.box ? subPx(8) : 0,
+                      textTransform: st.uppercase ? 'uppercase' : 'none',
+                      lineHeight: 1.15,
+                      textAlign: 'center',
+                      transform: `translate3d(${subOffsetX}px, 0, 0) rotate(${st.angle || 0}deg)`,
+                      transformOrigin: 'center center',
+                    }}
+                  >
+                    {/* Subtitle Words */}
+                    {SUBTITLE_SAMPLE.map((w, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          color: i === 1 ? (st.highlight_color || '#FFE100') : (st.primary_color || '#FFFFFF'),
+                          marginRight: subPx(12),
+                        }}
+                      >
+                        {w}
+                      </span>
+                    ))}
 
-            {/* Minimal Floating Player Controls */}
-            <div className="absolute bottom-3 left-3 right-3 z-30 flex items-center justify-between bg-dark-surface/90 backdrop-blur px-3 py-2 rounded-2xl border border-dark-border">
+                    {/* Floating Active Badge (angle / size) */}
+                    {activeBadge && (
+                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-neon text-black font-mono font-black text-xs px-2.5 py-0.5 rounded-full shadow-lg pointer-events-none z-50 whitespace-nowrap animate-pulse">
+                        {activeBadge.text}
+                      </div>
+                    )}
+
+                    {/* Transform Controls when Selected */}
+                    {isSubSelected && (
+                      <>
+                        {/* Rotate Handle */}
+                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-40">
+                          <div
+                            onPointerDown={startSubtitleRotate}
+                            className="w-5 h-5 rounded-full bg-neon text-black flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform shadow-md"
+                            title="Putar subtitle (Drag to rotate)"
+                          >
+                            <RotateCw className="w-3 h-3 text-black" />
+                          </div>
+                          <div className="w-0.5 h-2 bg-neon" />
+                        </div>
+
+                        {/* Corner Resize Handles */}
+                        <div
+                          onPointerDown={startSubtitleScale}
+                          className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-neon rounded-sm cursor-nwse-resize hover:scale-125 transition-transform shadow z-40 pointer-events-auto"
+                          title="Tarik untuk ubah ukuran (Drag to resize)"
+                        />
+                        <div
+                          onPointerDown={startSubtitleScale}
+                          className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-neon rounded-sm cursor-nesw-resize hover:scale-125 transition-transform shadow z-40 pointer-events-auto"
+                          title="Tarik untuk ubah ukuran (Drag to resize)"
+                        />
+
+                        {/* Quick Action Buttons */}
+                        <div
+                          className={`absolute ${
+                            st.position === 'bottom' && (st.margin_v ?? 300) < 180
+                              ? '-top-14'
+                              : '-bottom-9'
+                          } left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2 py-0.5 rounded-full border border-dark-border shadow-2xl pointer-events-auto text-[10px] whitespace-nowrap z-40`}
+                        >
+                          <span className="text-neon font-mono font-bold">{st.font_size || 96}px</span>
+                          <span className="text-gray-500">•</span>
+                          <span className="text-neon font-mono font-bold">{st.angle || 0}°</span>
+                          {(st.angle || 0) !== 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                savePrefs({ ...(prefs || {}), subtitle_style: { ...(prefs?.subtitle_style || {}), angle: 0 } });
+                              }}
+                              className="ml-1 px-1.5 py-0.5 rounded bg-dark-bg hover:bg-neon hover:text-black text-gray-300 font-semibold border border-dark-border transition-colors"
+                              title="Reset rotasi ke 0°"
+                            >
+                              Reset 0°
+                            </button>
+                          )}
+                          {Number(st.font_size || 96) !== 96 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                savePrefs({ ...(prefs || {}), subtitle_style: { ...(prefs?.subtitle_style || {}), font_size: 96 } });
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-dark-bg hover:bg-neon hover:text-black text-gray-300 font-semibold border border-dark-border transition-colors"
+                              title="Reset ukuran font ke 96px"
+                            >
+                              Reset 96px
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Video Player */}
+              {currentVideo?.url ? (
+                <video
+                  ref={videoRef}
+                  src={currentVideo.url}
+                  onPointerDown={videoViewMode === 'freeform' ? startVideoDrag : undefined}
+                  onClick={videoViewMode !== 'freeform' ? togglePlay : undefined}
+                  onWheel={videoViewMode === 'freeform' ? handleVideoWheel : undefined}
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+                  className={`w-full h-full select-none ${
+                    videoViewMode === 'fit'
+                      ? 'object-contain bg-black cursor-pointer'
+                      : videoViewMode === 'cover'
+                      ? 'object-cover cursor-pointer'
+                      : 'object-contain cursor-grab active:cursor-grabbing'
+                  }`}
+                  style={
+                    videoViewMode === 'freeform'
+                      ? {
+                          transform: `translate(${videoPos.x}px, ${videoPos.y}px) scale(${videoScale})`,
+                          transformOrigin: 'center center',
+                        }
+                      : undefined
+                  }
+                  playsInline
+                  loop={!activeCandidate}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-gray-500 space-y-2">
+                  <FileVideo className="w-12 h-12 text-gray-600" />
+                  <p className="text-xs">Project ini belum punya video source.</p>
+                  <p className="text-[11px] text-gray-600">
+                    Buat project baru dari link YouTube atau upload MP4, lalu kembali ke sini.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Freeform Mini-Dock Toolbar */}
+          {videoViewMode === 'freeform' && (
+            <div className="flex items-center gap-2 bg-dark-card/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-dark-border shadow-xl shrink-0 text-xs">
+              <div className="flex items-center gap-1 text-gray-400">
+                <Move className="w-3.5 h-3.5 text-neon" />
+                <span className="text-[11px] font-bold text-gray-300">Bebas Transform:</span>
+              </div>
+
+              {/* Zoom Out Button */}
               <button
-                onClick={togglePlay}
-                className="p-1.5 rounded-full bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold hover:opacity-90 transition-all"
+                type="button"
+                onClick={() => setVideoScale((s) => Math.max(0.3, Math.round((s - 0.1) * 100) / 100))}
+                className="p-1 rounded-md bg-dark-bg hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                title="Zoom Out (-10%)"
               >
-                {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                <ZoomOut className="w-3.5 h-3.5" />
               </button>
 
-              <span className="text-[11px] font-mono text-gray-300">
-                {currentTime.toFixed(1)}s /{' '}
-                {activeCandidate ? activeCandidate.duration.toFixed(1) + 's' : duration.toFixed(1) + 's'}
+              {/* Zoom Slider */}
+              <input
+                type="range"
+                min="0.3"
+                max="3.0"
+                step="0.05"
+                value={videoScale}
+                onChange={(e) => setVideoScale(Number(e.target.value))}
+                className="w-20 accent-neon cursor-pointer h-1.5 bg-dark-bg rounded-lg appearance-none"
+                title="Atur Zoom"
+              />
+
+              {/* Zoom In Button */}
+              <button
+                type="button"
+                onClick={() => setVideoScale((s) => Math.min(3.0, Math.round((s + 0.1) * 100) / 100))}
+                className="p-1 rounded-md bg-dark-bg hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                title="Zoom In (+10%)"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Scale Badge */}
+              <span className="text-neon font-mono font-bold text-[11px] w-10 text-right">
+                {Math.round(videoScale * 100)}%
               </span>
 
+              <div className="w-px h-3 bg-dark-border" />
+
+              {/* Pan Offset Info */}
+              <span className="text-[10px] font-mono text-gray-400">
+                X:{videoPos.x} Y:{videoPos.y}
+              </span>
+
+              {/* Reset Transform Button */}
               <button
+                type="button"
                 onClick={() => {
-                  if (videoRef.current) {
-                    videoRef.current.muted = !isMuted;
-                    setIsMuted(!isMuted);
-                  }
+                  setVideoPos({ x: 0, y: 0 });
+                  setVideoScale(1);
                 }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-neon/15 hover:bg-neon text-neon hover:text-black text-[11px] font-bold transition-all ml-1"
+                title="Reset posisi & zoom video ke tengah"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset (1x)</span>
+              </button>
+            </div>
+          )}
+
+          {/* Full Video Timeline Scrubber */}
+          {currentVideo?.url && frameSize.w > 0 && (
+            <div style={{ width: frameSize.w }} className="flex items-center gap-2 shrink-0 px-1">
+              <span className="text-[11px] font-mono text-gray-300 tabular-nums">{mmss(currentTime)}</span>
+              <div
+                ref={trackRef}
+                onPointerDown={startSeek}
+                className="relative flex-1 h-4 flex items-center cursor-pointer group/track"
+                title="Klik atau tarik untuk pindah posisi video"
+              >
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-dark-border overflow-hidden">
+                  {activeCandidate && duration > 0 && (
+                    <div
+                      className="absolute inset-y-0 bg-neon/40"
+                      style={{
+                        left: `${(activeCandidate.start / duration) * 100}%`,
+                        width: `${((activeCandidate.end - activeCandidate.start) / duration) * 100}%`,
+                      }}
+                    />
+                  )}
+                  <div className="absolute inset-y-0 left-0 bg-neon" style={{ width: `${pct}%` }} />
+                </div>
+                <div
+                  className="absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-white border border-neon group-hover/track:scale-125 transition-transform"
+                  style={{ left: `${pct}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-mono text-gray-400 tabular-nums">{mmss(duration)}</span>
+              <button
+                type="button"
+                onClick={toggleMute}
                 className="p-1 text-gray-400 hover:text-white"
+                title={isMuted ? 'Nyalakan suara' : 'Bisukan'}
               >
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
             </div>
-          </div>
+          )}
 
           {/* Active Candidate Action Toolbar (Crop, Potong, Subtitle, Unduh) */}
           {activeCandidate && (() => {

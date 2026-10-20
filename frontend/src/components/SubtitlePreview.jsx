@@ -13,8 +13,8 @@ export default function SubtitlePreview({ style, height = 260, words }) {
         height,
         width,
         alignItems: align,
-        paddingBottom: px(style.margin_v ?? 300),
-        paddingTop: px(style.margin_v ?? 300),
+        paddingTop: style.position === 'top' ? px(style.margin_v ?? 300) : 0,
+        paddingBottom: style.position === 'bottom' ? px(style.margin_v ?? 300) : 0,
       }}
       className="bg-black rounded-xl border border-dark-border flex justify-center overflow-hidden shrink-0 mx-auto select-none"
     >
@@ -33,6 +33,8 @@ export default function SubtitlePreview({ style, height = 260, words }) {
           textTransform: style.uppercase ? 'uppercase' : 'none',
           lineHeight: 1.15,
           textAlign: 'center',
+          transform: style.angle ? `rotate(${style.angle}deg)` : undefined,
+          transformOrigin: 'center center',
         }}
         className="max-w-[92%]"
       >

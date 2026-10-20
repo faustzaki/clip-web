@@ -1,34 +1,21 @@
 import React from 'react';
-import { Scissors, Film, RefreshCw, Cpu, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { Scissors, Film, RefreshCw, Settings } from 'lucide-react';
+import GlitchHorseIcon from './GlitchHorseIcon';
 
-export default function Navbar({ projectId, projectTitle, activeTab, setActiveTab, health, onBackToProjects, onReset, isResetting }) {
-  const ninerouterOk = health?.ninerouter;
-  const ffmpegOk = health?.ffmpeg;
-  const yunetOk = health?.yunet;
-
+export default function Navbar({ projectId, projectTitle, activeTab, setActiveTab, onBackToProjects, onReset, isResetting, onOpenSettings }) {
   return (
     <header className="h-16 border-b border-dark-border bg-dark-surface/90 backdrop-blur sticky top-0 z-40 px-4 md:px-6 flex items-center justify-between">
       {/* Brand Logo & Name — clickable back to Projects */}
       <button type="button" onClick={onBackToProjects} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <div className="w-9 h-9 rounded-xl bg-neon text-dark-bg font-extrabold flex items-center justify-center text-xl shadow-[0_0_15px_rgba(187,244,81,0.35)]">
-          ツ
+        <GlitchHorseIcon className="w-9 h-9 rounded-xl shadow-[0_0_15px_rgba(193,30,56,0.35)] shrink-0" />
+        <div className="flex items-center gap-2">
+          <span className="font-extrabold tracking-tight text-white text-base md:text-lg">
+            clip<span className="text-neon">-web</span>
+          </span>
+          {projectTitle && (
+            <span className="hidden md:block text-xs text-gray-400 max-w-[220px] truncate">▸ {projectTitle}</span>
+          )}
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold tracking-tight text-white text-base md:text-lg">
-              AUTOCLIP <span className="text-neon">STUDIO</span>
-            </span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-dark-card border border-dark-border text-neon">
-              SCL-VSL CORE
-            </span>
-          </div>
-          <p className="text-[11px] text-gray-400 hidden sm:block text-left">
-            AI Vertical Video Clipper • Local 9Router Engine
-          </p>
-        </div>
-        {projectTitle && (
-          <span className="hidden md:block text-xs text-gray-400 max-w-[220px] truncate">▸ {projectTitle}</span>
-        )}
       </button>
 
       {/* Center Navigation Tabs — only when inside a project */}
@@ -38,7 +25,7 @@ export default function Navbar({ projectId, projectTitle, activeTab, setActiveTa
             onClick={() => setActiveTab('studio')}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'studio'
-                ? 'bg-neon text-dark-bg shadow-sm font-bold'
+                ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm font-bold'
                 : 'text-gray-300 hover:text-white hover:bg-dark-surface'
             }`}
           >
@@ -50,7 +37,7 @@ export default function Navbar({ projectId, projectTitle, activeTab, setActiveTa
             onClick={() => setActiveTab('library')}
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               activeTab === 'library'
-                ? 'bg-neon text-dark-bg shadow-sm font-bold'
+                ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm font-bold'
                 : 'text-gray-300 hover:text-white hover:bg-dark-surface'
             }`}
           >
@@ -61,33 +48,17 @@ export default function Navbar({ projectId, projectTitle, activeTab, setActiveTa
       )}
 
       {/* Right System Diagnostics & Actions */}
-      <div className="flex items-center gap-2 md:gap-3">
-        {/* 9Router Status */}
-        <div
-          title={ninerouterOk ? "9Router Terhubung (127.0.0.1:20128)" : "9Router Tidak Terdeteksi"}
-          className={`hidden md:flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border ${
-            ninerouterOk
-              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-400'
-              : 'bg-amber-950/40 border-amber-500/40 text-amber-400'
-          }`}
+      {/* Right Actions & Global Settings */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title="Pengaturan Global"
+          className="p-2 text-gray-300 hover:text-white hover:bg-dark-card rounded-xl border border-transparent hover:border-dark-border transition-all flex items-center gap-1.5 text-xs font-semibold"
         >
-          <Cpu className="w-3 h-3" />
-          <span className="font-medium">9Router</span>
-          <span className={`w-1.5 h-1.5 rounded-full ${ninerouterOk ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-        </div>
-
-        {/* FFmpeg & YuNet Indicators */}
-        <div className="hidden lg:flex items-center gap-2 text-[11px] text-gray-400">
-          <span className="flex items-center gap-1">
-            {ffmpegOk ? <CheckCircle2 className="w-3 h-3 text-neon" /> : <AlertCircle className="w-3 h-3 text-red-400" />}
-            FFmpeg
-          </span>
-          <span>•</span>
-          <span className="flex items-center gap-1">
-            {yunetOk ? <CheckCircle2 className="w-3 h-3 text-neon" /> : <AlertCircle className="w-3 h-3 text-red-400" />}
-            YuNet ONNX
-          </span>
-        </div>
+          <Settings className="w-4 h-4 text-neon" />
+          <span className="hidden sm:inline">Pengaturan</span>
+        </button>
 
         {/* Reset Workspace Button — only when inside a project */}
         {projectId && (

@@ -65,7 +65,7 @@ export default function SubtitleStyleEditor({ value, onChange, fonts, positions 
                 onClick={() => update({ position: p.id })}
                 className={`py-1 rounded-md text-xs font-semibold transition-all ${
                   active
-                    ? 'bg-neon text-dark-bg shadow-sm'
+                    ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
                     : 'bg-dark-bg border border-dark-border text-gray-400 hover:text-white'
                 }`}
               >

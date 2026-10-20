@@ -158,3 +158,69 @@ export async function publishClip(projectId, slug) {
   }
   return res.json();
 }
+
+export async function fetchSettings() {
+  const res = await fetch(`${BASE_URL}/api/settings`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to fetch settings');
+  }
+  return res.json();
+}
+
+export async function updateSettings(data) {
+  const res = await fetch(`${BASE_URL}/api/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update settings');
+  }
+  return res.json();
+}
+
+export async function testConnection(data) {
+  const res = await fetch(`${BASE_URL}/api/settings/test-connection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function fetchEndpointModels(data) {
+  const res = await fetch(`${BASE_URL}/api/settings/fetch-models`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to fetch models');
+  }
+  return res.json();
+}
+
+export async function clearCache() {
+  const res = await fetch(`${BASE_URL}/api/settings/clear-cache`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to clear cache');
+  }
+  return res.json();
+}
+
+export async function openRenderDir() {
+  const res = await fetch(`${BASE_URL}/api/settings/open-render-dir`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to open folder');
+  }
+  return res.json();
+}

@@ -139,16 +139,16 @@ export default function NewProjectView({ options, onCreated, onCancel }) {
       <button
         onClick={handleSubmit}
         disabled={isWorking}
-        className="w-full py-3.5 px-4 rounded-xl bg-neon hover:bg-neon-400 text-dark-bg font-extrabold text-sm tracking-wide shadow-[0_0_20px_rgba(187,244,81,0.25)] flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white font-extrabold text-sm tracking-wide shadow-[0_0_20px_rgba(193,30,56,0.3)] flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isWorking ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin text-dark-bg" />
+            <Loader2 className="w-4 h-4 animate-spin text-white" />
             <span>{statusMessage || 'Memproses...'}</span>
           </>
         ) : (
           <>
-            <Sparkles className="w-4 h-4 text-dark-bg" />
+            <Sparkles className="w-4 h-4 text-white" />
             <span>BUAT PROJECT</span>
           </>
         )}

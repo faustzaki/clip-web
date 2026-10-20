@@ -51,6 +51,101 @@ CLIPS_DIR = ROOT_DIR / "clips"
 WORKDIR.mkdir(parents=True, exist_ok=True)
 CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
+CONFIG_FILE = ROOT_DIR / "config.json"
+
+def default_render_dir() -> str:
+    return str(Path.home() / "Videos" / "Clips")
+
+DEFAULT_CONFIG = {
+    "llm_endpoint": "http://127.0.0.1:20128/v1",
+    "llm_api_key": "",
+    "llm_model": "ag/gemini-3.8-flash-high",
+    "available_models": [
+        "ag/gemini-3.8-flash-high",
+        "ag/gemini-3.8-flash-low",
+        "ag/claude-sonnet-4-6",
+        "ag/claude-opus-4-6-thinking",
+        "river/deepseek-ai/DeepSeek-V4.1-Flash"
+    ],
+    "render_dir": default_render_dir()
+}
+
+def load_global_config() -> dict:
+    cfg = dict(DEFAULT_CONFIG)
+    if CONFIG_FILE.exists():
+        try:
+            stored = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(stored, dict):
+                cfg.update(stored)
+        except Exception:
+            pass
+    try:
+        Path(cfg["render_dir"]).mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    return cfg
+
+def save_global_config(new_cfg: dict) -> dict:
+    cfg = load_global_config()
+    cfg.update(new_cfg)
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    return cfg
+
+def get_dir_disk_usage(p: Path) -> dict:
+    if not p.exists():
+        return {"size_bytes": 0, "size_mb": 0.0, "file_count": 0, "path": str(p)}
+    total_bytes = 0
+    file_count = 0
+    for root, dirs, files in os.walk(p):
+        for f in files:
+            fp = Path(root) / f
+            try:
+                total_bytes += fp.stat().st_size
+                file_count += 1
+            except Exception:
+                pass
+    return {
+        "size_bytes": total_bytes,
+        "size_mb": round(total_bytes / (1024 * 1024), 2),
+        "file_count": file_count,
+        "path": str(p.resolve())
+    }
+
+def clear_temp_cache() -> dict:
+    freed_bytes = 0
+    cleaned_files = 0
+    for root, dirs, files in os.walk(WORKDIR):
+        rpath = Path(root)
+        is_hq = "hq" in rpath.parts
+        for f in files:
+            fp = rpath / f
+            should_delete = False
+            if is_hq or fp.suffix.lower() in ('.tmp', '.part', '.ytdl') or f.startswith("temp_") or fp.suffix.lower() == '.wav':
+                should_delete = True
+            if should_delete:
+                try:
+                    sz = fp.stat().st_size
+                    fp.unlink()
+                    freed_bytes += sz
+                    cleaned_files += 1
+                except Exception:
+                    pass
+    for root, dirs, files in os.walk(CLIPS_DIR):
+        rpath = Path(root)
+        for f in files:
+            fp = rpath / f
+            if fp.suffix.lower() in ('.tmp', '.part', '.wav') or f.startswith("temp_"):
+                try:
+                    sz = fp.stat().st_size
+                    fp.unlink()
+                    freed_bytes += sz
+                    cleaned_files += 1
+                except Exception:
+                    pass
+    return {
+        "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+        "cleaned_files": cleaned_files
+    }
 # Copy yunet.onnx into work/ so render_clips._make_detector finds it
 if not (WORKDIR / 'yunet.onnx').exists() and (ROOT_DIR / 'yunet.onnx').exists():
     shutil.copy2(ROOT_DIR / 'yunet.onnx', WORKDIR / 'yunet.onnx')
@@ -234,6 +329,18 @@ class CreateProjectRequest(BaseModel):
 class RenameProjectRequest(BaseModel):
     title: str
 
+class UpdateSettingsRequest(BaseModel):
+    llm_endpoint: Optional[str] = None
+    llm_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
+    available_models: Optional[List[str]] = None
+    render_dir: Optional[str] = None
+
+class TestConnectionRequest(BaseModel):
+    endpoint: str
+    api_key: Optional[str] = ""
+    model: Optional[str] = "ag/gemini-3.8-flash"
+
 # --------------------------------------------------------------------------
 # Endpoints
 # --------------------------------------------------------------------------
@@ -254,6 +361,10 @@ def health_check():
 
 @app.get("/api/options")
 def get_options():
+    cfg = load_global_config()
+    models = [{"id": m, "label": m} for m in cfg.get("available_models", [])]
+    if not any(m["id"] == "heuristic" for m in models):
+        models.append({"id": "heuristic", "label": "Offline Heuristic (Tanpa LLM, Rp0)"})
     return {
         "aspect_ratios": ["9:16", "1:1", "16:9"],
         "subtitle_fonts": [
@@ -282,13 +393,151 @@ def get_options():
             {"code": "ar", "label": "Arabic / العربية"},
             {"code": "es", "label": "Spanish / Español"}
         ],
-        "ai_models": [
-            {"id": "ag/gemini-3.8-flash", "label": "Gemini 3.8 Flash (9Router) - Rekomendasi"},
-            {"id": "clean/gemini-3.7-flash", "label": "Gemini 3.7 Flash (9Router)"},
-            {"id": "clean/claude-sonnet-5", "label": "Claude Sonnet 5 (9Router)"},
-            {"id": "heuristic", "label": "Offline Heuristic (Tanpa LLM, Rp0)"}
-        ]
+        "ai_models": models,
+        "default_model": cfg.get("llm_model") or "ag/gemini-3.8-flash"
     }
+
+
+@app.get("/api/settings")
+def get_settings():
+    cfg = load_global_config()
+    render_p = Path(cfg.get("render_dir", default_render_dir()))
+    return {
+        **cfg,
+        "storage": {
+            "work": get_dir_disk_usage(WORKDIR),
+            "clips": get_dir_disk_usage(CLIPS_DIR),
+            "render_dir": get_dir_disk_usage(render_p),
+        }
+    }
+
+
+@app.put("/api/settings")
+def update_settings(payload: UpdateSettingsRequest):
+    updates = {}
+    if payload.llm_endpoint is not None:
+        updates["llm_endpoint"] = payload.llm_endpoint.strip()
+    if payload.llm_api_key is not None:
+        updates["llm_api_key"] = payload.llm_api_key.strip()
+    if payload.llm_model is not None:
+        updates["llm_model"] = payload.llm_model.strip()
+    if payload.available_models is not None:
+        updates["available_models"] = [m.strip() for m in payload.available_models if m.strip()]
+    if payload.render_dir is not None:
+        p_str = payload.render_dir.strip()
+        try:
+            Path(p_str).mkdir(parents=True, exist_ok=True)
+            updates["render_dir"] = p_str
+        except Exception as e:
+            raise HTTPException(400, f"Folder render tidak valid: {e}")
+    save_global_config(updates)
+    return get_settings()
+
+
+@app.post("/api/settings/test-connection")
+def test_connection_endpoint(payload: TestConnectionRequest):
+    endpoint = payload.endpoint.strip().rstrip("/")
+    if not endpoint:
+        raise HTTPException(400, "Endpoint URL cannot be empty")
+
+    headers = {"Content-Type": "application/json"}
+    token = (payload.api_key or "").strip()
+    if not token and "127.0.0.1:20128" in endpoint:
+        token = core_engine.get_9router_key()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    if endpoint.endswith("/chat/completions"):
+        chat_url = endpoint
+    else:
+        chat_url = f"{endpoint}/chat/completions"
+
+    t0 = time.time()
+    try:
+        body = {
+            "model": payload.model or "ag/gemini-3.8-flash",
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 5,
+            "stream": False
+        }
+        req = urllib.request.Request(chat_url, data=json.dumps(body).encode("utf-8"), headers=headers)
+        with urllib.request.urlopen(req, timeout=12) as res:
+            json.loads(res.read().decode("utf-8"))
+            latency_ms = round((time.time() - t0) * 1000)
+            return {
+                "ok": True,
+                "latency_ms": latency_ms,
+                "message": f"Terhubung ({latency_ms}ms)",
+                "model": payload.model
+            }
+    except urllib.error.HTTPError as he:
+        latency_ms = round((time.time() - t0) * 1000)
+        err_msg = f"HTTP {he.code}: {he.reason}"
+        try:
+            err_body = he.read().decode("utf-8")
+            err_json = json.loads(err_body)
+            if "error" in err_json:
+                err_msg = f"HTTP {he.code}: {err_json['error'].get('message', str(err_json['error']))}"
+        except Exception:
+            pass
+        return {"ok": False, "latency_ms": latency_ms, "error": err_msg}
+    except Exception as e:
+        latency_ms = round((time.time() - t0) * 1000)
+        return {"ok": False, "latency_ms": latency_ms, "error": str(e)}
+
+
+@app.post("/api/settings/fetch-models")
+def fetch_models_endpoint(payload: TestConnectionRequest):
+    endpoint = payload.endpoint.strip().rstrip("/")
+    if endpoint.endswith("/chat/completions"):
+        endpoint = endpoint[:-len("/chat/completions")].rstrip("/")
+    models_url = f"{endpoint}/models"
+    headers = {"Content-Type": "application/json"}
+    token = (payload.api_key or "").strip()
+    if not token and "127.0.0.1:20128" in endpoint:
+        token = core_engine.get_9router_key()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        req = urllib.request.Request(models_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=6) as res:
+            data = json.loads(res.read().decode("utf-8"))
+            models = [m.get("id") for m in data.get("data", []) if m.get("id")]
+            return {"status": "ok", "models": models}
+    except Exception as e:
+        raise HTTPException(400, f"Gagal mengambil daftar model: {e}")
+
+
+@app.post("/api/settings/clear-cache")
+def clear_cache_endpoint():
+    res = clear_temp_cache()
+    cfg = load_global_config()
+    render_p = Path(cfg.get("render_dir", default_render_dir()))
+    return {
+        **res,
+        "storage": {
+            "work": get_dir_disk_usage(WORKDIR),
+            "clips": get_dir_disk_usage(CLIPS_DIR),
+            "render_dir": get_dir_disk_usage(render_p),
+        }
+    }
+
+
+@app.post("/api/settings/open-render-dir")
+def open_render_dir_endpoint():
+    cfg = load_global_config()
+    p = Path(cfg.get("render_dir", default_render_dir()))
+    p.mkdir(parents=True, exist_ok=True)
+    try:
+        if sys.platform == "win32":
+            os.startfile(str(p))
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(p)])
+        else:
+            subprocess.Popen(["xdg-open", str(p)])
+        return {"status": "ok", "path": str(p)}
+    except Exception as e:
+        raise HTTPException(500, f"Cannot open folder: {e}")
 
 
 def _validate_pid(project_id: str):
@@ -704,16 +953,19 @@ def score_moments(project_id: str, payload: ScoreRequest):
     if not transcript or not transcript.get("words"):
         raise HTTPException(status_code=400, detail="No transcript found. Ingest video first.")
 
+    cfg = load_global_config()
     try:
         if payload.use_llm:
             cands = core_engine.ninerouter_score(
                 data=transcript,
-                model_name=payload.model_name or "ag/gemini-3.8-flash",
+                model_name=payload.model_name or cfg.get("llm_model") or "ag/gemini-3.8-flash",
                 min_score=payload.min_score or 6.0,
                 max_clips=payload.max_clips or 8,
                 min_len=payload.min_len or 15,
-                max_len=payload.max_len or 60)
-        else:
+                max_len=payload.max_len or 60,
+                api_endpoint=cfg.get("llm_endpoint"),
+                api_key=cfg.get("llm_api_key")
+            )
             cands = core_engine.heuristic_score(
                 data=transcript,
                 min_score=payload.min_score or 6.0,
@@ -808,6 +1060,16 @@ def render_clip(project_id: str, payload: RenderRequest):
         if meta_p.exists():
             try: meta_data = json.loads(meta_p.read_text(encoding="utf-8"))
             except Exception: pass
+        # Auto-copy to global render_dir
+        cfg = load_global_config()
+        rdir_str = cfg.get("render_dir")
+        if rdir_str:
+            try:
+                rdir = Path(rdir_str)
+                rdir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(res_path, rdir / res_path.name)
+            except Exception as e:
+                print(f"Warning: Failed to copy clip to render_dir: {e}", flush=True)
 
         return {
             "status": "ok",
@@ -1057,6 +1319,16 @@ def apply_subtitles(project_id: str, slug: str, payload: SubtitlesRequest):
         ], check=True, capture_output=True)
     except Exception:
         pass
+    # Auto-copy final subtitled clip to global render_dir
+    cfg = load_global_config()
+    rdir_str = cfg.get("render_dir")
+    if rdir_str:
+        try:
+            rdir = Path(rdir_str)
+            rdir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(final, rdir / final.name)
+        except Exception as e:
+            print(f"Warning: Failed to copy subtitled clip to render_dir: {e}", flush=True)
 
     for item in _list_project_clips(project_id):
         if item.get("slug") == slug and item.get("subtitled") and not item["url"].startswith(f"/clips/{project_id}/raw/"):
@@ -1102,6 +1374,16 @@ def publish_clip(project_id: str, slug: str):
     final.with_suffix(".meta.json").write_text(
         json.dumps(final_meta, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    # Auto-copy published clip to global render_dir
+    cfg = load_global_config()
+    rdir_str = cfg.get("render_dir")
+    if rdir_str:
+        try:
+            rdir = Path(rdir_str)
+            rdir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(final, rdir / final.name)
+        except Exception as e:
+            print(f"Warning: Failed to copy published clip to render_dir: {e}", flush=True)
 
     for item in _list_project_clips(project_id):
         if item.get("slug") == slug and not item["url"].startswith(f"/clips/{project_id}/raw/"):

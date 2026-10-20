@@ -193,7 +193,13 @@ export default function StudioView({
   };
 
   // Clipper settings state
-  const [selectedModel, setSelectedModel] = useState('ag/gemini-3.8-flash');
+  const [selectedModel, setSelectedModel] = useState(options?.default_model || 'ag/gemini-3.8-flash-high');
+
+  useEffect(() => {
+    if (options?.default_model) {
+      setSelectedModel(options.default_model);
+    }
+  }, [options?.default_model]);
   const [minDur, setMinDur] = useState(15);
   const [maxDur, setMaxDur] = useState(60);
   const [cropMode, setCropMode] = useState('speaker-tracked');
@@ -362,7 +368,7 @@ export default function StudioView({
           onClick={() => jumpToCandidate(i)}
           className={`p-2 rounded-xl border cursor-pointer relative flex flex-row items-center gap-2.5 shrink-0 w-[240px] h-full transition-colors ${
             isActive
-              ? 'bg-dark-surface border-neon shadow-[0_0_12px_rgba(187,244,81,0.2)] ring-1 ring-neon/40'
+              ? 'bg-dark-surface border-neon shadow-[0_0_12px_rgba(193,30,56,0.25)] ring-1 ring-neon/40'
               : 'bg-dark-bg/85 border-dark-border hover:border-gray-500'
           }`}
         >
@@ -399,7 +405,7 @@ export default function StudioView({
         onClick={() => jumpToCandidate(i)}
         className={`p-2.5 rounded-xl border cursor-pointer relative flex flex-col gap-2 shrink-0 transition-colors ${
           isActive
-            ? 'bg-dark-surface border-neon shadow-[0_0_12px_rgba(187,244,81,0.2)] ring-1 ring-neon/40'
+            ? 'bg-dark-surface border-neon shadow-[0_0_12px_rgba(193,30,56,0.25)] ring-1 ring-neon/40'
             : 'bg-dark-bg/85 border-dark-border hover:border-gray-500'
         }`}
       >
@@ -501,7 +507,7 @@ export default function StudioView({
                       </div>
                       <div className="w-full bg-dark-card rounded-full h-1.5 overflow-hidden">
                         <div
-                          className="bg-neon h-full transition-all duration-300"
+                          className="bg-gradient-to-r from-[#c11e38] to-[#220b34] h-full transition-all duration-300"
                           style={{ width: `${state.ingest.percent || 0}%` }}
                         />
                       </div>
@@ -702,7 +708,7 @@ export default function StudioView({
                               onClick={() => setRenderQuality(q.id)}
                               className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition-all text-center ${
                                 renderQuality === q.id
-                                  ? 'bg-neon text-dark-bg shadow-sm'
+                                  ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
                                   : 'text-gray-400 hover:text-white'
                               }`}
                             >
@@ -717,16 +723,16 @@ export default function StudioView({
                     <button
                       onClick={handleFindMoments}
                       disabled={isScoring || !state?.video}
-                      className="w-full py-3.5 px-4 rounded-xl bg-neon hover:bg-neon-400 text-dark-bg font-extrabold text-sm tracking-wide shadow-[0_0_20px_rgba(187,244,81,0.25)] flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white font-extrabold text-sm tracking-wide shadow-[0_0_20px_rgba(193,30,56,0.3)] flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                     >
                       {isScoring ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin text-dark-bg" />
+                          <Loader2 className="w-4 h-4 animate-spin text-white" />
                           <span>{statusMessage || 'Mencari momen viral...'}</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4 text-dark-bg" />
+                          <Sparkles className="w-4 h-4 text-white" />
                           <span>TEMUKAN MOMEN VIRAL</span>
                         </>
                       )}
@@ -755,7 +761,7 @@ export default function StudioView({
                 onClick={() => setAspect(r)}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                   aspect === r
-                    ? 'bg-neon text-dark-bg shadow-sm'
+                    ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -815,7 +821,7 @@ export default function StudioView({
             <div className="absolute bottom-3 left-3 right-3 z-30 flex items-center justify-between bg-dark-surface/90 backdrop-blur px-3 py-2 rounded-2xl border border-dark-border">
               <button
                 onClick={togglePlay}
-                className="p-1.5 rounded-full bg-neon text-dark-bg font-bold hover:bg-neon-400 transition-all"
+                className="p-1.5 rounded-full bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold hover:opacity-90 transition-all"
               >
                 {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
               </button>
@@ -864,7 +870,7 @@ export default function StudioView({
                   className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50 ${
                     activeExistingClip
                       ? 'bg-dark-card border border-dark-border text-gray-300 hover:text-white hover:border-gray-400'
-                      : 'bg-neon text-dark-bg hover:bg-neon-400'
+                      : 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white hover:opacity-90'
                   }`}
                 >
                   {isRendering ? (
@@ -882,7 +888,7 @@ export default function StudioView({
                       <button
                         type="button"
                         onClick={() => onOpenSubtitleApply?.({ clip: activeExistingClip, candidate: activeCandidate })}
-                        className="px-3 py-1.5 rounded-xl bg-cyber text-dark-bg font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
+                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>Terapkan Subtitle</span>
@@ -962,7 +968,7 @@ export default function StudioView({
                           type="button"
                           onClick={() => setPipelinePos('bottom')}
                           className={`p-1 rounded text-xs transition-colors ${
-                            pipelinePos === 'bottom' ? 'bg-neon text-dark-bg font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                            pipelinePos === 'bottom' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
                           }`}
                           title="Pindah ke Panel Bawah (Filmstrip)"
                         >
@@ -972,7 +978,7 @@ export default function StudioView({
                           type="button"
                           onClick={() => setPipelinePos('right')}
                           className={`p-1 rounded text-xs transition-colors ${
-                            pipelinePos === 'right' ? 'bg-neon text-dark-bg font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                            pipelinePos === 'right' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
                           }`}
                           title="Mode Kolom Kanan"
                         >
@@ -1039,7 +1045,7 @@ export default function StudioView({
                     type="button"
                     onClick={() => setPipelinePos('bottom')}
                     className={`p-1 rounded text-xs transition-colors ${
-                      pipelinePos === 'bottom' ? 'bg-neon text-dark-bg font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                      pipelinePos === 'bottom' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
                     }`}
                     title="Mode Panel Bawah (Filmstrip)"
                   >
@@ -1049,7 +1055,7 @@ export default function StudioView({
                     type="button"
                     onClick={() => setPipelinePos('right')}
                     className={`p-1 rounded text-xs transition-colors ${
-                      pipelinePos === 'right' ? 'bg-neon text-dark-bg font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                      pipelinePos === 'right' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
                     }`}
                     title="Pindah ke Kolom Kanan (Video Full Height)"
                   >

@@ -159,9 +159,9 @@ export default function GalleryView({ projectId }) {
                     <a
                       href={c.url}
                       download={c.name}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-neon text-dark-bg text-xs font-extrabold hover:bg-neon-400 transition-all shadow-sm"
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white text-xs font-extrabold hover:opacity-90 transition-all shadow-sm"
                     >
-                      <Download className="w-3.5 h-3.5 text-dark-bg" />
+                      <Download className="w-3.5 h-3.5 text-white" />
                       <span className="text-[11px]">Download</span>
                     </a>
                   </div>

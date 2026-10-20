@@ -27,6 +27,13 @@ clips/*
 *.log
 
 # OS & IDE
+# Secrets & Local Configuration
+config.json
+.env
+.env.*
+*.local
+
+# OS & IDE
 .DS_Store
 Thumbs.db
 .vscode/

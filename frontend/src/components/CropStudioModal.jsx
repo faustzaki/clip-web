@@ -319,7 +319,7 @@ export default function CropStudioModal({
                     onClick={() => handleRatioChange(r)}
                     className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                       active
-                        ? 'bg-neon text-dark-bg shadow-sm'
+                        ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
                         : 'bg-dark-bg border border-dark-border text-gray-400 hover:text-white'
                     }`}
                   >
@@ -374,7 +374,7 @@ export default function CropStudioModal({
                   </div>
 
                   {/* Ratio Badge */}
-                  <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-neon/90 text-dark-bg text-[10px] font-bold pointer-events-none uppercase">
+                  <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-[#c11e38]/90 text-white text-[10px] font-bold pointer-events-none uppercase">
                     {ratio}
                   </div>
 
@@ -423,7 +423,7 @@ export default function CropStudioModal({
               <button
                 type="button"
                 onClick={togglePlay}
-                className="w-9 h-9 rounded-full bg-neon text-dark-bg flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
+                className="w-9 h-9 rounded-full bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white flex items-center justify-center hover:opacity-90 transition-opacity shadow-md"
               >
                 {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
               </button>
@@ -538,7 +538,7 @@ export default function CropStudioModal({
             <button
               type="button"
               onClick={handleApply}
-              className="px-5 py-2 rounded-lg bg-neon text-dark-bg font-bold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-md transition-all"
+              className="px-5 py-2 rounded-lg bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-md transition-all"
             >
               <Check className="w-4 h-4" />
               Terapkan Crop

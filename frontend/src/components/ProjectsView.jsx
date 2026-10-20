@@ -61,7 +61,7 @@ export default function ProjectsView({ projects, isLoading, onOpen, onNew, onRef
         </div>
         <button
           onClick={onNew}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neon hover:bg-neon-400 text-dark-bg text-xs font-extrabold shadow-[0_0_15px_rgba(187,244,81,0.25)] transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white text-xs font-extrabold shadow-[0_0_15px_rgba(193,30,56,0.3)] transition-all"
         >
           <Plus className="w-4 h-4" />
           <span>Project Baru</span>
@@ -79,7 +79,7 @@ export default function ProjectsView({ projects, isLoading, onOpen, onNew, onRef
           <p className="text-xs text-gray-600">Buat project dari link YouTube atau upload video untuk mulai clipping.</p>
           <button
             onClick={onNew}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neon hover:bg-neon-400 text-dark-bg text-xs font-extrabold shadow-sm transition-all mt-2"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white text-xs font-extrabold shadow-sm transition-all mt-2"
           >
             <Plus className="w-4 h-4" />
             <span>Project Baru</span>

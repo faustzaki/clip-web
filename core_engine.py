@@ -292,8 +292,9 @@ def get_transcript(video_path: Path, workdir: Path, yt_url: str = None,
 
 def ninerouter_score(data: dict, model_name: str = "ag/gemini-3.8-flash",
                      min_score: float = 6.0, max_clips: int = 8,
-                     min_len: int = 15, max_len: int = 60, timeout: int = 60) -> list:
-    """Score viral moments using local 9Router gateway (OpenAI compatible)."""
+                     min_len: int = 15, max_len: int = 60, timeout: int = 60,
+                     api_endpoint: str = None, api_key: str = None) -> list:
+    """Score viral moments using any OpenAI-compatible LLM gateway (9Router, Ollama, Groq, OpenAI)."""
     sentences = sentenceize(data["words"])
     if not sentences:
         return []
@@ -314,16 +315,23 @@ def ninerouter_score(data: dict, model_name: str = "ag/gemini-3.8-flash",
     }
 
     headers = {"Content-Type": "application/json"}
-    token = get_9router_key()
+    token = (api_key or "").strip()
+    endpoint = (api_endpoint or NINEROUTER_API).strip()
+    if not token and "127.0.0.1:20128" in endpoint:
+        token = get_9router_key()
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
+    if endpoint.endswith("/chat/completions"):
+        target_url = endpoint
+    else:
+        target_url = f"{endpoint.rstrip('/')}/chat/completions"
+
     req = urllib.request.Request(
-        NINEROUTER_API,
+        target_url,
         data=json.dumps(payload).encode("utf-8"),
         headers=headers
     )
-
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             res_data = json.loads(r.read().decode("utf-8"))

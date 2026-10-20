@@ -6,6 +6,7 @@ import StudioView from './components/StudioView';
 import GalleryView from './components/GalleryView';
 import CropStudioModal from './components/CropStudioModal';
 import SubtitleApplyModal from './components/SubtitleApplyModal';
+import SettingsModal from './components/SettingsModal';
 import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace, putCrop } from './api';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [cropStudioCandidate, setCropStudioCandidate] = useState(null);
   const [subtitleApplyTarget, setSubtitleApplyTarget] = useState(null);
@@ -90,7 +92,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-dark-bg text-gray-100 flex flex-col font-sans selection:bg-neon selection:text-dark-bg">
+    <div className="h-screen w-screen overflow-hidden bg-dark-bg text-gray-100 flex flex-col font-sans selection:bg-neon selection:text-white">
       <Navbar
         projectId={view === 'project' ? activeProjectId : null}
         projectTitle={state?.project?.title || null}
@@ -100,6 +102,7 @@ export default function App() {
         onBackToProjects={backToProjects}
         onReset={handleReset}
         isResetting={isResetting}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
@@ -185,6 +188,21 @@ export default function App() {
           }}
         />
       )}
+
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        health={health}
+        onSettingsSaved={async () => {
+          try {
+            const [opts, h] = await Promise.all([fetchOptions(), fetchHealth()]);
+            setOptions(opts);
+            setHealth(h);
+          } catch (e) {
+            console.error('Failed to reload options:', e);
+          }
+        }}
+      />
     </div>
   );
 }

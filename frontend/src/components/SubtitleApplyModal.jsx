@@ -397,7 +397,7 @@ export default function SubtitleApplyModal({
                       onGoToGallery();
                       onClose();
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-cyber text-dark-bg font-bold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-md"
+                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-md"
                   >
                     <Film className="w-3.5 h-3.5" />
                     Lihat di Galeri
@@ -424,7 +424,7 @@ export default function SubtitleApplyModal({
                   type="button"
                   onClick={handleApply}
                   disabled={applying || loadingTranscribe || words.length === 0}
-                  className="px-4 py-2 rounded-lg bg-neon text-dark-bg font-bold text-xs flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 shadow-md transition-all"
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold text-xs flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 shadow-md transition-all"
                 >
                   {applying ? (
                     <>

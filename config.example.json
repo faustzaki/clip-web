@@ -1,0 +1,13 @@
+{
+  "llm_endpoint": "http://127.0.0.1:20128/v1",
+  "llm_api_key": "",
+  "llm_model": "ag/gemini-3.8-flash-high",
+  "available_models": [
+    "ag/gemini-3.8-flash-high",
+    "ag/gemini-3.8-flash-low",
+    "ag/claude-sonnet-4-6",
+    "ag/claude-opus-4-6-thinking",
+    "river/deepseek-ai/DeepSeek-V4.1-Flash"
+  ],
+  "render_dir": ""
+}

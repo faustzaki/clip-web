@@ -16,14 +16,16 @@ export default {
           hover: '#262632'
         },
         neon: {
-          400: '#c5f95d',
-          DEFAULT: '#bbf451',
-          500: '#a3e635',
-          600: '#84cc16'
+          300: '#ff5c77',
+          400: '#ec3253',
+          DEFAULT: '#c11e38',
+          500: '#c11e38',
+          600: '#9b142a',
+          dark: '#220b34'
         },
         cyber: {
-          DEFAULT: '#facc15',
-          400: '#fde047'
+          DEFAULT: '#c11e38',
+          400: '#ec3253'
         }
       },
       fontFamily: {

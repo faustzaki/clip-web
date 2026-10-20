@@ -37,7 +37,15 @@ if str(CHOPIFY_DIR) not in sys.path:
 
 import core_engine
 import render_clips
+import subtitle_burn
 
+DEFAULT_RENDER_PREFS = {
+    "subtitles_enabled": True,
+    "title_enabled": True,
+    "watermark_enabled": False,
+    "watermark": "",
+    "subtitle_style": dict(subtitle_burn.DEFAULT_STYLE),
+}
 WORKDIR = ROOT_DIR / "work"
 CLIPS_DIR = ROOT_DIR / "clips"
 WORKDIR.mkdir(parents=True, exist_ok=True)
@@ -111,9 +119,10 @@ def project_summary(pid: str) -> dict:
         'has_source': src is not None, 'has_transcript': tr is not None,
         'duration': tr.get('duration') if tr else None,
         'candidate_count': len(segs), 'clip_count': clip_count,
-        'cover_url': cover_url
+        'cover_url': cover_url,
+        'render_prefs': meta.get('render_prefs') or dict(DEFAULT_RENDER_PREFS),
+        'crops': meta.get('crops') or {},
     }
-
 def yt_oembed(url: str) -> dict:
     encoded = urllib.parse.quote(url, safe='')
     req = urllib.request.Request(
@@ -185,16 +194,38 @@ class ScoreRequest(BaseModel):
     use_llm: Optional[bool] = True
 
 
+class CropRect(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+
+
+class PrefsRequest(BaseModel):
+    render_prefs: dict
+
+
+class CropsRequest(BaseModel):
+    index: int
+    rect: Optional[CropRect] = None
+
+
+class SubtitlesRequest(BaseModel):
+    words: Optional[List[dict]] = None
+    model_size: Optional[str] = "base"
+    regenerate: Optional[bool] = False
+
+
 class RenderRequest(BaseModel):
     candidate_index: int
     aspect: Optional[str] = "9:16"
-    style: Optional[str] = "hormozi"
     crop_mode: Optional[str] = "speaker-tracked"
     do_tighten: Optional[bool] = True
     loudnorm: Optional[bool] = False
     custom_hook: Optional[str] = None
     watermark: Optional[str] = None
     quality: Optional[str] = "hd"
+    crop_rect: Optional[CropRect] = None
 
 
 class CreateProjectRequest(BaseModel):
@@ -225,11 +256,14 @@ def health_check():
 def get_options():
     return {
         "aspect_ratios": ["9:16", "1:1", "16:9"],
-        "caption_styles": [
-            {"id": "hormozi", "label": "Hormozi (Yellow/Red Highlight)", "font": "Arial Black"},
-            {"id": "mrbeast", "label": "MrBeast (Green Highlight)", "font": "Arial Black"},
-            {"id": "default", "label": "Default Bold (Cyan Highlight)", "font": "Arial Black"},
-            {"id": "podcast", "label": "Podcast Clean (Cyan Highlight)", "font": "Arial"}
+        "subtitle_fonts": [
+            "Arial Black", "Arial", "Impact", "Verdana", "Tahoma",
+            "Trebuchet MS", "Georgia", "Courier New", "Segoe UI", "Calibri"
+        ],
+        "subtitle_positions": [
+            {"id": "top", "label": "Atas"},
+            {"id": "middle", "label": "Tengah"},
+            {"id": "bottom", "label": "Bawah"}
         ],
         "crop_modes": [
             {"id": "speaker-tracked", "label": "Auto Face Tracking (YuNet)", "desc": "Follow speaker motion dynamically"},
@@ -319,6 +353,74 @@ def delete_project(project_id: str):
 
 
 # --------------------------------------------------------------------------
+# Helpers for project clips and slugs
+# --------------------------------------------------------------------------
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,90}$")
+
+def _raw_clip_path(pid: str, slug: str) -> Path:
+    if not SLUG_RE.match(slug):
+        raise HTTPException(400, "Nama klip tidak valid")
+    p = project_clips_dir(pid) / "raw" / f"{slug}.mp4"
+    if not p.exists():
+        raise HTTPException(404, "Klip mentah tidak ditemukan")
+    return p
+
+def _list_project_clips(pid: str) -> list[dict]:
+    cdir = project_clips_dir(pid)
+    items = []
+    if not cdir.exists():
+        return items
+
+    raw_dir = cdir / "raw"
+    if raw_dir.exists():
+        for mp4 in raw_dir.glob("*.mp4"):
+            if mp4.name.startswith("_"):
+                continue
+            poster = mp4.with_suffix(".png")
+            meta_file = mp4.with_suffix(".meta.json")
+            meta = {}
+            if meta_file.exists():
+                try: meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                except Exception: pass
+            items.append({
+                "name": mp4.name,
+                "slug": mp4.stem,
+                "url": f"/clips/{pid}/raw/{mp4.name}",
+                "raw_url": f"/clips/{pid}/raw/{mp4.name}",
+                "poster_url": f"/clips/{pid}/raw/{poster.name}" if poster.exists() else None,
+                "subtitled": bool(meta.get("subtitled", False)),
+                "candidate_index": meta.get("candidate_index"),
+                "size_mb": round(mp4.stat().st_size / (1024 * 1024), 2),
+                "created_at": mp4.stat().st_mtime,
+                "meta": meta,
+            })
+
+    for mp4 in cdir.glob("*.mp4"):
+        if mp4.name.startswith("_"):
+            continue
+        poster = mp4.with_suffix(".png")
+        meta_file = mp4.with_suffix(".meta.json")
+        meta = {}
+        if meta_file.exists():
+            try: meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            except Exception: pass
+        items.append({
+            "name": mp4.name,
+            "slug": mp4.stem,
+            "url": f"/clips/{pid}/{mp4.name}",
+            "raw_url": f"/clips/{pid}/raw/{mp4.name}" if (raw_dir / mp4.name).exists() else f"/clips/{pid}/{mp4.name}",
+            "poster_url": f"/clips/{pid}/{poster.name}" if poster.exists() else None,
+            "subtitled": bool(meta.get("subtitled", True)),
+            "candidate_index": meta.get("candidate_index"),
+            "size_mb": round(mp4.stat().st_size / (1024 * 1024), 2),
+            "created_at": mp4.stat().st_mtime,
+            "meta": meta,
+        })
+
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return items
+
+# --------------------------------------------------------------------------
 # Project-scoped endpoints
 # --------------------------------------------------------------------------
 @app.get("/api/projects/{project_id}/state")
@@ -374,7 +476,8 @@ def get_state(project_id: str):
         "video": video_info,
         "transcript": transcript_info,
         "candidates": candidates,
-        "ingest": ingest
+        "ingest": ingest,
+        "clips": _list_project_clips(project_id),
     }
 
 
@@ -671,6 +774,13 @@ def render_clip(project_id: str, payload: RenderRequest):
                     raise HTTPException(status_code=500, detail=f"Render failed: {str(e)}")
             src = hq
 
+    prefs = meta.get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
+    crops = meta.get("crops") or {}
+    crop_rect = payload.crop_rect.model_dump() if payload.crop_rect else crops.get(str(payload.candidate_index))
+    hook_title = (payload.custom_hook or seg.get("hook")) if prefs.get("title_enabled", True) else None
+    wm = (prefs.get("watermark") or "").strip() or None
+    watermark = wm if prefs.get("watermark_enabled") else None
+
     try:
         cdir.mkdir(parents=True, exist_ok=True)
         w, h = render_clips.ffprobe_dims(src)
@@ -679,13 +789,17 @@ def render_clip(project_id: str, payload: RenderRequest):
             W=w, H=h, workdir=pdir,
             aspect=payload.aspect or "9:16",
             out_dir=cdir,
-            style=payload.style or "hormozi",
             do_tighten=payload.do_tighten if payload.do_tighten is not None else True,
             loudnorm=payload.loudnorm or False,
             preview=False,
             crop_mode=payload.crop_mode or "auto",
-            hook_title=payload.custom_hook,
-            watermark=payload.watermark)
+            hook_title=hook_title,
+            watermark=watermark,
+            crop_rect=crop_rect,
+            subtitle_style=prefs.get("subtitle_style"),
+            candidate_index=payload.candidate_index,
+            raw_subdir="raw",
+        )
 
         res_path = Path(res_p)
         poster_p = res_path.with_suffix(".png")
@@ -699,10 +813,14 @@ def render_clip(project_id: str, payload: RenderRequest):
             "status": "ok",
             "clip": {
                 "name": res_path.name,
-                "url": f"/clips/{project_id}/{res_path.name}",
-                "poster_url": f"/clips/{project_id}/{poster_p.name}" if poster_p.exists() else None,
+                "slug": res_path.stem,
+                "url": f"/clips/{project_id}/raw/{res_path.name}",
+                "raw_url": f"/clips/{project_id}/raw/{res_path.name}",
+                "poster_url": f"/clips/{project_id}/raw/{poster_p.name}" if poster_p.exists() else None,
                 "meta": meta_data,
-                "size_mb": round(res_path.stat().st_size / (1024 * 1024), 2)
+                "size_mb": round(res_path.stat().st_size / (1024 * 1024), 2),
+                "subtitled": False,
+                "candidate_index": payload.candidate_index,
             }
         }
     except HTTPException:
@@ -710,29 +828,306 @@ def render_clip(project_id: str, payload: RenderRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Render failed: {str(e)}")
 
+
+HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+
+@app.put("/api/projects/{project_id}/prefs")
+def update_prefs(project_id: str, payload: PrefsRequest):
+    _validate_pid(project_id)
+    meta = read_project_meta(project_id)
+    current = meta.get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
+    merged = dict(current)
+    new_prefs = payload.render_prefs or {}
+
+    for k in ("subtitles_enabled", "title_enabled", "watermark_enabled"):
+        if k in new_prefs:
+            merged[k] = bool(new_prefs[k])
+    if "watermark" in new_prefs:
+        merged["watermark"] = str(new_prefs["watermark"])
+
+    if "subtitle_style" in new_prefs:
+        style_in = new_prefs["subtitle_style"]
+        if not isinstance(style_in, dict):
+            raise HTTPException(400, "Setelan subtitle tidak valid: subtitle_style")
+        merged_style = dict(current.get("subtitle_style") or DEFAULT_RENDER_PREFS["subtitle_style"])
+        merged_style.update(style_in)
+
+        font = str(merged_style.get("font", "")).strip()
+        if not font:
+            raise HTTPException(400, "Setelan subtitle tidak valid: font")
+        try:
+            fs = int(merged_style.get("font_size", 96))
+            if not (24 <= fs <= 200): raise ValueError()
+            merged_style["font_size"] = fs
+        except Exception:
+            raise HTTPException(400, "Setelan subtitle tidak valid: font_size")
+
+        try:
+            mv = int(merged_style.get("margin_v", 300))
+            if not (0 <= mv <= 900): raise ValueError()
+            merged_style["margin_v"] = mv
+        except Exception:
+            raise HTTPException(400, "Setelan subtitle tidak valid: margin_v")
+
+        try:
+            ow = int(merged_style.get("outline_width", 5))
+            if not (0 <= ow <= 20): raise ValueError()
+            merged_style["outline_width"] = ow
+        except Exception:
+            raise HTTPException(400, "Setelan subtitle tidak valid: outline_width")
+
+        try:
+            sh = int(merged_style.get("shadow", 2))
+            if not (0 <= sh <= 20): raise ValueError()
+            merged_style["shadow"] = sh
+        except Exception:
+            raise HTTPException(400, "Setelan subtitle tidak valid: shadow")
+
+        try:
+            wpl = int(merged_style.get("words_per_line", 3))
+            if not (1 <= wpl <= 8): raise ValueError()
+            merged_style["words_per_line"] = wpl
+        except Exception:
+            raise HTTPException(400, "Setelan subtitle tidak valid: words_per_line")
+
+        pos = merged_style.get("position")
+        if pos not in subtitle_burn.POSITION_ALIGN:
+            raise HTTPException(400, "Setelan subtitle tidak valid: position")
+
+        for c_field in ("primary_color", "highlight_color", "outline_color", "box_color"):
+            c_val = str(merged_style.get(c_field, ""))
+            if not HEX_COLOR_RE.match(c_val):
+                raise HTTPException(400, f"Setelan subtitle tidak valid: {c_field}")
+
+        merged_style["bold"] = bool(merged_style.get("bold", True))
+        merged_style["uppercase"] = bool(merged_style.get("uppercase", True))
+        merged_style["box"] = bool(merged_style.get("box", False))
+        merged["subtitle_style"] = merged_style
+
+    meta["render_prefs"] = merged
+    write_project_meta(project_id, meta)
+    return {"status": "ok", "render_prefs": merged}
+
+
+@app.put("/api/projects/{project_id}/crops")
+def update_crops(project_id: str, payload: CropsRequest):
+    _validate_pid(project_id)
+    meta = read_project_meta(project_id)
+    crops = meta.setdefault("crops", {})
+    idx_key = str(payload.index)
+    if payload.rect is None:
+        crops.pop(idx_key, None)
+    else:
+        w = max(0.05, min(1.0, float(payload.rect.w)))
+        h = max(0.05, min(1.0, float(payload.rect.h)))
+        x = max(0.0, min(1.0 - w, float(payload.rect.x)))
+        y = max(0.0, min(1.0 - h, float(payload.rect.y)))
+        crops[idx_key] = {
+            "x": round(x, 4),
+            "y": round(y, 4),
+            "w": round(w, 4),
+            "h": round(h, 4),
+        }
+    write_project_meta(project_id, meta)
+    return {"status": "ok", "crops": crops}
+
+
+@app.get("/api/projects/{project_id}/thumb/{index}")
+def get_thumbnail(project_id: str, index: int):
+    _validate_pid(project_id)
+    read_project_meta(project_id)
+    cands = load_segments_file(project_id)
+    if index < 0 or index >= len(cands):
+        raise HTTPException(404, "Kandidat tidak ditemukan")
+
+    cdir = project_clips_dir(project_id)
+    raw_dir = cdir / "raw"
+    if raw_dir.exists():
+        for meta_file in raw_dir.glob("*.meta.json"):
+            try:
+                m = json.loads(meta_file.read_text(encoding="utf-8"))
+                if m.get("candidate_index") == index:
+                    poster = meta_file.with_suffix(".png")
+                    if poster.exists():
+                        return FileResponse(poster, media_type="image/png")
+            except Exception:
+                pass
+
+    cand = cands[index]
+    start = float(cand.get("start", 0.0))
+    end = float(cand.get("end", start + 30.0))
+    cache = project_dir(project_id) / "thumbs" / f"{index}-{int(start)}.jpg"
+    if not cache.exists():
+        src = get_source_video_path(project_id)
+        if not src:
+            raise HTTPException(404, "Source video not found")
+        mid = (start + end) / 2.0
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            subprocess.run([
+                "ffmpeg", "-y",
+                "-ss", f"{max(0.0, mid - 0.5):.2f}",
+                "-i", str(src),
+                "-frames:v", "1",
+                "-vf", "scale=640:-2",
+                "-q:v", "4",
+                str(cache)
+            ], check=True, capture_output=True)
+        except Exception:
+            raise HTTPException(500, "Gagal membuat thumbnail")
+
+    return FileResponse(cache, media_type="image/jpeg")
+
+
+@app.post("/api/projects/{project_id}/clips/{slug}/transcribe")
+def transcribe_clip(project_id: str, slug: str, force: bool = False):
+    _validate_pid(project_id)
+    master = _raw_clip_path(project_id, slug)
+    cdir = project_clips_dir(project_id)
+    cache = cdir / f"{slug}.words.json"
+    if cache.exists() and not force:
+        try:
+            return {"status": "ok", **json.loads(cache.read_text(encoding="utf-8"))}
+        except Exception:
+            pass
+
+    tr_proj = load_transcript_file(project_id) or {}
+    lang = tr_proj.get("language")
+    try:
+        tr = subtitle_burn.transcribe_audio(master, model_size="base", language=lang)
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(tr, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"status": "ok", **tr}
+    except Exception as e:
+        raise HTTPException(500, f"Transkripsi gagal: {e}")
+
+
+@app.post("/api/projects/{project_id}/clips/{slug}/subtitles")
+def apply_subtitles(project_id: str, slug: str, payload: SubtitlesRequest):
+    _validate_pid(project_id)
+    meta = read_project_meta(project_id)
+    prefs = meta.get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
+    if not prefs.get("subtitles_enabled", True):
+        raise HTTPException(400, "Subtitle dimatikan di Pengaturan")
+
+    master = _raw_clip_path(project_id, slug)
+    cdir = project_clips_dir(project_id)
+    cache = cdir / f"{slug}.words.json"
+    final = cdir / f"{slug}.mp4"
+    style = prefs.get("subtitle_style") or DEFAULT_RENDER_PREFS["subtitle_style"]
+    tr_proj = load_transcript_file(project_id) or {}
+    lang = tr_proj.get("language")
+
+    try:
+        subtitle_burn.apply_to_clip(
+            master=master,
+            out_path=final,
+            style=style,
+            model_size=payload.model_size or "base",
+            language=lang,
+            words=payload.words,
+            words_cache=cache,
+            regenerate=bool(payload.regenerate),
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Gagal membakar subtitle: {e}")
+
+    raw_meta_file = master.with_suffix(".meta.json")
+    final_meta = {}
+    if raw_meta_file.exists():
+        try:
+            final_meta = json.loads(raw_meta_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    final_meta["subtitled"] = True
+    final.with_suffix(".meta.json").write_text(
+        json.dumps(final_meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    dur = subtitle_burn.media_duration(final)
+    final_poster = final.with_suffix(".png")
+    try:
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-ss", f"{max(0.0, dur * 0.4):.2f}",
+            "-i", str(final),
+            "-frames:v", "1",
+            "-q:v", "2",
+            str(final_poster)
+        ], check=True, capture_output=True)
+    except Exception:
+        pass
+
+    for item in _list_project_clips(project_id):
+        if item.get("slug") == slug and item.get("subtitled") and not item["url"].startswith(f"/clips/{project_id}/raw/"):
+            return {"status": "ok", "clip": item}
+
+    return {
+        "status": "ok",
+        "clip": {
+            "name": final.name,
+            "slug": slug,
+            "url": f"/clips/{project_id}/{final.name}",
+            "poster_url": f"/clips/{project_id}/{final_poster.name}" if final_poster.exists() else None,
+            "subtitled": True,
+            "candidate_index": final_meta.get("candidate_index"),
+            "size_mb": round(final.stat().st_size / (1024 * 1024), 2),
+            "created_at": final.stat().st_mtime,
+            "meta": final_meta,
+        }
+    }
+
+
+@app.post("/api/projects/{project_id}/clips/{slug}/publish")
+def publish_clip(project_id: str, slug: str):
+    _validate_pid(project_id)
+    master = _raw_clip_path(project_id, slug)
+    cdir = project_clips_dir(project_id)
+    final = cdir / f"{slug}.mp4"
+    shutil.copy2(master, final)
+
+    raw_poster = master.with_suffix(".png")
+    final_poster = final.with_suffix(".png")
+    if raw_poster.exists():
+        shutil.copy2(raw_poster, final_poster)
+
+    raw_meta_file = master.with_suffix(".meta.json")
+    final_meta = {}
+    if raw_meta_file.exists():
+        try:
+            final_meta = json.loads(raw_meta_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    final_meta["subtitled"] = False
+    final.with_suffix(".meta.json").write_text(
+        json.dumps(final_meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    for item in _list_project_clips(project_id):
+        if item.get("slug") == slug and not item["url"].startswith(f"/clips/{project_id}/raw/"):
+            return {"status": "ok", "clip": item}
+
+    return {
+        "status": "ok",
+        "clip": {
+            "name": final.name,
+            "slug": slug,
+            "url": f"/clips/{project_id}/{final.name}",
+            "poster_url": f"/clips/{project_id}/{final_poster.name}" if final_poster.exists() else None,
+            "subtitled": False,
+            "candidate_index": final_meta.get("candidate_index"),
+            "size_mb": round(final.stat().st_size / (1024 * 1024), 2),
+            "created_at": final.stat().st_mtime,
+            "meta": final_meta,
+        }
+    }
+
+
 @app.get("/api/projects/{project_id}/clips")
 def list_clips(project_id: str):
     _validate_pid(project_id)
     read_project_meta(project_id)
-    cdir = project_clips_dir(project_id)
-    items = []
-    if cdir.exists():
-        for mp4 in sorted(cdir.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True):
-            poster = mp4.with_suffix(".png")
-            meta_file = mp4.with_suffix(".meta.json")
-            meta = {}
-            if meta_file.exists():
-                try: meta = json.loads(meta_file.read_text(encoding="utf-8"))
-                except Exception: pass
-            items.append({
-                "name": mp4.name,
-                "url": f"/clips/{project_id}/{mp4.name}",
-                "poster_url": f"/clips/{project_id}/{poster.name}" if poster.exists() else None,
-                "meta": meta,
-                "size_mb": round(mp4.stat().st_size / (1024 * 1024), 2),
-                "created_at": mp4.stat().st_mtime
-            })
-    return {"clips": items}
+    return {"clips": _list_project_clips(project_id)}
 
 
 @app.delete("/api/projects/{project_id}/reset")
@@ -744,6 +1139,7 @@ def reset_workspace(project_id: str):
     meta = read_project_meta(project_id)
     pdir = project_dir(project_id)
     shutil.rmtree(pdir / 'hq', ignore_errors=True)
+    shutil.rmtree(project_clips_dir(project_id), ignore_errors=True)
     # Remove source, transcript, segments — keep project.json + cover.jpg
     for pattern in ['source.*', 'transcript.json', 'segments.json']:
         for f in pdir.glob(pattern):
@@ -751,9 +1147,10 @@ def reset_workspace(project_id: str):
             except Exception: pass
     if 'ingest' in meta:
         del meta['ingest']
-        write_project_meta(project_id, meta)
+    if 'crops' in meta:
+        del meta['crops']
+    write_project_meta(project_id, meta)
     return {"status": "ok", "message": "Workspace reset"}
-
 
 # Serve compiled assets with explicit MIME types to bypass Windows registry quirks
 FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"

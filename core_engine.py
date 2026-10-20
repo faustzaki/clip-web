@@ -20,7 +20,7 @@ if str(CHOPIFY_DIR) not in sys.path:
 import score_clips
 import render_clips
 from score_clips import sentenceize, is_arc_complete, _nearest, make_hook, build_candidates, LLM_SYSTEM
-from render_clips import render, ffprobe_dims, ASPECTS, CAPTION_STYLES
+from render_clips import render, ffprobe_dims, ASPECTS
 
 NINEROUTER_API = "http://127.0.0.1:20128/v1/chat/completions"
 

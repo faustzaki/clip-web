@@ -230,11 +230,6 @@ class TestRenderHelpers:
         monkeypatch.delenv("CHOPIFY_OUT", raising=False)
         assert render_clips.default_out() == Path("clips")
 
-    def test_get_style_valid_and_invalid(self):
-        assert render_clips.get_style("hormozi")["font"] == "Arial Black"
-        with pytest.raises(SystemExit):
-            render_clips.get_style("nope")
-
 
 class TestWriteMeta:
     def test_meta_file_written(self, tmp_path):

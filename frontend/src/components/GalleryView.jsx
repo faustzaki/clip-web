@@ -38,10 +38,10 @@ export default function GalleryView({ projectId }) {
         <div>
           <h1 className="text-xl md:text-2xl font-extrabold text-white flex items-center gap-2">
             <Film className="w-6 h-6 text-neon" />
-            <span>Galeri Klip Siap Upload ({clips.length})</span>
+            <span>Klip Siap Upload ({clips.length})</span>
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Klip vertikal 9:16 dengan subtitle burned-in & siap dibagikan ke TikTok, Reels, dan Shorts.
+            Klip vertikal siap dibagikan ke TikTok, Reels, dan Shorts. Klip raw dan bersubtitle dapat diunduh langsung.
           </p>
         </div>
 
@@ -86,15 +86,21 @@ export default function GalleryView({ projectId }) {
                     controls
                     className="w-full h-full object-cover"
                   />
-                  {/* Score badge if available */}
-                  {meta.score && (
-                    <div className="absolute top-3 left-3 bg-emerald-950/90 border border-emerald-500/50 text-emerald-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
-                      ★ {meta.score}/10
-                    </div>
-                  )}
+                  {/* Score & Subtitle badges */}
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
+                    {meta.score && (
+                      <div className="bg-emerald-950/90 border border-emerald-500/50 text-emerald-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
+                        ★ {meta.score}/10
+                      </div>
+                    )}
+                    {!c.subtitled && (
+                      <div className="bg-yellow-950/80 border border-yellow-500/50 text-yellow-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
+                        RAW
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* Card Meta & Details */}
                 <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                   <div>
                     <h3 className="text-xs font-extrabold text-white line-clamp-2 uppercase tracking-wide">

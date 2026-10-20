@@ -5,8 +5,8 @@ import NewProjectView from './components/NewProjectView';
 import StudioView from './components/StudioView';
 import GalleryView from './components/GalleryView';
 import CropStudioModal from './components/CropStudioModal';
-import CaptionEditorModal from './components/CaptionEditorModal';
-import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace } from './api';
+import SubtitleApplyModal from './components/SubtitleApplyModal';
+import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace, putCrop } from './api';
 
 export default function App() {
   const [view, setView] = useState('projects');
@@ -20,7 +20,7 @@ export default function App() {
   const [isResetting, setIsResetting] = useState(false);
 
   const [cropStudioCandidate, setCropStudioCandidate] = useState(null);
-  const [captionEditorCandidate, setCaptionEditorCandidate] = useState(null);
+  const [subtitleApplyTarget, setSubtitleApplyTarget] = useState(null);
 
   const loadProjects = async () => {
     try {
@@ -90,7 +90,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-bg text-gray-100 flex flex-col font-sans selection:bg-neon selection:text-dark-bg">
+    <div className="h-screen w-screen overflow-hidden bg-dark-bg text-gray-100 flex flex-col font-sans selection:bg-neon selection:text-dark-bg">
       <Navbar
         projectId={view === 'project' ? activeProjectId : null}
         projectTitle={state?.project?.title || null}
@@ -102,22 +102,26 @@ export default function App() {
         isResetting={isResetting}
       />
 
-      <main className="flex-1">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {view === 'projects' && (
-          <ProjectsView
-            projects={projects}
-            isLoading={isLoadingProjects}
-            onOpen={openProject}
-            onNew={() => setView('new')}
-            onRefresh={loadProjects}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <ProjectsView
+              projects={projects}
+              isLoading={isLoadingProjects}
+              onOpen={openProject}
+              onNew={() => setView('new')}
+              onRefresh={loadProjects}
+            />
+          </div>
         )}
         {view === 'new' && (
-          <NewProjectView
-            options={options}
-            onCreated={(pid) => openProject(pid)}
-            onCancel={backToProjects}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <NewProjectView
+              options={options}
+              onCreated={(pid) => openProject(pid)}
+              onCancel={backToProjects}
+            />
+          </div>
         )}
         {view === 'project' && (
           activeTab === 'studio' ? (
@@ -128,11 +132,14 @@ export default function App() {
               onRefreshState={() => loadProjectState(activeProjectId)}
               onBackToProjects={backToProjects}
               onOpenCropStudio={(cand) => setCropStudioCandidate(cand)}
-              onOpenCaptionEditor={(cand) => setCaptionEditorCandidate(cand)}
+              onOpenSubtitleApply={(target) => setSubtitleApplyTarget(target)}
+              onGoToGallery={() => setActiveTab('gallery')}
               onClipRendered={() => loadProjectState(activeProjectId)}
             />
           ) : (
-            <GalleryView projectId={activeProjectId} />
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <GalleryView projectId={activeProjectId} />
+            </div>
           )
         )}
       </main>
@@ -141,24 +148,40 @@ export default function App() {
         <CropStudioModal
           candidate={cropStudioCandidate}
           videoUrl={state?.video?.url}
+          videoWidth={state?.video?.width}
+          videoHeight={state?.video?.height}
+          cropRect={state?.project?.crops?.[String(cropStudioCandidate.idx)]}
           onClose={() => setCropStudioCandidate(null)}
-          onApply={(data) => {
-            console.log('Applied crop data:', data);
+          onApply={async ({ rect }) => {
+            try {
+              await putCrop(activeProjectId, cropStudioCandidate.idx, rect);
+              await loadProjectState(activeProjectId);
+            } catch (err) {
+              console.error('Failed to save crop:', err);
+            }
             setCropStudioCandidate(null);
           }}
         />
       )}
 
-      {captionEditorCandidate && (
-        <CaptionEditorModal
-          candidate={captionEditorCandidate}
-          videoUrl={state?.video?.url}
-          onClose={() => setCaptionEditorCandidate(null)}
-          onSave={(data) => {
-            if (state?.candidates) {
-              cropStudioCandidate.hook = data.hookTitle;
-            }
-            setCaptionEditorCandidate(null);
+      {subtitleApplyTarget && (
+        <SubtitleApplyModal
+          projectId={activeProjectId}
+          clip={subtitleApplyTarget.clip}
+          candidate={subtitleApplyTarget.candidate}
+          prefs={state?.project?.render_prefs}
+          onPrefsChange={async () => {
+            await loadProjectState(activeProjectId);
+          }}
+          fonts={options?.subtitle_fonts}
+          positions={options?.subtitle_positions}
+          onClose={() => setSubtitleApplyTarget(null)}
+          onApplied={async () => {
+            await loadProjectState(activeProjectId);
+          }}
+          onGoToGallery={() => {
+            setActiveTab('gallery');
+            setSubtitleApplyTarget(null);
           }}
         />
       )}

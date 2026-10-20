@@ -97,3 +97,64 @@ export async function resetWorkspace(projectId) {
   if (!res.ok) throw new Error('Reset failed');
   return res.json();
 }
+
+export async function putPrefs(projectId, render_prefs) {
+  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/prefs`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ render_prefs }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update preferences');
+  }
+  return res.json();
+}
+
+export async function putCrop(projectId, index, rect) {
+  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/crops`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ index, rect }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update crop');
+  }
+  return res.json();
+}
+
+export async function transcribeClip(projectId, slug, force = false) {
+  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/transcribe?force=${force ? 'true' : 'false'}`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Transcribe clip failed');
+  }
+  return res.json();
+}
+
+export async function applySubtitles(projectId, slug, body = {}) {
+  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/subtitles`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Apply subtitles failed');
+  }
+  return res.json();
+}
+
+export async function publishClip(projectId, slug) {
+  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/publish`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Publish clip failed');
+  }
+  return res.json();
+}

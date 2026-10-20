@@ -175,7 +175,7 @@ with tab_clipper:
                         res_p = render_clips.render(
                             seg=seg, words=words, source=source_p, W=W, H=H,
                             workdir=workdir, aspect=aspect_choice, out_dir=out_dir,
-                            style=caption_style, do_tighten=tighten_cuts
+                            do_tighten=tighten_cuts
                         )
                         st.session_state.rendered_clips.append(str(res_p))
                     except Exception as e:

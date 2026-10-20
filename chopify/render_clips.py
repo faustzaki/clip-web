@@ -25,7 +25,7 @@ import subprocess
 from pathlib import Path
 
 import tighten  # local module: filler/silence removal
-
+import subtitle_burn
 # aspect -> (target_w, target_h, caption_font_size, caption_margin_v)
 ASPECTS = {
     "16:9": (1920, 1080, 72, 95),
@@ -42,27 +42,9 @@ PREVIEW = {
     "1:1":  (480, 480),
 }
 
-# Caption presets: ASS &HAABBGGRR colours (yellow highlight = &H0000FFFF&).
-CAPTION_STYLES = {
-    "default":  {"font": "Arial Black", "weight": -1, "highlight": "&H00FFFF&"},
-    "hormozi":  {"font": "Arial Black", "weight": -1, "highlight": "&H0000FF&"},
-    "mrbeast":  {"font": "Arial Black", "weight": -1, "highlight": "&H00FF00&"},
-    "podcast":  {"font": "Arial",       "weight": 0,  "highlight": "&H00FFFF&"},
-}
-DEFAULT_STYLE = "default"
-
-
 def default_out():
     """Output dir: --out wins, then $CHOPIFY_OUT, then ./clips (no more hardcoded C:\\clips)."""
     return Path(os.environ.get("CHOPIFY_OUT") or "clips")
-
-
-def get_style(name):
-    if name not in CAPTION_STYLES:
-        raise SystemExit(f"Unknown caption style '{name}'. "
-                         f"Choose from: {', '.join(CAPTION_STYLES)}")
-    return CAPTION_STYLES[name]
-
 WORDS_PER_LINE = 3
 DET_FPS = 5
 DET_W = 640
@@ -229,63 +211,7 @@ def ass_escape(s):
     return s.replace("\\", "").replace("{", "(").replace("}", ")")
 
 
-def build_ass(words, clip_start, clip_end, path, tw, th, font_size, margin_v,
-              style_name=DEFAULT_STYLE, hook_title=None, watermark=None):
-    st = get_style(style_name)
-    sub = [w for w in words if w["end"] > clip_start and w["start"] < clip_end]
-    title_font_size = max(24, int(font_size * 0.65))
-    wm_font_size = max(18, int(font_size * 0.38))
-    header = (
-        "[Script Info]\nScriptType: v4.00+\n"
-        f"PlayResX: {tw}\nPlayResY: {th}\nWrapStyle: 2\nScaledBorderAndShadow: yes\n\n"
-        "[V4+ Styles]\n"
-        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
-        "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, "
-        "ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, "
-        "MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Cap,{st['font']},{font_size},&H00FFFFFF,&H000000FF,&H00000000,"
-        f"&H64000000,{st['weight']},0,0,0,100,100,0,0,1,5,2,2,80,80,{margin_v},1\n"
-        f"Style: Title,Arial Black,{title_font_size},&H0000FFFF,&H000000FF,&H00000000,"
-        f"&H80000000,-1,0,0,0,100,100,0,0,3,10,3,8,80,80,150,1\n"
-        f"Style: Watermark,Arial,{wm_font_size},&H70FFFFFF,&H70FFFFFF,&H00000000,"
-        f"&H00000000,0,0,0,0,100,100,0,0,1,2,0,9,40,60,60,1\n\n"
-        "[Events]\n"
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, "
-        "Effect, Text\n"
-    )
-    groups = [sub[i:i + WORDS_PER_LINE] for i in range(0, len(sub), WORDS_PER_LINE)]
-    events = []
-    clip_dur = clip_end - clip_start
-
-    if hook_title:
-        clean_title = ass_escape(str(hook_title).strip().upper())
-        events.append(
-            f"Dialogue: 1,0:00:00.00,{ass_time(clip_dur)},Title,,0,0,0,,{clean_title}")
-
-    if watermark:
-        clean_wm = ass_escape(str(watermark).strip())
-        events.append(
-            f"Dialogue: 2,0:00:00.00,{ass_time(clip_dur)},Watermark,,0,0,0,,{clean_wm}")
-
-    hl = r"{\c" + st["highlight"] + "}"
-    white = r"{\c&HFFFFFF&}"
-    for g in groups:
-        for i, w in enumerate(g):
-            s0 = max(w["start"], clip_start) - clip_start
-            en = (g[i + 1]["start"] - clip_start) if i + 1 < len(g) \
-                else (w["end"] - clip_start)
-            if en <= s0:
-                en = s0 + 0.12
-            parts = []
-            for j, ww in enumerate(g):
-                token = ass_escape(ww["word"].strip())
-                parts.append((hl + token + white) if j == i else (white + token))
-            events.append(
-                f"Dialogue: 0,{ass_time(s0)},{ass_time(en)},Cap,,0,0,0,,{' '.join(parts)}")
-    Path(path).write_text(header + "\n".join(events) + "\n", encoding="utf-8")
-
-
-def write_meta(seg, out_path):
+def write_meta(seg, out_path, candidate_index=None, subtitled=False):
     """Deterministic ready-to-post metadata saved as <clip>.meta.json."""
     hook = str(seg.get("hook", "clip")).replace("-", " ").strip()
     title = hook.capitalize()
@@ -297,16 +223,22 @@ def write_meta(seg, out_path):
         "score": seg.get("overall"),
         "start": seg.get("start"),
         "end": seg.get("end"),
+        "candidate_index": candidate_index,
+        "subtitled": subtitled,
     }
     Path(out_path).with_suffix(".meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return Path(out_path).with_suffix(".meta.json")
 
 
-def render(seg, words, source, W, H, workdir, aspect, out_dir=None, style=DEFAULT_STYLE,
+def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
            do_tighten=False, loudnorm=False, preview=False, crop_mode="auto",
-           hook_title=None, watermark=None):
-    out_dir = Path(out_dir) if out_dir else default_out()
+           hook_title=None, watermark=None, crop_rect=None,
+           subtitle_style=None, candidate_index=None, raw_subdir="raw"):
+    base_out = Path(out_dir) if out_dir else default_out()
+    out_dir = base_out / raw_subdir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     full_w, full_h, font_size, margin_v = ASPECTS[aspect]
     if preview:
         # fast 480p-class draft: smaller frame, smaller captions, no poster/meta
@@ -332,22 +264,33 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None, style=DEFAUL
               f"{(end - start) - dur:.1f}s removed", flush=True)
         start = 0.0
 
-    actual_hook = hook_title if hook_title is not None else seg.get("hook")
-    build_ass(cap_words, start, start + dur, out_dir / "_caption.ass",
-              tw, th, font_size, margin_v, style,
-              hook_title=actual_hook, watermark=watermark)
+    actual_hook = hook_title
+    subtitle_burn.build_overlay_ass(
+        out_dir / "_overlay.ass", dur, tw, th,
+        subtitle_style or subtitle_burn.DEFAULT_STYLE,
+        hook_title=actual_hook, watermark=watermark,
+    )
 
     is_complex = False
     filter_expr = ""
 
-    if crop_mode == "blur" and aspect == "9:16":
+    if crop_rect:
+        cw = max(2, int(round(float(crop_rect["w"]) * W))); cw -= cw % 2
+        ch = max(2, int(round(float(crop_rect["h"]) * H))); ch -= ch % 2
+        cx = max(0, min(int(round(float(crop_rect["x"]) * W)), W - cw))
+        cy = max(0, min(int(round(float(crop_rect["y"]) * H)), H - ch))
+        filter_expr = (f"crop={cw}:{ch}:{cx}:{cy},"
+                       f"scale={tw}:{th}:force_original_aspect_ratio=increase,"
+                       f"crop={tw}:{th},ass=_overlay.ass")
+        mode = "manual-crop"
+    elif crop_mode == "blur" and aspect == "9:16":
         # Blurred background padding
         is_complex = True
         filter_expr = (
             f"[0:v]split[bg][fg];"
             f"[bg]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:10,scale={tw}:{th}[bgb];"
             f"[fg]scale={tw}:-1[fgv];"
-            f"[bgb][fgv]overlay=(W-w)/2:(H-h)/2,subtitles=_caption.ass[v]"
+            f"[bgb][fgv]overlay=(W-w)/2:(H-h)/2,ass=_overlay.ass[v]"
         )
         mode = "blur-background"
     elif crop_mode == "split" and aspect == "9:16":
@@ -358,7 +301,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None, style=DEFAUL
         filter_expr = (
             f"[0:v]crop={int(W*0.6)}:{int(H*0.6)}:{int(W*0.2)}:0,scale={tw}:{top_h}[top];"
             f"[0:v]crop={W}:{int(H*0.7)}:0:{int(H*0.3)},scale={tw}:{bot_h}[bot];"
-            f"[top][bot]vstack,subtitles=_caption.ass[v]"
+            f"[top][bot]vstack,ass=_overlay.ass[v]"
         )
         mode = "split-gaming"
     elif crop_mode == "speaker-tracked" or (crop_mode == "auto" and cw < W * 0.95):
@@ -366,10 +309,10 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None, style=DEFAUL
         build_sendcmd(track, cw, out_dir / "_crop.cmd")
         init_x = max(0, min(int(round(track[0][1] - cw / 2.0)), W - cw))
         filter_expr = (f"sendcmd=f=_crop.cmd,crop={cw}:{ch}:{init_x}:{y0},"
-                       f"scale={tw}:{th},subtitles=_caption.ass")
+                       f"scale={tw}:{th},ass=_overlay.ass")
         mode = "speaker-tracked"
     else:
-        filter_expr = f"crop={cw}:{ch}:{x0}:{y0},scale={tw}:{th},subtitles=_caption.ass"
+        filter_expr = f"crop={cw}:{ch}:{x0}:{y0},scale={tw}:{th},ass=_overlay.ass"
         mode = "center-crop"
 
     suffix = ".preview" if preview else ""
@@ -390,7 +333,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None, style=DEFAUL
     print(">", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True, cwd=str(out_dir))
 
-    for tmpf in (out_dir / "_caption.ass", out_dir / "_crop.cmd"):
+    for tmpf in (out_dir / "_overlay.ass", out_dir / "_crop.cmd"):
         try:
             tmpf.unlink()
         except OSError:
@@ -412,7 +355,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None, style=DEFAUL
     subprocess.run(["ffmpeg", "-y", "-ss", f"{dur * 0.4:.2f}", "-i", str(out),
                     "-frames:v", "1", "-q:v", "2", str(poster)],
                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    meta_path = write_meta(seg, out)
+    meta_path = write_meta(seg, out, candidate_index=candidate_index, subtitled=False)
 
     print(f"SAVED {out}  ({aspect} {tw}x{th}, {mode})  "
           f"+ poster {poster.name} + {meta_path.name}", flush=True)
@@ -426,8 +369,7 @@ def main():
                     help="output aspect ratio (default 16:9)")
     ap.add_argument("--out", default=None,
                     help="output directory (default ./clips, or $CHOPIFY_OUT)")
-    ap.add_argument("--style", default=DEFAULT_STYLE,
-                    help="caption preset: " + ", ".join(CAPTION_STYLES))
+
     ap.add_argument("--tighten", action="store_true",
                     help="remove filler words (um, uh...) and long silences")
     ap.add_argument("--loudnorm", action="store_true",
@@ -453,7 +395,7 @@ def main():
 
     W, H = ffprobe_dims(source)
     print(f"Source {source} {W}x{H}; {len(segments)} clips -> {args.aspect} "
-          f"(style={args.style}, tighten={args.tighten}) -> {out_dir}", flush=True)
+          f"(tighten={args.tighten}) -> {out_dir}", flush=True)
 
     saved = []
     for i, seg in enumerate(segments, 1):
@@ -462,9 +404,9 @@ def main():
               flush=True)
         try:
             saved.append(str(render(seg, words, source, W, H, workdir, args.aspect,
-                                    out_dir=out_dir, style=args.style,
+                                    out_dir=out_dir,
                                     do_tighten=args.tighten, loudnorm=args.loudnorm,
-                                    preview=args.preview)))
+                                    preview=args.preview, candidate_index=i - 1)))
         except subprocess.CalledProcessError as e:
             print(f"ERROR rendering clip {i}: {e}", flush=True)
 

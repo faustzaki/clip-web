@@ -77,12 +77,27 @@ export async function scoreMoments(projectId, params = {}) {
   return res.json();
 }
 
+export async function prepareVideo(projectId, tier = 'preview') {
+  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/prepare`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tier })
+  });
+  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || 'Gagal menyiapkan video'); }
+  return res.json();
+}
+
 export async function renderClip(projectId, params) {
   const res = await fetch(`${BASE_URL}/api/projects/${projectId}/render`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params)
   });
-  if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.detail || 'Render failed'); }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const e = new Error(err.detail || 'Render failed');
+    e.status = res.status;
+    e.code = err.code;
+    throw e;
+  }
   return res.json();
 }
 

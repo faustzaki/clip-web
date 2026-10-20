@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Play, Pause, X, Check, RotateCcw, Crop as CropIcon } from 'lucide-react';
+import { Play, Pause, X, Check, RotateCcw, Crop as CropIcon, FileVideo } from 'lucide-react';
 
 export default function CropStudioModal({
   candidate,
@@ -7,6 +7,8 @@ export default function CropStudioModal({
   videoWidth = 1920,
   videoHeight = 1080,
   cropRect,
+  prepare,
+  onPrepare,
   onClose,
   onApply,
 }) {
@@ -348,6 +350,32 @@ export default function CropStudioModal({
         </div>
 
         {/* Content Body */}
+        {!videoUrl ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="max-w-md text-center space-y-3">
+              <FileVideo className="w-10 h-10 text-gray-600 mx-auto" />
+              <p className="text-sm text-gray-300">
+                Crop Studio butuh video lokal untuk memetakan kotak crop. Unduh versi 720p (sekali, ±150 MB).
+              </p>
+              {prepare?.status === 'running' ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-400">{prepare.message || 'Mengunduh video 720p...'}</p>
+                  <div className="w-full bg-dark-card rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-neon h-full" style={{ width: `${prepare.percent || 0}%` }} />
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={onPrepare}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white text-xs font-bold hover:opacity-90 transition-all">
+                  Unduh video 720p (±150 MB)
+                </button>
+              )}
+              {prepare?.status === 'error' && (
+                <p className="text-xs text-red-400">{prepare.error || 'Unduhan gagal'}</p>
+              )}
+            </div>
+          </div>
+        ) : (
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
           {/* Main Visual Canvas Area */}
           <div className="flex-1 bg-black p-4 flex flex-col items-center justify-center overflow-hidden border-b lg:border-b-0 lg:border-r border-dark-border">
@@ -575,6 +603,7 @@ export default function CropStudioModal({
             </div>
           </div>
         </div>
+        )}
 
         {/* Footer */}
         <div className="p-4 border-t border-dark-border bg-dark-bg/70 flex justify-between items-center">

@@ -7,7 +7,7 @@ import GalleryView from './components/GalleryView';
 import CropStudioModal from './components/CropStudioModal';
 import SubtitleApplyModal from './components/SubtitleApplyModal';
 import SettingsModal from './components/SettingsModal';
-import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace, putCrop } from './api';
+import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace, putCrop, prepareVideo } from './api';
 
 export default function App() {
   const [view, setView] = useState('projects');
@@ -71,11 +71,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const s = state?.ingest?.status;
-    if (!activeProjectId || (s !== 'running' && s !== 'starting')) return;
+    const busy = ['running', 'starting'].includes(state?.ingest?.status) || state?.prepare?.status === 'running';
+    if (!activeProjectId || !busy) return;
     const t = setInterval(() => loadProjectState(activeProjectId), 1500);
     return () => clearInterval(t);
-  }, [activeProjectId, state?.ingest?.status]);
+  }, [activeProjectId, state?.ingest?.status, state?.prepare?.status]);
 
   const handleReset = async () => {
     if (!activeProjectId) return;
@@ -154,6 +154,8 @@ export default function App() {
           videoWidth={state?.video?.width}
           videoHeight={state?.video?.height}
           cropRect={state?.project?.crops?.[String(cropStudioCandidate.idx)]}
+          prepare={state?.prepare}
+          onPrepare={() => { Promise.resolve(prepareVideo(activeProjectId, 'preview')).catch(() => {}).then(() => loadProjectState(activeProjectId)); }}
           onClose={() => setCropStudioCandidate(null)}
           onApply={async ({ rect }) => {
             try {

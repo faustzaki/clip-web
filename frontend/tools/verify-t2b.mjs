@@ -72,7 +72,8 @@ const panel = await page.evaluate(() => {
 ck("panel ada di dalam sidebar", !!panel, panel ? `x=${panel.x}` : "tidak ada");
 ck("tidak ada pageerror", errs.length === 0, errs.slice(0, 2).join(" | "));
 
-await page.screenshot({ path: process.env.PM_SHOT || "docs/evidence/T2b/after/studio-transcript.png" });
+import { resolve } from "node:path";
+await page.screenshot({ path: process.env.PM_SHOT || resolve(process.cwd(), "..", "docs/evidence/T2b/after/studio-transcript.png") });
 await b.close();
 console.log(`\n${out.pass.length} lulus, ${out.fail.length} gagal`);
 process.exit(out.fail.length ? 1 : 0);

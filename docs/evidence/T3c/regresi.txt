@@ -1,0 +1,98 @@
+REGRESI T3c — 2026-10-24
+StudioView dipecah ke GeneratePanel.jsx / PreviewStage.jsx / ClipsPanel.jsx + hooks/useEditorState.js + hooks/useVideoSync.js.
+Perilaku harus identik: verifier T2b (transkrip + seek), T3b (timeline), T3c (panel + stage), measure.mjs (ukuran region).
+
+$ node tools/verify-t2b.mjs
+PASS kata transkrip ter-render — 1829 elemen
+PASS klik kata -> video bergerak — video 331.15s
+PASS pencarian mengubah indikator hasil — "1829 kata Total 21:47" -> "18 hasil Total 21:47"
+PASS kata cocok tersorot — 19 elemen tersorot
+PASS panel ada di dalam sidebar — x=21
+PASS tidak ada pageerror
+
+6 lulus, 0 gagal
+exit=0
+
+$ node tools/verify-t3b.mjs
+PASS timeline tampil — 1440x320
+PASS tinggi 240 atau 320 — 320px
+PASS klik ruler -> video pindah — 509.5s
+PASS zoom memperlebar konten — 25%:346px 200%:2768px
+PASS collapse 240/320 + tersimpan — h=240 stored=1
+PASS tanpa pageerror
+
+6 lulus, 0 gagal
+exit=0
+
+$ node tools/verify-t3c.mjs
+PASS sidebar tampil — 360x356
+PASS GeneratePanel: form generate lengkap — select=2 slider=2 tombol=1
+PASS edit mode -> pengaturan Edit Clip — kualitas=true opsi=true tombol kembali=1
+PASS kembali ke Generate Clip
+PASS collapse 48 / expand 360 — 48px -> 360px
+PASS kartu klip ter-render — 6 kartu
+PASS klik kartu klip -> video seek — kartu="#1 05:07–05:41 pengakuan hamil" video=308.0s harapan≈307s
+PASS tombol pindah ke kolom kanan ada — 1
+PASS mode kolom kanan -> clips-panel tampil — 340px
+PASS scrubber stage -> video seek — lebar track=422px video=3019.5s
+PASS balik ke filmstrip bawah — clips-panel=0 filmstrip=1
+PASS mode bebas -> 4 handle + mini dock — handle=4 dock=1
+PASS zoom in mengubah skala — 100% -> 110%
+PASS reset transform -> 100% — 100%
+PASS balik ke mode fit
+PASS tetap satu elemen video
+PASS tanpa pageerror
+
+17 lulus, 0 gagal
+exit=0
+
+$ node tools/measure.mjs
+{
+ "header": {
+  "w": 1440,
+  "h": 56,
+  "x": 0,
+  "y": 0
+ },
+ "rail": {
+  "w": 72,
+  "h": 372,
+  "x": 1368,
+  "y": 112
+ },
+ "strip": {
+  "w": 1440,
+  "h": 96,
+  "x": 0,
+  "y": 804
+ },
+ "sidebar": {
+  "w": 360,
+  "h": 356,
+  "x": 8,
+  "y": 120
+ },
+ "timeline": {
+  "w": 1440,
+  "h": 320,
+  "x": 0,
+  "y": 484
+ },
+ "bodyBg": "rgb(242, 244, 247)",
+ "overflowX": false,
+ "textSample": "clip-web ▸ Podcast Bisnis — Episode 42 Studio Clipper Galeri Klip clip-web Tersimpan Simpan GENERATE CLIP Pilih Model AI"
+}
+exit=0
+
+PERBANDINGAN A/B GEOMETRI DOM (project nyata, 6 kandidat, 1440x900) — build baseline (git HEAD) vs build T3c:
+BASELINE {"sidebar":{"x":8,"y":120,"w":360,"h":356},"stage":{"x":390,"y":120,"w":0,"h":356},"strip":{"x":24,"y":120,"w":1516,"h":135},"onTopAtSidebarHeader":"H2.text-xs font-extrabold uppercase trackin"}
+T3C      {"sidebar":{"x":8,"y":120,"w":360,"h":356},"stage":{"x":390,"y":120,"w":0,"h":356},"strip":{"x":24,"y":120,"w":1516,"h":135},"onTopAtSidebarHeader":"H2.text-xs font-extrabold uppercase trackin"}
+-> identik. (stage w=0 + strip 1516px = quirk lama: filmstrip mode 'bottom' menumpuk sidebar bila kandidat >= 6; ada juga di build HEAD, bukan regresi T3c.)
+
+BUNDLE: sebelum refactor index-Bq7Zw1b0.js 335.50 kB (gzip 88.22) -> sesudah index-BYoMoaT0.js 338.06 kB (gzip 89.46) = +0.76%.
+
+
+PERBANDINGAN A/B GEOMETRI DOM (mock _mock.py, 1280x800, 3 klip) — build baseline (git HEAD) vs build T3c:
+BASELINE 1280/mock {"sidebar":{"x":8,"y":120,"w":360,"h":256},"stage":{"x":390,"y":120,"w":28,"h":256},"clipsStrip":{"x":434,"y":120,"w":766,"h":135},"timeline":{"x":0,"y":384,"w":1280,"h":320},"clipStrip":{"x":0,"y":704,"w":1280,"h":96}}
+T3C      1280/mock {"sidebar":{"x":8,"y":120,"w":360,"h":256},"stage":{"x":390,"y":120,"w":28,"h":256},"clipsStrip":{"x":434,"y":120,"w":766,"h":135},"timeline":{"x":0,"y":384,"w":1280,"h":320},"clipStrip":{"x":0,"y":704,"w":1280,"h":96}}
+-> identik (sidebar/stage/clips-strip/timeline/clip-strip). Screenshot T3c diambil dari bundle index-BYoMoaT0.js.

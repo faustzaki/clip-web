@@ -1,0 +1,36 @@
+PRECHECK T3c — 2026-10-24 (sebelum refactor)
+
+$ wc -l frontend/src/components/StudioView.jsx
+2051 frontend/src/components/StudioView.jsx
+
+$ grep -c "useState\|useEffect" frontend/src/components/StudioView.jsx
+54
+
+$ ls frontend/src/components/ | grep -E "GeneratePanel|PreviewStage|ClipsPanel"
+(tidak ada)
+$ ls frontend/src/hooks
+ls: cannot access 'frontend/src/hooks/': No such file or directory
+
+$ cd frontend && npm run build      # baseline: hash bundle SEBELUM refactor
+dist/index.html                   1.00 kB │ gzip:  0.51 kB
+dist/assets/index-DJKJtbS0.css   35.90 kB │ gzip:  7.49 kB
+dist/assets/index-Bq7Zw1b0.js   335.50 kB │ gzip: 88.22 kB
+✓ built in 5.68s
+
+$ git status --short frontend/src/components/StudioView.jsx
+ M frontend/src/components/StudioView.jsx        (isi = baseline T3b/T3a, belum dipecah)
+
+$ curl -s localhost:8000/api/health
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+-> backend hidup; verifier fungsional bisa dijalankan.
+
+$ ls scripts/ | grep check_t3c
+(tidak ada — script baru untuk tugas ini)
+$ ls frontend/tools/verify-t3c.mjs
+(No such file or directory — verifier baru untuk tugas ini)
+
+Baseline lain yang dipakai sebagai pembanding:
+- frontend/tools/measure.mjs  -> header 56 / rail 72 / strip 96 / sidebar 360
+- frontend/tools/verify-t2b.mjs -> 6/6 lulus (klik kata -> seek, cari -> hasil, 0 pageerror)
+- frontend/tools/verify-t3b.mjs -> 6/6 lulus (ruler -> seek, zoom, collapse timeline, 0 pageerror)
+- docs/evidence/T3b/after/studio-1440x900.png (screenshot pembanding struktur)

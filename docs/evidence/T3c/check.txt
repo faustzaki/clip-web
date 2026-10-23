@@ -1,0 +1,49 @@
+CHECK T3c — py -3.13 scripts/check_t3c.py (exit 0)
+
+PASS StudioView <= 400 baris — 337 baris
+PASS 5 file baru ada (3 komponen + 2 hook) — 5/5
+PASS state kata/transkrip hanya di useEditorState — hook=True StudioView deklarasi=[]
+PASS tetap satu elemen <video> di PreviewStage — GeneratePanel.jsx=0, PreviewStage.jsx=1, ClipsPanel.jsx=0, StudioView.jsx=0 ref={videoRef}=1
+PASS tanpa dark/neon/gradient/TODO/console.log
+PASS bundle JS tidak naik > 5% — 330.18 kB vs 335.5 kB
+PASS build CSS memuat token aksen — index-DJKJtbS0.css
+PASS screenshot studio 1440 & 1280 ada — projects-1280x800.png, projects-1440x900.png, studio-1280x800.png, studio-1440x900.png
+PASS kata transkrip ter-render — 1829 elemen
+PASS klik kata -> video bergerak — video 331.15s
+PASS pencarian mengubah indikator hasil — "1829 kata Total 21:47" -> "18 hasil Total 21:47"
+PASS kata cocok tersorot — 19 elemen tersorot
+PASS panel ada di dalam sidebar — x=21
+PASS tidak ada pageerror
+6 lulus, 0 gagal
+PASS verify-t2b.mjs exit 0 — exit 0
+PASS timeline tampil — 1440x320
+PASS tinggi 240 atau 320 — 320px
+PASS klik ruler -> video pindah — 509.5s
+PASS zoom memperlebar konten — 25%:346px 200%:2768px
+PASS collapse 240/320 + tersimpan — h=240 stored=1
+PASS tanpa pageerror
+6 lulus, 0 gagal
+PASS verify-t3b.mjs exit 0 — exit 0
+PASS kembali ke Generate Clip
+PASS collapse 48 / expand 360 — 48px -> 360px
+PASS kartu klip ter-render — 6 kartu
+PASS klik kartu klip -> video seek — kartu="#1 05:07–05:41 pengakuan hamil" video=308.4s harapan≈307s
+PASS tombol pindah ke kolom kanan ada — 1
+PASS mode kolom kanan -> clips-panel tampil — 340px
+PASS scrubber stage -> video seek — lebar track=422px video=3019.5s
+PASS balik ke filmstrip bawah — clips-panel=0 filmstrip=1
+PASS mode bebas -> 4 handle + mini dock — handle=4 dock=1
+PASS zoom in mengubah skala — 100% -> 110%
+PASS reset transform -> 100% — 100%
+PASS balik ke mode fit
+PASS tetap satu elemen video
+PASS tanpa pageerror
+17 lulus, 0 gagal
+PASS verify-t3c.mjs exit 0 — exit 0
+PASS measure.mjs: header 56 / rail 72 / strip 96 / sidebar 360 — {"header": {"w": 1440, "h": 56, "x": 0, "y": 0}, "rail": {"w": 72, "h": 372, "x": 1368, "y": 112}, "strip": {"w": 1440, "h": 96, "x": 0, "y": 804}, "sidebar": {
+0 gagal
+
+(catatan: baris PASS panjang terpotong saat grep; keluaran penuh ada di riwayat sesi. Semua kriteria: StudioView 337 baris <= 400,
+5 file baru ada, tanpa state duplikat transkrip, satu elemen <video>, tanpa dark/neon/TODO/console.log,
+bundle +0.76% (<=5%), token aksen ada di CSS build, screenshot 1440+1280 ada, verify-t2b/verify-t3b/verify-t3c exit 0,
+measure.mjs header 56 / rail 72 / strip 96 / sidebar 360.)

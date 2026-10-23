@@ -60,7 +60,8 @@ if (await colBtn.count()) {
   await page.waitForTimeout(500);
 }
 ck("tanpa pageerror", errs.length === 0, errs.slice(0, 2).join(" | "));
-await page.screenshot({ path: "docs/evidence/T3b/after/timeline-pm.png" });
+import { resolve } from "node:path";
+await page.screenshot({ path: resolve(process.cwd(), "..", "docs/evidence/T3b/after/timeline-pm.png") });
 await b.close();
 console.log(`\n${pass.length} lulus, ${fail.length} gagal`);
 process.exit(fail.length ? 1 : 0);

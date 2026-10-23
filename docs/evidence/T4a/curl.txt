@@ -1,0 +1,13 @@
+$ curl -s localhost:8000/api/health
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+
+$ curl -s -o /dev/null -w "%{http_code}" -X POST localhost:8000/api/export -H "Content-Type: application/json" -d '{"clip_id":"x","resolution":"480p"}'
+400   # resolusi di luar 1080p|720p
+
+$ curl -s -w "\n%{http_code}" localhost:8000/api/export/nope
+{"detail":"Job export nope tidak ditemukan"}
+404
+
+$ curl -s localhost:8000/api/projects | head -c 120
+{"projects":[{"id":"261e5b42f5","title":"BELANJA KE KOPDES",...
+# project nyata tidak tersentuh, route lama jalan

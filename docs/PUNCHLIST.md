@@ -13,3 +13,5 @@ Diisi dari verifikasi visual/angka tiap tugas. Item dicoret setelah dikerjakan.
 | P-07 | Meta text abu-abu `--vz-text-muted` di atas putih ~3.5:1 | `T1b` audit kontras | T4 | OPEN |
 | P-08 | `GalleryView` blank di harness mock: `c.name` dipakai, mock cuma kirim `slug` | laporan T1b | gue patch `_mock.py` (kirim `name` juga) | **FIXED** |
 | P-09 | Refactor T3c memenuhi ≤400 baris, tapi state masih di `StudioView` (23 useState/useEffect); hook `useEditorState` baru 85 baris | audit T3c | T4/T5 (pindah bertahap saat menyentuh file) | OPEN |
+| P-10 | Mode filmstrip: kandidat ≥6 bikin item `flex-row` → stage `w=0` (sidebar/stage tertutup) | A/B T3c, ada juga di build HEAD | T6 (layout/ratio) | OPEN |
+| P-11 | `PreviewStage` 965 & `GeneratePanel` 513 baris — masih besar, belum dipecah | audit T3c | T6/T10 | OPEN |

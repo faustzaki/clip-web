@@ -1,0 +1,26 @@
+PASS GET /api/health 200 + ffmpeg — {"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+PASS source uji dibuat — source.mp4
+PASS POST /api/projects/{pid}/render 200 (tanpa regresi) — {"status":"ok","clip":{"name":"t4a-cek-ekspor.mp4","slug":"t4a-cek-ekspor","url":"/clips/8e43c5ac1d/raw/t4a-cek-ekspor.mp4","raw_url":"/clips/8e43c5ac1d/raw/t4a
+PASS klip hasil render punya slug — t4a-cek-ekspor
+PASS POST /api/export 200 + job_id — {"ok":true,"job_id":"7af3ddcc7a374a2d"}
+  job 720p: {"ok": true, "job_id": "7af3ddcc7a374a2d", "status": "done", "path": "/clips/8e43c5ac1d/t4a-cek-ekspor_720p.mp4", "error": null, "progress": 100}  (2.0s)
+PASS job 720p status done — done
+PASS job 720p error kosong — None
+PASS job 720p progress 100 — 100
+PASS job 720p path web benar — /clips/8e43c5ac1d/t4a-cek-ekspor_720p.mp4
+PASS file 720p ada di clips/ — C:\Users\faust\orca\clip-web\clips\8e43c5ac1d\t4a-cek-ekspor_720p.mp4
+PASS ffprobe 720p = 720x1280 — h264,720,1280,24/1
+PASS ffprobe 720p fps 24 — h264,720,1280,24/1
+PASS unduh lewat path web 200 video/mp4 — 200 video/mp4
+PASS POST /api/export 1080p 200 — {"ok":true,"job_id":"6704b987aba3e1c8"}
+PASS job 1080p status done — done
+PASS ffprobe 1080p = 1080x1920 — h264,1080,1920,30/1
+PASS ffprobe 1080p fps 30 — h264,1080,1920,30/1
+PASS sha256 720p != 1080p
+PASS clip_id salah -> 404 {ok:false,reason} — 404 {"ok":false,"reason":"Klip 'tidak-ada-klip' tidak ditemukan"}
+PASS export klip tanpa sumber tetap bikin job (bukan 500) — {"ok":true,"job_id":"c45318b19b62be69"}
+  job gagal: {"ok": true, "job_id": "c45318b19b62be69", "status": "failed", "path": "/clips/d80b37b7e5/orphan_clip_720p.mp4", "error": "Video sumber tidak ditemukan", "progress": 5}
+PASS job gagal status failed + error terisi — {"ok": true, "job_id": "c45318b19b62be69", "status": "failed", "path": "/clips/d80b37b7e5/orphan_clip_720p.mp4", "error": "Video sumber tidak ditemukan", "progress": 5}
+PASS file uji dibersihkan dari work/ dan clips/
+
+0 gagal

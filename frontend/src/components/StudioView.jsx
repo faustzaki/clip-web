@@ -8,6 +8,7 @@ import PreviewStage from './PreviewStage';
 import EditorHeader from './EditorHeader';
 import ToolRail from './ToolRail';
 import ClipStrip from './ClipStrip';
+import ExportModal from './ExportModal';
 import Timeline from './Timeline';
 
 export default function StudioView({
@@ -50,13 +51,18 @@ export default function StudioView({
     }
   };
 
-  const handleClipDownload = (clip) => {
-    const href = clip.raw_url || clip.url;
-    if (!href) return;
-    const a = document.createElement('a');
-    a.href = href;
-    a.download = `${clip.slug}.mp4`;
-    a.click();
+  const [exportClip, setExportClip] = useState(null);
+  const exportTriggerRef = useRef(null);
+
+  const handleOpenExport = (clip, triggerEl) => {
+    exportTriggerRef.current = triggerEl || null;
+    setExportClip(clip);
+  };
+
+  const handleCloseExport = () => {
+    setExportClip(null);
+    exportTriggerRef.current?.focus();
+    exportTriggerRef.current = null;
   };
 
   // Sync boolean collapse/mode states to localStorage (NOT high-frequency pixel dimensions)
@@ -330,7 +336,14 @@ export default function StudioView({
         clips={clips}
         selected={selectedClip?.slug}
         onSelect={(clip) => setActiveCandidateIdx(clip.candidate_index ?? 0)}
-        onDownload={handleClipDownload}
+        onDownload={handleOpenExport}
+      />
+
+      <ExportModal
+        open={Boolean(exportClip)}
+        clip={exportClip}
+        onClose={handleCloseExport}
+        onStart={onClipRendered}
       />
     </div>
   );

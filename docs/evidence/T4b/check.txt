@@ -1,0 +1,94 @@
+=== py -3.13 scripts/check_t4b.py ===
+PASS file T4b ada (ExportModal, ClipStrip, StudioView, api.js, verify-t4b.mjs) — 5/5
+PASS api.js: startExport + getExport
+PASS ExportModal props open/clip/onClose/onStart
+PASS ExportModal: 480px + radius 12 + shadow-vz-lg + role=dialog + overlay token
+PASS ExportModal: Esc + klik overlay menutup
+PASS ExportModal: polling 2000ms + batas 5 menit + pesan timeout
+PASS ExportModal: field nama/resolusi/fps/bakar caption/format mp4/estimasi ukuran
+PASS ExportModal: state form/submitting/running/done/failed + copy Indonesia
+PASS ExportModal: footer Batal/Export via vz-btn 40px
+PASS ClipStrip: pemicu unduh buka modal + kirim elemen pemicu
+PASS StudioView: pasang ExportModal + fokus balik ke pemicu
+PASS tanpa dark/neon/gradient/TODO/console.log
+PASS build memuat token aksen — index-CRVw98K0.css
+PASS GET /api/health 200 + ffmpeg — {"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+PASS source uji dibuat — source.mp4
+PASS render klip untuk pemicu strip — t4b-cek-ekspor
+PASS ada pemicu export di UI — ditemukan
+PASS modal export terbuka
+PASS lebar modal ~480px — 480px
+PASS job selesai + link unduh muncul — /clips/b4e1d19f5d/t4b-cek-ekspor_720p.mp4
+PASS file bisa diunduh 200 video/mp4 — 200 video/mp4
+PASS Esc menutup modal — tertutup
+PASS fokus kembali ke elemen pemicu — activeElement="Unduh klip T4b cek ekspor #sho"
+PASS tanpa pageerror
+
+8 lulus, 0 gagal
+PASS verify-t4b.mjs (buka modal -> export -> unduh -> Esc fokus balik) — exit 0
+PASS export burn_caption=False status done — done
+PASS export burn_caption=True status done — done
+PASS sha256 burn_caption off != on — 8ca15e0c43b6 vs bd58521a561a
+PASS unduh path web 200 video/mp4 — 200 video/mp4
+PASS file uji dibersihkan dari work/ dan clips/
+
+0 gagal
+
+=== regresi: T2B_BASE=http://127.0.0.1:8000 py -3.13 scripts/check_t2b.py ===
+PASS TranscriptPanel.jsx ada — frontend\src\components\TranscriptPanel.jsx
+PASS props wajib panel lengkap — words/current/onSeek/onCut/loading/error
+FAIL StudioView impor + pakai TranscriptPanel
+FAIL StudioView kirim words/onSeek/onCut ke panel
+FAIL sidebar 360px tetap ada
+PASS api.js punya fetchTranscript + cutTranscript
+PASS cut kirim from_idx/to_idx (kontrak server)
+PASS tanpa console.log di file baru
+PASS tanpa dark/glow/gradien di panel — bersih
+PASS tanpa dependency baru — lucide-react,react,react-dom
+PASS build memuat panel transcript — 344426 byte js
+PASS kontrak transcript 200 + words>0 — 1829 kata
+WORDS 1829
+SEEK 2.585
+HASIL 44
+UNDERLINE yes
+ERRORS 0
+PASS probe UI exit 0 — code=0
+PASS daftar kata render di sidebar — 1829 kata
+PASS klik kata → video.currentTime = start kata — got 2.585 expect 2.585
+PASS cari kata → jumlah hasil muncul — 44 hasil
+PASS kata cocok tersorot — UNDERLINE yes
+PASS tanpa pageerror / console.error — ERRORS 0
+PASS probe UI lengkap (5 penanda) — lengkap
+
+3 gagal
+
+=== regresi: py -3.13 scripts/check_t3b.py ===
+PASS file T3b ada (Timeline.jsx, verifier, api.js) — 3/3
+PASS Timeline: data-region + tinggi 240/320 + ruler 24 + track 40
+PASS Timeline: 3 track Video/Teks/Audio, 4 zoom, playhead 2px accent, hint track kosong
+FAIL StudioView: fetchTimeline + zoom/collapse persisten di localStorage
+PASS api.js: fetchTimeline + saveTimeline
+PASS tanpa dark/neon/gradient/TODO/console.log
+PASS build CSS memuat token aksen — index-CRVw98K0.css
+PASS screenshot 1440 & 1280 ada — studio-1280x800.png, studio-1440x900.png, timeline-pm.png
+PASS timeline tampil — 1440x320
+PASS tinggi 240 atau 320 — 320px
+PASS klik ruler -> video pindah — 509.5s
+PASS zoom memperlebar konten — 25%:346px 200%:2768px
+PASS collapse 240/320 + tersimpan — h=240 stored=1
+PASS tanpa pageerror
+
+6 lulus, 0 gagal
+PASS verify-t3b.mjs (backend :8000) exit 0 — exit 0
+
+1 gagal
+
+=== BASELINE (git stash patch T4b, sumber = HEAD 545fb5e) ===
+$ git stash push -- frontend/src/api.js frontend/src/components/ClipStrip.jsx frontend/src/components/StudioView.jsx
+T2B_BASE=http://127.0.0.1:8000 py -3.13 scripts/check_t2b.py  → FAIL:
+  StudioView impor + pakai TranscriptPanel
+  StudioView kirim words/onSeek/onCut ke panel
+  sidebar 360px tetap ada
+py -3.13 scripts/check_t3b.py → FAIL:
+  StudioView: fetchTimeline + zoom/collapse persisten di localStorage
+(identik dengan hasil sesudah patch → 4 FAIL itu pra-eksisting, bukan regresi T4b)

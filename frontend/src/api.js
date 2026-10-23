@@ -272,6 +272,28 @@ export async function fetchTimeline(projectId) {
   return res.json();
 }
 
+export async function startExport(clipId, body = {}) {
+  const res = await apiFetch(`${BASE_URL}/api/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clip_id: clipId, ...body }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.job_id) {
+    throw new Error(data.reason || data.detail || 'Gagal memulai export');
+  }
+  return data;
+}
+
+export async function getExport(jobId) {
+  const res = await apiFetch(`${BASE_URL}/api/export/${jobId}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || err.reason || 'Gagal memeriksa status export');
+  }
+  return res.json();
+}
+
 export async function saveTimeline(projectId, items) {
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/timeline`, {
     method: 'POST',

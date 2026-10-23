@@ -36,10 +36,12 @@ try {
     shots.push(projects);
 
     // buka project pertama -> studio
-    const card = page.locator("[data-testid='project-card'], .project-card, main a, main button").first();
-    if (await card.count()) {
-      await card.click({ timeout: 4000 }).catch(() => {});
-      await sleep(1400);
+    await page.evaluate(() => {
+      const el = document.querySelector(".vz-card, [class*=cursor-pointer]");
+      if (el) el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    if (true) {
+      await sleep(1800);
       const studio = resolve(OUT, `studio-${vp.w}x${vp.h}.png`);
       await page.screenshot({ path: studio });
       shots.push(studio);

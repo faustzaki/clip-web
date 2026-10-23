@@ -188,7 +188,7 @@ export default function SubtitleApplyModal({
                   <div
                     style={{
                       fontFamily: style.font || 'Arial Black',
-                      fontSize: px(style.font_size || 96),
+                      fontSize: px(style.font_size || 43),
                       fontWeight: style.bold ? 900 : 400,
                       color: style.primary_color || '#FFFFFF',
                       WebkitTextStroke: `${px(style.outline_width ?? 5)}px ${style.outline_color || '#000000'}`,

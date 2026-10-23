@@ -1,7 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
-  Sliders,
+  Pencil,
+  Ratio,
+  RectangleVertical,
+  RectangleHorizontal,
+  Expand,
+  Type,
+  Captions,
   Scissors,
   CheckSquare,
   Square,
@@ -28,11 +34,41 @@ import {
   ZoomOut,
   Move,
   Maximize2,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { scoreMoments, renderClip, putPrefs, publishClip } from '../api';
-import SubtitleStyleEditor from './SubtitleStyleEditor';
 import SubtitlePreview from './SubtitlePreview';
+import SubtitleStyleEditor from './SubtitleStyleEditor';
+import IconDropdown from './IconDropdown';
 
+const FRAMING_OPTIONS = [
+  {
+    id: 'speaker-tracked',
+    label: 'Auto Face Tracking (Ekspresi & Reaksi Wajah Seru)',
+    desc: 'Fokus melacak wajah pembicara secara dinamis saat bereaksi atau berekspresi heboh.',
+  },
+  {
+    id: 'topic-hook',
+    label: 'Topik Pembicaraan Seru & Viral Hook (Fokus Dialog)',
+    desc: 'Mencari percakapan paling menarik, punchline, atau hook dialog yang memicu rasa penasaran penonton.',
+  },
+  {
+    id: 'center',
+    label: 'Center Crop (Fokus Tengah)',
+    desc: 'Framing vertikal statis di posisi tengah frame video 16:9.',
+  },
+  {
+    id: 'split',
+    label: 'Split Gaming (Reaksi Wajah + Gameplay)',
+    desc: 'Tata letak split atas-bawah: kamera reaksi wajah di atas (45%) dan gameplay aksi di bawah (55%).',
+  },
+  {
+    id: 'blur',
+    label: 'Blurred Background (Sinematik Blur)',
+    desc: 'Video 16:9 utuh di tengah dengan padding latar belakang blur vertikal sinematik.',
+  },
+];
 const SUBTITLE_SAMPLE = ['CONTOH', 'TEKS', 'SUBTITLE', 'KARAOKE'];
 
 export default function StudioView({
@@ -183,6 +219,10 @@ export default function StudioView({
     if (p && p.id !== prefsPid) {
       setPrefs({
         ...p.render_prefs,
+        subtitles_enabled: Boolean(p.render_prefs?.subtitles_enabled),
+        title_enabled: Boolean(p.render_prefs?.title_enabled),
+        watermark_enabled: Boolean(p.render_prefs?.watermark_enabled),
+        watermark: p.render_prefs?.watermark ?? '',
         subtitle_style: { ...(p.render_prefs?.subtitle_style || {}) }
       });
       setPrefsPid(p.id);
@@ -212,13 +252,16 @@ export default function StudioView({
   const [minDur, setMinDur] = useState(15);
   const [maxDur, setMaxDur] = useState(60);
   const [cropMode, setCropMode] = useState('speaker-tracked');
+  const selectedFraming = FRAMING_OPTIONS.find((f) => f.id === cropMode) || FRAMING_OPTIONS[0];
   const [tightenCuts, setTightenCuts] = useState(true);
   const [renderQuality, setRenderQuality] = useState('hd');
+  const [subtitleSectionOpen, setSubtitleSectionOpen] = useState(true);
   const [isScoring, setIsScoring] = useState(false);
   const [renderingIndices, setRenderingIndices] = useState(new Set());
   const [statusMessage, setStatusMessage] = useState('');
 
   const [activeCandidateIdx, setActiveCandidateIdx] = useState(0);
+  const [editMode, setEditMode] = useState(false);
 
   const videoRef = useRef(null);
   const bottomScrollRef = useRef(null);
@@ -229,6 +272,7 @@ export default function StudioView({
   const candidates = state?.candidates || [];
   const currentVideo = state?.video;
   const clips = state?.clips || [];
+  const panelTitle = editMode ? 'Edit Clip' : 'Generate Clip';
   const activeCandidate = candidates[activeCandidateIdx] || null;
   const aspect = prefs?.aspect || '9:16';
   const st = prefs?.subtitle_style || {};
@@ -245,9 +289,18 @@ export default function StudioView({
   const subBoxRef = useRef(null);
 
   // Video view mode & freeform state
-  const [videoViewMode, setVideoViewMode] = useState('cover'); // 'fit' | 'cover' | 'freeform'
+  const [videoViewMode, setVideoViewMode] = useState('fit'); // 'fit' | 'cover' | 'freeform'
   const [videoPos, setVideoPos] = useState({ x: 0, y: 0 });
   const [videoScale, setVideoScale] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playIndicator, setPlayIndicator] = useState(null); // { type: 'play' | 'pause', key: number }
+  const playAnimTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    setVideoViewMode('fit');
+    setVideoPos({ x: 0, y: 0 });
+    setVideoScale(1);
+  }, [projectId]);
 
   useEffect(() => {
     const el = bottomScrollRef.current;
@@ -300,11 +353,24 @@ export default function StudioView({
     }
   };
 
+  const triggerPlayOverlay = (type) => {
+    clearTimeout(playAnimTimeoutRef.current);
+    setPlayIndicator({ type, key: Date.now() });
+    playAnimTimeoutRef.current = setTimeout(() => {
+      setPlayIndicator(null);
+    }, 650);
+  };
+
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v || !currentVideo?.url) return;
-    if (v.paused) v.play().catch(() => {});
-    else v.pause();
+    if (v.paused) {
+      v.play().catch(() => {});
+      triggerPlayOverlay('play');
+    } else {
+      v.pause();
+      triggerPlayOverlay('pause');
+    }
   };
 
   const toggleMute = () => {
@@ -354,22 +420,22 @@ export default function StudioView({
 
     const move = (ev) => {
       const dx = ev.clientX - frameCenterX;
-      const isCenterSnapped = Math.abs(dx) <= 16;
-      const offX = isCenterSnapped ? 0 : Math.round(dx * 0.4);
+      const isCenterSnapped = Math.abs(dx) <= 8;
+      const offX = isCenterSnapped ? 0 : Math.round(dx);
 
       const r = Math.min(1, Math.max(0, (ev.clientY - frameRect.top) / frameRect.height));
       let patch;
       let snapZone = null;
 
-      if (r < 0.25) {
+      if (r < 0.08) {
         snapZone = 'top';
-        patch = { position: 'top', margin_v: 150 };
-      } else if (r >= 0.40 && r <= 0.60) {
+        patch = { position: 'top', margin_v: 120 };
+      } else if (Math.abs(r - 0.5) <= 0.03) {
         snapZone = 'middle';
         patch = { position: 'middle', margin_v: 0 };
-      } else if (r > 0.75) {
+      } else if (r > 0.92) {
         snapZone = 'bottom';
-        patch = { position: 'bottom', margin_v: 250 };
+        patch = { position: 'bottom', margin_v: 200 };
       } else if (r < 0.5) {
         patch = { position: 'top', margin_v: Math.round(Math.min(900, Math.max(0, r * 1920))) };
       } else {
@@ -448,7 +514,7 @@ export default function StudioView({
     const centerX = boxRect.left + boxRect.width / 2;
     const centerY = boxRect.top + boxRect.height / 2;
     const startDist = Math.hypot(e.clientX - centerX, e.clientY - centerY);
-    const startFontSize = Number(prefsRef.current?.subtitle_style?.font_size || 96);
+    const startFontSize = Number(prefsRef.current?.subtitle_style?.font_size || 43);
 
     const move = (ev) => {
       const curDist = Math.hypot(ev.clientX - centerX, ev.clientY - centerY);
@@ -563,7 +629,9 @@ export default function StudioView({
         max_clips: 8,
         min_len: minDur,
         max_len: maxDur,
-        use_llm: selectedModel !== 'heuristic'
+        use_llm: selectedModel !== 'heuristic',
+        search_logic: cropMode,
+        crop_mode: cropMode
       });
 
       setIsScoring(false);
@@ -593,7 +661,7 @@ export default function StudioView({
       const res = await renderClip(projectId, {
         candidate_index: idx,
         aspect: aspect,
-        crop_mode: cropMode,
+        crop_mode: cropMode === 'topic-hook' ? 'center' : cropMode,
         crop_rect: (state?.project?.crops || {})[String(idx)] || null,
         do_tighten: tightenCuts,
         custom_hook: cand.hook,
@@ -674,6 +742,20 @@ export default function StudioView({
               {c.hook || `Klip #${i + 1}`}
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveCandidateIdx(i);
+              setEditMode(true);
+            }}
+            title="Edit Clip"
+            aria-label="Edit Clip"
+            className="absolute top-1 right-1 z-10 p-1 rounded-lg bg-dark-card/90 border border-dark-border text-gray-300 hover:text-neon hover:border-neon transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
         </div>
       );
     }
@@ -710,6 +792,20 @@ export default function StudioView({
         <p className="text-xs font-bold text-yellow-300 line-clamp-2 leading-snug">
           {c.hook || `Klip #${i + 1}`}
         </p>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveCandidateIdx(i);
+            setEditMode(true);
+          }}
+          title="Edit Clip"
+          aria-label="Edit Clip"
+          className="absolute top-1 right-1 z-10 p-1 rounded-lg bg-dark-card/90 border border-dark-border text-gray-300 hover:text-neon hover:border-neon transition-colors"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
       </div>
     );
   };
@@ -730,15 +826,19 @@ export default function StudioView({
                 type="button"
                 onClick={() => setLeftCollapsed(false)}
                 className="p-1.5 rounded-lg bg-dark-bg border border-dark-border text-gray-400 hover:text-neon hover:border-neon transition-colors"
-                title="Buka Pengaturan"
+                title={`Buka ${panelTitle}`}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <Sliders className="w-4 h-4 text-neon" />
+              {editMode ? (
+                <Pencil className="w-4 h-4 text-neon" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-neon" />
+              )}
               <div
                 className="text-xs font-bold text-gray-400 uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 py-4 select-none"
               >
-                Pengaturan
+                {panelTitle}
               </div>
             </div>
           ) : (
@@ -746,19 +846,32 @@ export default function StudioView({
             <div className="bg-dark-card border border-dark-border rounded-2xl shadow-xl flex-1 flex flex-col h-full min-h-0 overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between border-b border-dark-border/60 p-3 shrink-0">
-                <h2 className="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-neon" />
-                  <span>Pengaturan</span>
-                </h2>
+                <button
+                  type="button"
+                  onClick={() => setEditMode((v) => !v)}
+                  aria-expanded={editMode}
+                  title={editMode ? 'Beralih ke Generate Clip' : 'Beralih ke Edit Clip'}
+                  className="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2 hover:text-neon transition-colors"
+                >
+                  {editMode ? <Pencil className="w-4 h-4 text-neon" /> : <Sparkles className="w-4 h-4 text-neon" />}
+                  <span>{panelTitle}</span>
+                </button>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neon/10 text-neon border border-neon/20">
-                    V2.1 PRO
-                  </span>
+                  {editMode && (
+                    <button
+                      type="button"
+                      onClick={() => setEditMode(false)}
+                      title="Kembali ke Generate Clip"
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-gray-400 hover:text-neon hover:bg-dark-hover transition-colors"
+                    >
+                      Generate Clip
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setLeftCollapsed(true)}
                     className="p-1 rounded text-gray-400 hover:text-white hover:bg-dark-hover transition-colors"
-                    title="Minimize panel pengaturan"
+                    title={`Minimize panel ${panelTitle}`}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -817,85 +930,11 @@ export default function StudioView({
                   </div>
                 ) : (
                   <>
-                    {/* Toggles: Subtitle, Judul Clip, Watermark */}
-                    <div className="bg-dark-bg/60 border border-dark-border rounded-xl p-3 flex flex-col gap-2.5 shrink-0">
-                      <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wide">
-                        Opsi Komponen Video
-                      </span>
-
-                      {/* Subtitle toggle */}
-                      <label className="flex items-center justify-between cursor-pointer">
-                        <span className="text-xs text-gray-300">Subtitle Otomatis</span>
-                        <input
-                          type="checkbox"
-                          checked={prefs?.subtitles_enabled !== false}
-                          onChange={(e) => savePrefs({ ...(prefs || {}), subtitles_enabled: e.target.checked })}
-                          className="accent-neon w-4 h-4 rounded cursor-pointer"
-                        />
-                      </label>
-
-                      {/* Judul Clip (Hook banner) toggle */}
-                      <label className="flex items-center justify-between cursor-pointer">
-                        <span className="text-xs text-gray-300">Judul Clip (Hook Banner)</span>
-                        <input
-                          type="checkbox"
-                          checked={prefs?.title_enabled !== false}
-                          onChange={(e) => savePrefs({ ...(prefs || {}), title_enabled: e.target.checked })}
-                          className="accent-neon w-4 h-4 rounded cursor-pointer"
-                        />
-                      </label>
-
-                      {/* Watermark toggle */}
-                      <label className="flex items-center justify-between cursor-pointer">
-                        <span className="text-xs text-gray-300">Watermark Handle</span>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(prefs?.watermark_enabled)}
-                          onChange={(e) => savePrefs({ ...(prefs || {}), watermark_enabled: e.target.checked })}
-                          className="accent-neon w-4 h-4 rounded cursor-pointer"
-                        />
-                      </label>
-
-                      {prefs?.watermark_enabled && (
-                        <input
-                          type="text"
-                          value={prefs?.watermark || ''}
-                          onChange={(e) => savePrefs({ ...(prefs || {}), watermark: e.target.value })}
-                          placeholder="@username"
-                          className="w-full bg-dark-bg border border-dark-border rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-neon mt-1"
-                        />
-                      )}
-                    </div>
-
-                    {/* Subtitle Style & Preview */}
-                    <div className="border border-dark-border rounded-xl p-3 bg-dark-bg/40 flex flex-col gap-3 shrink-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wide">
-                          Gaya Subtitle (Per-Project)
-                        </span>
-                        <span className="text-[10px] text-gray-500">Live Preview</span>
-                      </div>
-
-                      <SubtitlePreview
-                        style={prefs?.subtitle_style}
-                        height={180}
-                      />
-
-                      {prefs?.subtitles_enabled !== false && (
-                        <div className="pt-2 border-t border-dark-border/60">
-                          <SubtitleStyleEditor
-                            value={prefs?.subtitle_style}
-                            onChange={(newSt) => savePrefs({ ...(prefs || {}), subtitle_style: newSt })}
-                            fonts={options?.subtitle_fonts}
-                            positions={options?.subtitle_positions}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* AI Model Selector */}
+                    {!editMode && (
+                      <>
+                    {/* 1. Pilih Model AI untuk Generate */}
                     <div className="space-y-1.5 shrink-0">
-                      <label className="text-[11px] font-bold text-gray-400">Model AI Scorer</label>
+                      <label className="text-[11px] font-bold text-gray-300">Pilih Model AI untuk Generate</label>
                       <select
                         value={selectedModel}
                         onChange={(e) => setSelectedModel(e.target.value)}
@@ -909,97 +948,67 @@ export default function StudioView({
                       </select>
                     </div>
 
-                    {/* Duration Sliders */}
-                    <div className="grid grid-cols-2 gap-3 pt-1 shrink-0">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] text-gray-400">
-                          <span>Min:</span>
-                          <span className="text-white font-bold">{minDur}s</span>
+                    {/* 2. Min & Max durasi */}
+                    <div className="space-y-2 pt-1 shrink-0">
+                      <span className="text-[11px] font-bold text-gray-300">Min & Max Durasi</span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1 bg-dark-bg/60 border border-dark-border p-2.5 rounded-xl">
+                          <div className="flex justify-between text-[11px] text-gray-400">
+                            <span>Min:</span>
+                            <span className="text-neon font-bold font-mono">{minDur}s</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="45"
+                            value={minDur}
+                            onChange={(e) => setMinDur(Number(e.target.value))}
+                            className="w-full accent-neon h-1.5 bg-dark-border rounded-lg appearance-none cursor-pointer"
+                          />
                         </div>
-                        <input
-                          type="range"
-                          min="10"
-                          max="45"
-                          value={minDur}
-                          onChange={(e) => setMinDur(Number(e.target.value))}
-                          className="w-full accent-neon h-1.5 bg-dark-border rounded-lg appearance-none cursor-pointer"
-                        />
-                      </div>
 
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] text-gray-400">
-                          <span>Max:</span>
-                          <span className="text-white font-bold">{maxDur}s</span>
+                        <div className="space-y-1 bg-dark-bg/60 border border-dark-border p-2.5 rounded-xl">
+                          <div className="flex justify-between text-[11px] text-gray-400">
+                            <span>Max:</span>
+                            <span className="text-neon font-bold font-mono">{maxDur}s</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="30"
+                            max="90"
+                            value={maxDur}
+                            onChange={(e) => setMaxDur(Number(e.target.value))}
+                            className="w-full accent-neon h-1.5 bg-dark-border rounded-lg appearance-none cursor-pointer"
+                          />
                         </div>
-                        <input
-                          type="range"
-                          min="30"
-                          max="90"
-                          value={maxDur}
-                          onChange={(e) => setMaxDur(Number(e.target.value))}
-                          className="w-full accent-neon h-1.5 bg-dark-border rounded-lg appearance-none cursor-pointer"
-                        />
                       </div>
                     </div>
 
-                    {/* Framing / Crop Mode Selector */}
-                    <div className="space-y-1.5 pt-1 shrink-0">
-                      <label className="text-[11px] font-bold text-gray-400">Mode Framing & Crop</label>
+                    {/* 3. Mode Framing & Crop (AI Logic) */}
+                    <div className="space-y-2 pt-1 shrink-0">
+                      <label className="text-[11px] font-bold text-gray-300">Mode Framing & Crop</label>
                       <select
                         value={cropMode}
                         onChange={(e) => setCropMode(e.target.value)}
                         className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-neon transition-colors"
                       >
-                        {(options?.crop_modes || [
-                          { id: 'speaker-tracked', label: 'Auto Face Tracking (YuNet)' },
-                          { id: 'center', label: 'Center Crop' },
-                          { id: 'blur', label: 'Blurred Background' },
-                          { id: 'split', label: 'Split Gaming' }
-                        ]).map((c) => (
+                        {FRAMING_OPTIONS.map((c) => (
                           <option key={c.id} value={c.id}>{c.label}</option>
                         ))}
                       </select>
+
+                      {selectedFraming && (
+                        <div className="p-2.5 rounded-xl bg-dark-bg/80 border border-dark-border text-[11px] text-gray-300 leading-relaxed">
+                          {selectedFraming.desc}
+                        </div>
+                      )}
+
+                      <p className="text-[10px] text-gray-500 leading-normal">
+                        AI akan mendeteksi dan memotong momen viral berdasarkan logic framing yang dipilih di atas (misal ekspresi seru atau topik dialog menarik).
+                      </p>
                     </div>
 
-                    {/* Filler cuts toggle */}
-                    <label className="flex items-center gap-2 cursor-pointer pt-1 shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={tightenCuts}
-                        onChange={(e) => setTightenCuts(e.target.checked)}
-                        className="accent-neon rounded"
-                      />
-                      <span className="text-xs text-gray-300">Buang jeda hening / filler cuts</span>
-                    </label>
-
-                    {/* Render Quality Selector */}
-                    {state?.project?.source_url && (
-                      <div className="space-y-1.5 shrink-0">
-                        <label className="text-[11px] font-bold text-gray-400">Kualitas Render</label>
-                        <div className="flex items-center gap-1.5 bg-dark-bg p-1 rounded-xl border border-dark-border">
-                          {[
-                            { id: 'proxy', label: 'Proxy 360p' },
-                            { id: 'hd', label: '1080p' },
-                            { id: 'best', label: 'Terbaik' }
-                          ].map((q) => (
-                            <button
-                              key={q.id}
-                              type="button"
-                              onClick={() => setRenderQuality(q.id)}
-                              className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition-all text-center ${
-                                renderQuality === q.id
-                                  ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
-                                  : 'text-gray-400 hover:text-white'
-                              }`}
-                            >
-                              {q.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Primary Find Moments Button */}
+                    {/* 4. Primary Find Moments Button */}
                     <button
                       onClick={handleFindMoments}
                       disabled={isScoring || !state?.video}
@@ -1017,6 +1026,156 @@ export default function StudioView({
                         </>
                       )}
                     </button>
+                      </>
+                    )}
+
+                    {editMode && candidates.length === 0 && (
+                      <p className="text-xs text-gray-500 text-center py-2">Belum ada klip untuk diedit.</p>
+                    )}
+
+                    {/* Edit Clip settings (shown when clips have been generated) */}
+                    {editMode && candidates.length > 0 && (
+                      <div className="space-y-3.5">
+                        {/* Opsi Komponen Video */}
+                        <div className="space-y-2">
+                          <label className="text-[11px] font-bold text-gray-300">
+                            Opsi Komponen Video
+                          </label>
+                          <div className="space-y-2.5 bg-dark-bg/60 border border-dark-border p-3 rounded-xl">
+                            {/* Subtitle Otomatis */}
+                            <label className="flex items-center justify-between cursor-pointer">
+                              <span className="text-xs text-gray-300 font-medium">Subtitle Otomatis</span>
+                              <input
+                                type="checkbox"
+                                 checked={Boolean(prefs?.subtitles_enabled)}
+                                onChange={(e) => savePrefs({ ...(prefs || {}), subtitles_enabled: e.target.checked })}
+                                className="accent-neon w-4 h-4 rounded cursor-pointer"
+                              />
+                            </label>
+
+                            {/* Judul Clip (Hook Banner) */}
+                            <label className="flex items-center justify-between cursor-pointer">
+                              <span className="text-xs text-gray-300 font-medium">Judul Clip (Hook Banner)</span>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(prefs?.title_enabled)}
+                                onChange={(e) => savePrefs({ ...(prefs || {}), title_enabled: e.target.checked })}
+                                className="accent-neon w-4 h-4 rounded cursor-pointer"
+                              />
+                            </label>
+
+                            {/* Watermark Handle */}
+                            <div className="space-y-2 pt-1 border-t border-dark-border/50">
+                              <label className="flex items-center justify-between cursor-pointer">
+                                <span className="text-xs text-gray-300 font-medium">Watermark Handle</span>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(prefs?.watermark_enabled)}
+                                  onChange={(e) => savePrefs({ ...(prefs || {}), watermark_enabled: e.target.checked })}
+                                  className="accent-neon w-4 h-4 rounded cursor-pointer"
+                                />
+                              </label>
+                              <input
+                                type="text"
+                                value={prefs?.watermark ?? ''}
+                                onChange={(e) => savePrefs({ ...(prefs || {}), watermark: e.target.value })}
+                                placeholder="@username"
+                                disabled={!prefs?.watermark_enabled}
+                                className="w-full bg-dark-bg border border-dark-border rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-neon transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Gaya Subtitle (Per-Project) Accordion */}
+                        <div className="space-y-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setSubtitleSectionOpen(!subtitleSectionOpen)}
+                            className="w-full flex items-center justify-between text-[11px] font-bold text-gray-300 hover:text-white transition-colors py-0.5"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span>Gaya Subtitle (Per-Project)</span>
+                              {Boolean(prefs?.subtitles_enabled) && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-neon/10 text-neon font-semibold">ON</span>
+                              )}
+                            </span>
+                            {subtitleSectionOpen ? (
+                              <ChevronUp className="w-4 h-4 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+
+                          {subtitleSectionOpen && (
+                            <div className="space-y-3 bg-dark-bg/60 border border-dark-border p-3 rounded-xl">
+                              {/* Live Preview */}
+                              <div className="flex flex-col items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Preview Subtitle</span>
+                                <div className="bg-black/60 border border-dark-border rounded-xl p-2 w-full flex justify-center">
+                                  <SubtitlePreview
+                                    style={prefs?.subtitle_style || {}}
+                                    height={150}
+                                    words={activeCandidate?.text_preview ? activeCandidate.text_preview.split(' ') : undefined}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Subtitle Style Editor */}
+                              <SubtitleStyleEditor
+                                value={prefs?.subtitle_style || {}}
+                                onChange={(newStyle) => savePrefs({ ...(prefs || {}), subtitle_style: newStyle })}
+                                fonts={options?.subtitle_fonts}
+                                positions={options?.subtitle_positions}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Buang jeda hening / filler cuts */}
+                        <div className="space-y-1.5 pt-1">
+                          <label className="flex items-center justify-between cursor-pointer bg-dark-bg/60 border border-dark-border p-3 rounded-xl hover:border-gray-600 transition-colors">
+                            <div>
+                              <span className="text-xs text-gray-300 font-medium block">Buang jeda hening / filler cuts</span>
+                              <span className="text-[10px] text-gray-500 block">Tighten audio & visual cuts otomatis saat render</span>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={tightenCuts}
+                              onChange={(e) => setTightenCuts(e.target.checked)}
+                              className="accent-neon w-4 h-4 rounded cursor-pointer shrink-0"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Kualitas Render */}
+                        <div className="space-y-1.5 pt-1">
+                          <label className="text-[11px] font-bold text-gray-300 block">
+                            Kualitas Render
+                          </label>
+                          <div className="flex items-center gap-1.5 bg-dark-bg p-1 rounded-xl border border-dark-border">
+                            {[
+                              { id: 'proxy', label: 'Proxy 360p' },
+                              { id: 'hd', label: '1080p' },
+                              { id: 'best', label: 'Terbaik' }
+                            ].map((q) => (
+                              <button
+                                key={q.id}
+                                type="button"
+                                onClick={() => setRenderQuality(q.id)}
+                                className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
+                                  renderQuality === q.id
+                                    ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
+                                    : 'text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                {q.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1028,59 +1187,59 @@ export default function StudioView({
         <div
           onPointerDown={startLeftDrag}
           className="hidden lg:block w-1.5 shrink-0 rounded-full bg-dark-border hover:bg-neon cursor-col-resize select-none transition-colors"
-          title="Tarik untuk mengubah lebar panel Pengaturan"
+          title={`Tarik untuk mengubah lebar panel ${panelTitle}`}
         />
 
         {/* Center Live Player & Preview */}
         <main className="flex-1 min-w-0 flex flex-col items-center justify-between overflow-hidden gap-1.5 py-1">
           {/* Top Bar: Aspect Ratio + Video View Mode */}
           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-center px-1">
-            {/* Aspect Ratio Pills */}
-            <div className="flex items-center gap-1 bg-dark-card p-1 rounded-xl border border-dark-border shadow-md">
-              <span className="text-[10px] font-bold text-gray-400 uppercase px-1.5">Rasio</span>
-              {['9:16', '1:1', '16:9'].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => savePrefs({ ...(prefs || {}), aspect: r })}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    aspect === r
-                      ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
+            {/* Aspect Ratio Dropdown */}
+            <IconDropdown
+              icon={Ratio}
+              title="Rasio"
+              activeIcon={aspect === '1:1' ? Square : aspect === '16:9' ? RectangleHorizontal : RectangleVertical}
+              items={[
+                { id: '9:16', label: '9:16', icon: RectangleVertical, active: aspect === '9:16' },
+                { id: '1:1', label: '1:1', icon: Square, active: aspect === '1:1' },
+                { id: '16:9', label: '16:9', icon: RectangleHorizontal, active: aspect === '16:9' },
+              ]}
+              onSelect={(r) => savePrefs({ ...(prefs || {}), aspect: r })}
+            />
 
-            {/* Video View Mode Selector */}
-            <div className="flex items-center gap-1 bg-dark-card p-1 rounded-xl border border-dark-border shadow-md">
-              <span className="text-[10px] font-bold text-gray-400 uppercase px-1.5">Video</span>
-              {[
-                { id: 'fit', label: 'Fit (Utuh)', desc: 'Tampilkan video utuh tanpa terpotong' },
-                { id: 'cover', label: 'Cover (Penuh)', desc: 'Penuhi layar (standard crop)' },
-                { id: 'freeform', label: 'Bebas (Transform)', desc: 'Bebas geser & scale video' },
-              ].map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    setVideoViewMode(m.id);
-                    if (m.id !== 'freeform') {
-                      setVideoPos({ x: 0, y: 0 });
-                      setVideoScale(1);
-                    }
-                  }}
-                  title={m.desc}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    videoViewMode === m.id
-                      ? 'bg-neon text-black font-extrabold shadow-sm'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
+            {/* Video View Mode Dropdown */}
+            <IconDropdown
+              icon={Maximize2}
+              title="Tampilan Video"
+              items={[
+                { id: 'fit', label: 'Fit (Utuh)', icon: Maximize2, active: videoViewMode === 'fit' },
+                { id: 'cover', label: 'Isi Penuh', icon: Expand, active: videoViewMode === 'cover' },
+                { id: 'freeform', label: 'Bebas', icon: Move, active: videoViewMode === 'freeform' },
+              ]}
+              onSelect={(m) => {
+                setVideoViewMode(m);
+                if (m !== 'freeform') {
+                  setVideoPos({ x: 0, y: 0 });
+                  setVideoScale(1);
+                }
+              }}
+            />
+
+            {/* Overlay Dropdown: Judul & Subtitle (multi-toggle, stays open) */}
+            <IconDropdown
+              icon={Layers}
+              activeIcon={Layers}
+              title="Overlay"
+              closeOnSelect={false}
+              items={[
+                { id: 'judul', label: `Judul ${Boolean(prefs?.title_enabled) ? 'ON' : 'OFF'}`, icon: Type, active: Boolean(prefs?.title_enabled) },
+                { id: 'subtitle', label: `Subtitle ${Boolean(prefs?.subtitles_enabled) ? 'ON' : 'OFF'}`, icon: Captions, active: Boolean(prefs?.subtitles_enabled) },
+              ]}
+              onSelect={(id) => {
+                if (id === 'judul') savePrefs({ ...(prefs || {}), title_enabled: !prefs?.title_enabled });
+                if (id === 'subtitle') savePrefs({ ...(prefs || {}), subtitles_enabled: !prefs?.subtitles_enabled });
+              }}
+            />
           </div>
 
           {/* Vertical Mobile Phone Viewport (auto-scales cleanly to available height) */}
@@ -1097,8 +1256,22 @@ export default function StudioView({
               }}
               className="relative bg-black rounded-[24px] border-4 border-dark-border overflow-hidden shadow-2xl select-none"
             >
-              {/* Top Hook Banner Overlay (only if enabled) */}
-              {prefs?.title_enabled !== false && (
+              {/* Play/Pause Animated Click Indicator */}
+              {playIndicator && (
+                <div
+                  key={playIndicator.key}
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-play-pulse"
+                >
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white shadow-2xl">
+                    {playIndicator.type === 'play' ? (
+                      <Play className="w-8 h-8 md:w-10 md:h-10 fill-white translate-x-0.5" />
+                    ) : (
+                      <Pause className="w-8 h-8 md:w-10 md:h-10 fill-white" />
+                    )}
+                  </div>
+                </div>
+              )}
+              {Boolean(prefs?.title_enabled) && (
                 <div className="absolute top-6 left-0 right-0 z-20 flex justify-center px-4">
                   <div className="bg-black/90 backdrop-blur-sm border border-black/80 px-4 py-2 rounded-lg shadow-xl max-w-[90%] text-center">
                     <span className="text-yellow-300 font-extrabold text-xs md:text-sm tracking-wide uppercase line-clamp-2">
@@ -1128,7 +1301,7 @@ export default function StudioView({
 
               {/* Horizontal Snap Guidelines */}
               {subDragInfo.isDragging && subDragInfo.snapZone === 'top' && (
-                <div className="absolute left-0 right-0 top-[12%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
+                <div className="absolute left-0 right-0 top-[6%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
                   <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
                     Atas (Top)
                   </span>
@@ -1142,7 +1315,7 @@ export default function StudioView({
                 </div>
               )}
               {subDragInfo.isDragging && subDragInfo.snapZone === 'bottom' && (
-                <div className="absolute left-0 right-0 bottom-[12%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
+                <div className="absolute left-0 right-0 bottom-[6%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
                   <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
                     Bawah (Bottom)
                   </span>
@@ -1173,7 +1346,7 @@ export default function StudioView({
               )}
 
               {/* Subtitle Drag & Transform Overlay */}
-              {currentVideo?.url && prefs?.subtitles_enabled !== false && (
+              {currentVideo?.url && Boolean(prefs?.subtitles_enabled) && (
                 <div
                   className="absolute inset-0 z-20 flex justify-center pointer-events-none"
                   style={{
@@ -1196,7 +1369,7 @@ export default function StudioView({
                     }`}
                     style={{
                       fontFamily: st.font || 'Arial Black',
-                      fontSize: subPx(st.font_size || 96),
+                      fontSize: subPx(st.font_size || 43),
                       fontWeight: st.bold ? 900 : 400,
                       color: st.primary_color || '#FFFFFF',
                       WebkitTextStroke: `${subPx(st.outline_width ?? 5)}px ${st.outline_color || '#000000'}`,
@@ -1267,7 +1440,7 @@ export default function StudioView({
                               : '-bottom-9'
                           } left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2 py-0.5 rounded-full border border-dark-border shadow-2xl pointer-events-auto text-[10px] whitespace-nowrap z-40`}
                         >
-                          <span className="text-neon font-mono font-bold">{st.font_size || 96}px</span>
+                          <span className="text-neon font-mono font-bold">{st.font_size || 43}px</span>
                           <span className="text-gray-500">•</span>
                           <span className="text-neon font-mono font-bold">{st.angle || 0}°</span>
                           {(st.angle || 0) !== 0 && (
@@ -1283,17 +1456,17 @@ export default function StudioView({
                               Reset 0°
                             </button>
                           )}
-                          {Number(st.font_size || 96) !== 96 && (
+                          {Number(st.font_size || 43) !== 43 && (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                savePrefs({ ...(prefs || {}), subtitle_style: { ...(prefs?.subtitle_style || {}), font_size: 96 } });
+                                savePrefs({ ...(prefs || {}), subtitle_style: { ...(prefs?.subtitle_style || {}), font_size: 43 } });
                               }}
                               className="px-1.5 py-0.5 rounded bg-dark-bg hover:bg-neon hover:text-black text-gray-300 font-semibold border border-dark-border transition-colors"
-                              title="Reset ukuran font ke 96px"
+                              title="Reset ukuran font ke 43px"
                             >
-                              Reset 96px
+                              Reset 43px
                             </button>
                           )}
                         </div>
@@ -1313,6 +1486,8 @@ export default function StudioView({
                   onWheel={videoViewMode === 'freeform' ? handleVideoWheel : undefined}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
                   className={`w-full h-full select-none ${
                     videoViewMode === 'fit'
                       ? 'object-contain bg-black cursor-pointer'
@@ -1412,29 +1587,64 @@ export default function StudioView({
           )}
 
           {/* Full Video Timeline Scrubber */}
-          {currentVideo?.url && frameSize.w > 0 && (
-            <div style={{ width: frameSize.w }} className="flex items-center gap-2 shrink-0 px-1">
+          {currentVideo?.url && (
+            <div className="w-full max-w-3xl px-4 flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={togglePlay}
+                className="p-1 text-gray-300 hover:text-white transition-colors"
+                title={isPlaying ? 'Jeda video' : 'Putar video'}
+              >
+                {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+              </button>
               <span className="text-[11px] font-mono text-gray-300 tabular-nums">{mmss(currentTime)}</span>
               <div
                 ref={trackRef}
                 onPointerDown={startSeek}
-                className="relative flex-1 h-4 flex items-center cursor-pointer group/track"
+                className="relative flex-1 h-6 flex items-center cursor-pointer group/track select-none"
                 title="Klik atau tarik untuk pindah posisi video"
               >
-                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-dark-border overflow-hidden">
-                  {activeCandidate && duration > 0 && (
-                    <div
-                      className="absolute inset-y-0 bg-neon/40"
-                      style={{
-                        left: `${(activeCandidate.start / duration) * 100}%`,
-                        width: `${((activeCandidate.end - activeCandidate.start) / duration) * 100}%`,
-                      }}
-                    />
-                  )}
-                  <div className="absolute inset-y-0 left-0 bg-neon" style={{ width: `${pct}%` }} />
+                {/* Track background & current playback progress */}
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-dark-border overflow-hidden">
+                  <div className="absolute inset-y-0 left-0 bg-neon/60" style={{ width: `${pct}%` }} />
                 </div>
+
+                {/* Red markers for all generated candidates */}
+                {candidates.length > 0 && duration > 0 && candidates.map((c, idx) => {
+                  const isActive = activeCandidateIdx === idx;
+                  const leftPct = Math.max(0, Math.min(100, (c.start / duration) * 100));
+                  const rawWidth = ((c.end - c.start) / duration) * 100;
+                  const widthPct = Math.max(1, Math.min(100 - leftPct, rawWidth));
+
+                  return (
+                    <div
+                      key={idx}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        jumpToCandidate(idx);
+                      }}
+                      className={`group/marker absolute top-1/2 -translate-y-1/2 rounded-full cursor-pointer transition-all z-10 ${
+                        isActive
+                          ? 'h-3 bg-[#e6193c] ring-2 ring-white shadow-[0_0_12px_rgba(230,25,60,0.9)] z-20'
+                          : 'h-2 bg-[#e6193c]/85 hover:h-2.5 hover:bg-[#ff2b54]'
+                      }`}
+                      style={{
+                        left: `${leftPct}%`,
+                        width: `${widthPct}%`,
+                      }}
+                    >
+                      {/* Floating tooltip */}
+                      <div className="opacity-0 group-hover/marker:opacity-100 pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-black/95 border border-[#e6193c]/60 text-[11px] font-bold text-white whitespace-nowrap shadow-xl transition-opacity z-30 flex items-center gap-1.5 backdrop-blur-sm">
+                        <span className="w-2 h-2 rounded-full bg-[#e6193c] animate-pulse" />
+                        <span>Klip #{idx + 1} {mmss(c.start)}-{mmss(c.end)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Playhead thumb */}
                 <div
-                  className="absolute top-1/2 w-2.5 h-2.5 -translate-y-1/2 -translate-x-1/2 rounded-full bg-white border border-neon group-hover/track:scale-125 transition-transform"
+                  className="absolute top-1/2 w-3 h-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-white border border-neon z-30 pointer-events-none group-hover/track:scale-125 transition-transform shadow"
                   style={{ left: `${pct}%` }}
                 />
               </div>
@@ -1489,25 +1699,22 @@ export default function StudioView({
                 {/* Terapkan Subtitle / Jadikan Final */}
                 {activeExistingClip && (
                   <>
-                    {prefs?.subtitles_enabled !== false ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenSubtitleApply?.({ clip: activeExistingClip, candidate: activeCandidate })}
-                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Terapkan Subtitle</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handlePublish(activeExistingClip.slug)}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-500 text-dark-bg font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Jadikan Final</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onOpenSubtitleApply?.({ clip: activeExistingClip, candidate: activeCandidate })}
+                      className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Terapkan Subtitle</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePublish(activeExistingClip.slug)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500 text-dark-bg font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Jadikan Final</span>
+                    </button>
 
                     <a
                       href={activeExistingClip.raw_url || activeExistingClip.url}
@@ -1531,7 +1738,7 @@ export default function StudioView({
             <div
               onPointerDown={startRightDrag}
               className="hidden lg:block w-1.5 shrink-0 rounded-full bg-dark-border hover:bg-neon cursor-col-resize select-none transition-colors"
-              title="Tarik untuk mengubah lebar panel Hasil Pipeline AI"
+              title="Tarik untuk mengubah lebar panel Clips"
             />
 
             <aside
@@ -1545,13 +1752,13 @@ export default function StudioView({
                     type="button"
                     onClick={() => setRightCollapsed(false)}
                     className="p-1.5 rounded-lg bg-dark-bg border border-dark-border text-gray-400 hover:text-neon hover:border-neon transition-colors"
-                    title="Buka Hasil Pipeline AI"
+                    title="Buka Clips"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <Flame className="w-4 h-4 text-neon" />
                   <div className="text-xs font-bold text-gray-400 uppercase tracking-widest [writing-mode:vertical-rl] py-4 select-none">
-                    Hasil Pipeline AI
+                    Clips
                   </div>
                 </div>
               ) : (
@@ -1562,7 +1769,7 @@ export default function StudioView({
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Flame className="w-4 h-4 text-neon shrink-0" />
                       <h2 className="text-xs font-extrabold uppercase tracking-wider text-white truncate">
-                        Pipeline AI ({candidates.length})
+                        Clips ({candidates.length})
                       </h2>
                     </div>
 
@@ -1627,7 +1834,7 @@ export default function StudioView({
           <div
             onPointerDown={startBottomDrag}
             className="h-1.5 rounded-full bg-dark-border hover:bg-neon cursor-row-resize select-none transition-colors shrink-0"
-            title="Tarik untuk mengubah tinggi panel Hasil Pipeline AI"
+            title="Tarik untuk mengubah tinggi panel Clips"
           />
 
           {/* BOTTOM SECTION: Horizontal Filmstrip Reel */}
@@ -1640,7 +1847,7 @@ export default function StudioView({
               <div className="flex items-center gap-2 min-w-0">
                 <Flame className="w-4 h-4 text-neon shrink-0" />
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-white truncate">
-                  Hasil Pipeline AI ({candidates.length})
+                  Clips ({candidates.length})
                 </h2>
               </div>
               <div className="flex items-center gap-2 shrink-0">

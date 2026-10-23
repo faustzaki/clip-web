@@ -95,7 +95,7 @@ export default function App() {
 
   const handleReset = async () => {
     if (!activeProjectId) return;
-    if (!window.confirm('Reset video source, transkrip, dan kandidat project ini?')) return;
+    if (!window.confirm('Reset video source, transkrip, kandidat, dan klip project ini?')) return;
     try {
       setIsResetting(true);
       await resetWorkspace(activeProjectId);
@@ -146,10 +146,7 @@ export default function App() {
         projectTitle={state?.project?.title || null}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        health={health}
         onBackToProjects={backToProjects}
-        onReset={handleReset}
-        isResetting={isResetting}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
@@ -241,6 +238,9 @@ export default function App() {
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         health={health}
+        projectId={activeProjectId}
+        onResetWorkspace={handleReset}
+        isResetting={isResetting}
         onSettingsSaved={async () => {
           try {
             const [opts, h] = await Promise.all([fetchOptions(), fetchHealth()]);

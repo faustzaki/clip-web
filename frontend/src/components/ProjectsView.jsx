@@ -38,12 +38,14 @@ export default function ProjectsView({ projects, isLoading, onOpen, onNew, onRef
   const fmtDate = (ts) => new Date(ts * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
   const fmtDuration = (s) => { const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
 
+  const badgeBase = 'font-extrabold px-2.5 py-0.5 rounded-full shadow text-[10px]';
+
   const statusBadge = (p) => {
-    if (!p.has_source) return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-500/40 text-amber-400">Belum ada video</span>;
+    if (!p.has_source) return <span className={`${badgeBase} bg-amber-500 text-black`}>Belum ada video</span>;
     const badges = [];
-    if (p.clip_count > 0) badges.push(<span key="clips" className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neon/10 border border-neon/30 text-neon">{p.clip_count} klip</span>);
-    if (p.candidate_count > 0) badges.push(<span key="cands" className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neon/10 border border-neon/30 text-neon">{p.candidate_count} kandidat</span>);
-    if (badges.length === 0) badges.push(<span key="ready" className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neon/10 border border-neon/30 text-neon">Siap di-clip</span>);
+    if (p.clip_count > 0) badges.push(<span key="clips" className={`${badgeBase} bg-[#c11e38] text-white`}>{p.clip_count} klip</span>);
+    if (p.candidate_count > 0) badges.push(<span key="cands" className={`${badgeBase} bg-blue-600 text-white`}>{p.candidate_count} kandidat</span>);
+    if (badges.length === 0) badges.push(<span key="ready" className={`${badgeBase} bg-[#00FFCC] text-black`}>Siap di-clip</span>);
     return <>{badges}</>;
   };
 

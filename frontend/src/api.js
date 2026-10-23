@@ -61,10 +61,10 @@ export async function fetchState(projectId) {
   return res.json();
 }
 
-export async function ingestUrl(projectId, url, model_size = 'base', language = null) {
+export async function ingestUrl(projectId, url, model_size = 'base', language = null, quality = 'proxy') {
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/ingest`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, model_size, language: language === 'auto' ? null : language })
+    body: JSON.stringify({ url, model_size, language: language === 'auto' ? null : language, quality })
   });
   if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.detail || 'Ingestion failed'); }
   return res.json();
@@ -105,7 +105,7 @@ export async function renderClip(projectId, params) {
 }
 
 export async function fetchClips(projectId) {
-  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips`);
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips?_t=${Date.now()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch clips');
   return res.json();
 }

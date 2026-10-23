@@ -24,6 +24,12 @@ from render_clips import render, ffprobe_dims, ASPECTS
 
 NINEROUTER_API = "http://127.0.0.1:20128/v1/chat/completions"
 
+# scoring guidance appended to the LLM system prompt when a search logic is picked
+SEARCH_LOGIC_HINTS = {
+    "topic-hook": "Prioritize clips with engaging discussion topics, high curiosity gaps, or memorable dialogues.",
+    "speaker-tracked": "Prioritize clips with high emotional expression, energetic reactions, and engaging facial dynamics.",
+}
+
 
 def get_9router_key() -> str:
     key = os.environ.get("NINEROUTER_API_KEY", "")
@@ -333,7 +339,8 @@ def get_transcript(video_path: Path, workdir: Path, yt_url: str = None,
 def ninerouter_score(data: dict, model_name: str = "ag/gemini-3.8-flash",
                      min_score: float = 6.0, max_clips: int = 8,
                      min_len: int = 15, max_len: int = 60, timeout: int = 60,
-                     api_endpoint: str = None, api_key: str = None) -> list:
+                     api_endpoint: str = None, api_key: str = None,
+                     search_logic: str = None, crop_mode: str = None) -> list:
     """Score viral moments using any OpenAI-compatible LLM gateway (9Router, Ollama, Groq, OpenAI)."""
     words = data.get("words", [])
     if not words:
@@ -347,6 +354,13 @@ def ninerouter_score(data: dict, model_name: str = "ag/gemini-3.8-flash",
         sys_msg = LLM_SYSTEM.format(
             min_len=min_len, max_len=max_len, max_clips=max_clips, min_score=min_score
         )
+        hint = SEARCH_LOGIC_HINTS.get(str(search_logic or "").strip().lower())
+        if not hint and str(search_logic or "").strip():
+            hint = f"Additional guidance: {str(search_logic).strip()}"
+        if not hint and str(crop_mode or "").strip():
+            hint = f"Framing mode: {str(crop_mode).strip()}."
+        if hint:
+            sys_msg = f"{sys_msg}\n- {hint}"
 
         duration = data.get('duration') or (sentences[-1]['end'] if sentences else 0)
         payload = {

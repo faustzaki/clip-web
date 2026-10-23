@@ -26,7 +26,7 @@ mimetypes.types_map['.js'] = 'application/javascript'
 mimetypes.types_map['.mjs'] = 'application/javascript'
 mimetypes.types_map['.css'] = 'text/css'
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Response
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -43,8 +43,8 @@ import render_clips
 import subtitle_burn
 
 DEFAULT_RENDER_PREFS = {
-    "subtitles_enabled": True,
-    "title_enabled": True,
+    "subtitles_enabled": False,
+    "title_enabled": False,
     "watermark_enabled": False,
     "watermark": "",
     "aspect": "9:16",
@@ -219,7 +219,7 @@ def project_summary(pid: str) -> dict:
         'duration': tr.get('duration') if tr else None,
         'candidate_count': len(segs), 'clip_count': clip_count,
         'cover_url': cover_url,
-        'render_prefs': meta.get('render_prefs') or dict(DEFAULT_RENDER_PREFS),
+        'render_prefs': dict(DEFAULT_RENDER_PREFS, **(meta.get('render_prefs') or {})),
         'crops': meta.get('crops') or {},
     }
 def yt_oembed(url: str) -> dict:
@@ -282,6 +282,7 @@ class IngestUrlRequest(BaseModel):
     url: str
     model_size: Optional[str] = "base"
     language: Optional[str] = None
+    quality: Optional[str] = "proxy"
 
 
 class ScoreRequest(BaseModel):
@@ -291,6 +292,7 @@ class ScoreRequest(BaseModel):
     min_len: Optional[int] = 15
     max_len: Optional[int] = 60
     use_llm: Optional[bool] = True
+    search_logic: Optional[str] = None
 
 
 class CropRect(BaseModel):
@@ -572,7 +574,8 @@ def create_project(payload: CreateProjectRequest = None):
     meta = {
         "id": pid, "title": title, "title_auto": title is None,
         "source_type": None, "source_url": None,
-        "created_at": now, "updated_at": now
+        "created_at": now, "updated_at": now,
+        "render_prefs": dict(DEFAULT_RENDER_PREFS),
     }
     project_dir(pid).mkdir(parents=True, exist_ok=True)
     (project_dir(pid) / 'project.json').write_text(
@@ -758,7 +761,9 @@ def _ingest_write(pid: str, **fields):
         pass
 
 
-def _start_ingest(pid: str, url: Optional[str] = None, uploaded: bool = False, model_size: str = 'base', language: Optional[str] = None):
+DOWNLOAD_QUALITY_LABELS = {'proxy': '360p', 'hd': '1080p', 'best': 'terbaik'}
+
+def _start_ingest(pid: str, url: Optional[str] = None, uploaded: bool = False, model_size: str = 'base', language: Optional[str] = None, quality: str = 'proxy'):
     with INGEST_LOCK:
         if pid in INGEST_JOBS:
             raise HTTPException(409, "Proses lain masih berjalan")
@@ -775,7 +780,7 @@ def _start_ingest(pid: str, url: Optional[str] = None, uploaded: bool = False, m
     )
     threading.Thread(
         target=_ingest_worker,
-        args=(pid, url, uploaded, model_size, language),
+        args=(pid, url, uploaded, model_size, language, quality),
         daemon=True
     ).start()
 
@@ -791,7 +796,7 @@ def _format_error_message(err: Exception) -> str:
     return msg
 
 
-def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str, language: Optional[str] = None):
+def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str, language: Optional[str] = None, quality: str = 'proxy'):
     pdir = project_dir(pid)
     try:
         if _ingest_cancelled(pid):
@@ -805,6 +810,7 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
                 meta = read_project_meta(pid)
                 meta['source_type'] = 'youtube'
                 meta['source_url'] = url
+                meta['download_quality'] = quality
                 try:
                     oembed = yt_oembed(url)
                     if meta.get('title_auto') and oembed.get('title'):
@@ -836,9 +842,10 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
         if _ingest_cancelled(pid):
             raise _Cancelled()
 
-        # Step 3: Download proxy (unless uploaded)
+        # Step 3: Download source at the chosen quality (unless uploaded)
         if not uploaded:
-            _ingest_write(pid, stage='download', percent=12, message='Mengunduh video proxy... 0%')
+            label = DOWNLOAD_QUALITY_LABELS.get(quality, quality)
+            _ingest_write(pid, stage='download', percent=12, message=f'Mengunduh video {label}... 0%')
             span = 80 if has_yt_transcript else 73
             max_pct = 92 if has_yt_transcript else 85
 
@@ -850,10 +857,10 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
                 _ingest_write(
                     pid,
                     percent=min(max_pct, calc),
-                    message=f'Mengunduh video proxy... {round(f * 100)}%'
+                    message=f'Mengunduh video {label}... {round(f * 100)}%'
                 )
 
-            core_engine.download_to(url, pdir / 'source', preset='proxy', on_progress=cb)
+            core_engine.download_to(url, pdir / 'source', preset=quality, on_progress=cb)
 
         if _ingest_cancelled(pid):
             raise _Cancelled()
@@ -921,7 +928,11 @@ def ingest_url(project_id: str, payload: IngestUrlRequest):
     if not url:
         raise HTTPException(status_code=400, detail="URL cannot be empty")
 
-    _start_ingest(project_id, url=url, model_size=payload.model_size or 'base', language=payload.language)
+    tier = (payload.quality or 'proxy').lower()
+    if tier not in ('proxy', 'hd', 'best'):
+        raise HTTPException(400, "Kualitas tidak dikenal: pakai proxy|hd|best")
+
+    _start_ingest(project_id, url=url, model_size=payload.model_size or 'base', language=payload.language, quality=tier)
     return {"status": "started"}
 
 
@@ -980,7 +991,8 @@ def score_moments(project_id: str, payload: ScoreRequest):
                     min_len=payload.min_len or 15,
                     max_len=payload.max_len or 60,
                     api_endpoint=cfg.get("llm_endpoint"),
-                    api_key=cfg.get("llm_api_key")
+                    api_key=cfg.get("llm_api_key"),
+                    search_logic=payload.search_logic
                 )
             except Exception as e:
                 logger.warning(f"LLM scoring failed ({e}), falling back to heuristic")
@@ -1052,7 +1064,7 @@ def render_clip(project_id: str, payload: RenderRequest):
         seg["hook"] = payload.custom_hook
 
     tier = (payload.quality or 'hd').lower()
-    if not meta.get('source_url') or tier == 'original':
+    if not meta.get('source_url') or tier == 'original' or tier == (meta.get('download_quality') or 'proxy'):
         pass
     else:
         if tier not in ('proxy', 'hd', 'best'):
@@ -1069,7 +1081,7 @@ def render_clip(project_id: str, payload: RenderRequest):
     prefs = meta.get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
     crops = meta.get("crops") or {}
     crop_rect = payload.crop_rect.model_dump() if payload.crop_rect else crops.get(str(payload.candidate_index))
-    hook_title = (payload.custom_hook or seg.get("hook")) if prefs.get("title_enabled", True) else None
+    hook_title = (payload.custom_hook or seg.get("hook")) if prefs.get("title_enabled", False) else None
     wm = (prefs.get("watermark") or "").strip() or None
     watermark = wm if prefs.get("watermark_enabled") else None
 
@@ -1164,7 +1176,7 @@ def update_prefs(project_id: str, payload: PrefsRequest):
         if not font:
             raise HTTPException(400, "Setelan subtitle tidak valid: font")
         try:
-            fs = int(merged_style.get("font_size", 96))
+            fs = int(merged_style.get("font_size", 43))
             if not (24 <= fs <= 200): raise ValueError()
             merged_style["font_size"] = fs
         except Exception:
@@ -1322,8 +1334,10 @@ def apply_subtitles(project_id: str, slug: str, payload: SubtitlesRequest):
     _validate_pid(project_id)
     meta = read_project_meta(project_id)
     prefs = meta.get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
-    if not prefs.get("subtitles_enabled", True):
-        raise HTTPException(400, "Subtitle dimatikan di Pengaturan")
+    if not prefs.get("subtitles_enabled"):
+        prefs["subtitles_enabled"] = True
+        meta["render_prefs"] = prefs
+        write_project_meta(project_id, meta)
 
     master = _raw_clip_path(project_id, slug)
     cdir = project_clips_dir(project_id)
@@ -1459,9 +1473,10 @@ def publish_clip(project_id: str, slug: str):
 
 
 @app.get("/api/projects/{project_id}/clips")
-def list_clips(project_id: str):
+def list_clips(project_id: str, response: Response):
     _validate_pid(project_id)
     read_project_meta(project_id)
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return {"clips": _list_project_clips(project_id)}
 
 
@@ -1487,23 +1502,59 @@ def reset_workspace(project_id: str):
     write_project_meta(project_id, meta)
     return {"status": "ok", "message": "Workspace reset"}
 
-# Serve compiled assets with explicit MIME types to bypass Windows registry quirks
+# Serve compiled assets with explicit MIME types and anti-cache headers
 FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
 
-@app.get("/assets/{file_path:path}")
+@app.api_route("/", methods=["GET", "HEAD"])
+@app.api_route("/index.html", methods=["GET", "HEAD"])
+def serve_frontend_index():
+    index_file = FRONTEND_DIST / "index.html"
+    if not index_file.exists():
+        raise HTTPException(status_code=404, detail="Frontend build not found")
+    return FileResponse(
+        index_file,
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
+@app.api_route("/assets/{file_path:path}", methods=["GET", "HEAD"])
 def serve_frontend_assets(file_path: str):
     full_path = FRONTEND_DIST / "assets" / file_path
     if not full_path.exists():
+        # Fallback if old hash requested by cached browser: find current main asset
+        if file_path.endswith(".js"):
+            js_files = sorted(list((FRONTEND_DIST / "assets").glob("*.js")), key=lambda p: p.stat().st_mtime, reverse=True)
+            if js_files:
+                return FileResponse(
+                    js_files[0],
+                    media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"},
+                )
+        elif file_path.endswith(".css"):
+            css_files = sorted(list((FRONTEND_DIST / "assets").glob("*.css")), key=lambda p: p.stat().st_mtime, reverse=True)
+            if css_files:
+                return FileResponse(
+                    css_files[0],
+                    media_type="text/css",
+                    headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"},
+                )
         raise HTTPException(status_code=404, detail="Asset not found")
     media_type = "text/plain"
     if file_path.endswith(".js") or file_path.endswith(".mjs"):
         media_type = "application/javascript"
     elif file_path.endswith(".css"):
         media_type = "text/css"
-    return FileResponse(full_path, media_type=media_type)
+    return FileResponse(
+        full_path,
+        media_type=media_type,
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"},
+    )
 
-
-# Serve compiled frontend when available
+# Serve compiled frontend fallback when available
 if FRONTEND_DIST.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
 

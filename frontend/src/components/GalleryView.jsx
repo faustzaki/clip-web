@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Film, Download, Copy, Check, Play, Clock, HardDrive, RefreshCw } from 'lucide-react';
+import { Film, Download, Copy, Check, Play, Clock, HardDrive } from 'lucide-react';
 import { fetchClips } from '../api';
 
 export default function GalleryView({ projectId }) {
@@ -8,21 +8,33 @@ export default function GalleryView({ projectId }) {
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [activeVideoUrl, setActiveVideoUrl] = useState(null);
 
-  const loadClips = async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetchClips(projectId);
-      setClips(res.clips || []);
-      setIsLoading(false);
-    } catch (err) {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadClips();
-  }, [projectId]);
+    if (!projectId) return;
+    let isMounted = true;
 
+    const load = async (isInitial = false) => {
+      try {
+        if (isInitial) setIsLoading(true);
+        const res = await fetchClips(projectId);
+        if (isMounted) {
+          setClips(res.clips || []);
+          if (isInitial) setIsLoading(false);
+        }
+      } catch (err) {
+        if (isMounted && isInitial) setIsLoading(false);
+      }
+    };
+
+    load(true);
+    const interval = setInterval(() => {
+      load(false);
+    }, 2500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [projectId]);
   const copyMetadata = (c, idx) => {
     const meta = c.meta || {};
     const text = `${meta.title || c.name}\n\n${meta.description || ''}\n\n${(meta.hashtags || []).join(' ')}`;
@@ -45,13 +57,6 @@ export default function GalleryView({ projectId }) {
           </p>
         </div>
 
-        <button
-          onClick={loadClips}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-dark-card border border-dark-border text-xs font-bold text-gray-300 hover:text-neon hover:border-neon transition-all"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-neon' : ''}`} />
-          <span>Refresh Galeri</span>
-        </button>
       </div>
 
       {/* Clips Grid */}

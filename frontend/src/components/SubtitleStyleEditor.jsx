@@ -39,13 +39,13 @@ export default function SubtitleStyleEditor({ value, onChange, fonts, positions 
         <div>
           <div className="flex justify-between items-center mb-1 text-[11px] text-gray-400">
             <span>Ukuran</span>
-            <span className="text-neon font-mono">{current.font_size ?? 96}px</span>
+            <span className="text-neon font-mono">{current.font_size ?? 43}px</span>
           </div>
           <input
             type="range"
             min="24"
             max="180"
-            value={current.font_size ?? 96}
+            value={current.font_size ?? 43}
             onChange={(e) => update({ font_size: Number(e.target.value) })}
             className="w-full accent-neon cursor-pointer"
           />

@@ -34,7 +34,7 @@ const ENDPOINT_PRESETS = [
   { label: 'OpenRouter', value: 'https://openrouter.ai/api/v1' },
 ];
 
-export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved }) {
+export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved, projectId, onResetWorkspace, isResetting }) {
   const [activeTab, setActiveTab] = useState('engine'); // 'engine' | 'storage'
 
   // Settings State
@@ -530,6 +530,29 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
                   Setiap kali klip dipotong, diberi subtitle, atau dijadikan final, file MP4 otomatis disimpan juga ke folder di atas sehingga langsung siap dipakai.
                 </p>
               </div>
+
+              {/* Reset Workspace Project */}
+              {projectId && (
+                <div className="p-3.5 rounded-xl bg-dark-bg/60 border border-red-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-bold text-white text-xs">Reset Workspace Project Aktif</h3>
+                      <p className="text-[11px] text-gray-400">
+                        Reset video source, transkrip, kandidat, dan klip project ini jika ingin mulai ulang dari awal.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onResetWorkspace?.()}
+                      disabled={isResetting}
+                      className="px-3.5 py-2 rounded-xl bg-dark-card border border-dark-border hover:border-red-500/50 hover:text-red-400 text-gray-300 text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 text-red-400 ${isResetting ? 'animate-spin' : ''}`} />
+                      <span>{isResetting ? 'Mereset...' : 'Reset Workspace'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

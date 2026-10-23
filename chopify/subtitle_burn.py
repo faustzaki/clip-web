@@ -14,7 +14,7 @@ POSITION_ALIGN = {"bottom": 2, "middle": 5, "top": 8}
 
 DEFAULT_STYLE: dict[str, Any] = {
     "font": "Arial Black",
-    "font_size": 96,
+    "font_size": 43,
     "bold": True,
     "uppercase": True,
     "primary_color": "#FFFFFF",
@@ -67,7 +67,7 @@ def resolved(style: dict[str, Any], th: int) -> dict[str, Any]:
     st = dict(DEFAULT_STYLE)
     st.update(style or {})
     scale = float(th) / float(REF_HEIGHT)
-    st["font_size"] = max(16, round(float(st.get("font_size", 96)) * scale))
+    st["font_size"] = max(16, round(float(st.get("font_size", 43)) * scale))
     st["margin_v"] = max(0, round(float(st.get("margin_v", 300)) * scale))
     st["outline_width"] = max(0, round(float(st.get("outline_width", 5)) * scale))
     st["shadow"] = max(0, round(float(st.get("shadow", 2)) * scale))

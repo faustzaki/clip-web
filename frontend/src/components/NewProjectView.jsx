@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Video, Upload, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Video, Upload, Loader2, Sparkles, Gauge, MonitorPlay, Crown } from 'lucide-react';
 import { createProject, ingestUrl, uploadVideoFile, deleteProject } from '../api';
+
+const QUALITY_OPTIONS = [
+  { id: 'proxy', label: 'Hemat', hint: '360p · ±63 MB · paling cepat', Icon: Gauge },
+  { id: 'hd', label: 'HD', hint: '1080p · ±509 MB · direkomendasikan', Icon: MonitorPlay },
+  { id: 'best', label: 'Terbaik', hint: '4K · ±1.2 GB · perlu waktu & kuota besar', Icon: Crown },
+];
 
 export default function NewProjectView({ options, onCreated, onCancel }) {
   const [title, setTitle] = useState('');
   const [sourceType, setSourceType] = useState('youtube');
   const [ytUrl, setYtUrl] = useState('');
   const [file, setFile] = useState(null);
+  const [downloadQuality, setDownloadQuality] = useState('proxy');
   const [isWorking, setIsWorking] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState(null);
@@ -25,7 +32,7 @@ export default function NewProjectView({ options, onCreated, onCancel }) {
         setDraftPid(pid);
       }
       setStatusMessage('Menyiapkan project...');
-      if (sourceType === 'youtube') await ingestUrl(pid, ytUrl.trim(), 'base');
+      if (sourceType === 'youtube') await ingestUrl(pid, ytUrl.trim(), 'base', null, downloadQuality);
       else await uploadVideoFile(pid, file, 'base');
       onCreated(pid);
     } catch (e) {
@@ -126,6 +133,38 @@ export default function NewProjectView({ options, onCreated, onCancel }) {
             />
           </label>
         </div>
+      )}
+
+      {/* Download Quality */}
+      {sourceType === 'youtube' ? (
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold text-gray-400">Kualitas Download</label>
+          <div className="grid grid-cols-3 gap-1.5">
+            {QUALITY_OPTIONS.map((q) => {
+              const active = downloadQuality === q.id;
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => setDownloadQuality(q.id)}
+                  disabled={isWorking}
+                  className={`flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    active
+                      ? 'bg-neon/10 text-neon border-neon/30 font-bold'
+                      : 'bg-dark-bg border-dark-border text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <q.Icon className={`w-4 h-4 ${active ? 'text-neon' : 'text-gray-500'}`} />
+                  <span className="text-xs">{q.label}</span>
+                  <span className={`text-[9px] font-medium text-center leading-tight ${active ? 'text-neon/70' : 'text-gray-500'}`}>
+                    {q.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="text-[10px] text-gray-500">Kualitas download hanya berlaku untuk link YouTube.</p>
       )}
 
       {/* Error */}

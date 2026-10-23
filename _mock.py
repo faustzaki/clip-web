@@ -83,6 +83,19 @@ class H(SimpleHTTPRequestHandler):
                                "clips": CLIPS})
         if p.startswith("/api/projects/") and "/clips" in p:
             return self._json({"clips": CLIPS})
+        if p.startswith("/api/projects/") and p.endswith("/timeline"):
+            dur, caps = 82_200, []
+            for i in range(14):
+                start = i * 5_600
+                if start + 2_800 > dur:
+                    break
+                caps.append({"id": f"d2-{i}", "kind": "caption", "start_ms": start, "end_ms": start + 2_800,
+                             "payload": {"text": f"Kalimat caption {i + 1}"}})
+            return self._json({"duration_ms": dur, "tracks": [
+                {"track": 1, "items": [{"id": "d1-0", "kind": "video", "start_ms": 0, "end_ms": dur, "payload": {}}]},
+                {"track": 2, "items": caps},
+                {"track": 3, "items": [{"id": "d3-0", "kind": "audio", "start_ms": 0, "end_ms": dur, "payload": {}}]},
+            ]})
         if p.startswith("/mock/"):
             f = MEDIA / p.split("/")[-1]
             if f.exists():

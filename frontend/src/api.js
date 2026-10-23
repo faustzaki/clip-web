@@ -263,3 +263,24 @@ export async function cutTranscript(projectId, fromIdx, toIdx) {
   }
   return res.json();
 }
+
+// null = timeline belum tersedia (404), bukan error
+export async function fetchTimeline(projectId) {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/timeline`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Gagal memuat timeline');
+  return res.json();
+}
+
+export async function saveTimeline(projectId, items) {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/timeline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.reason || err.detail || 'Gagal menyimpan timeline');
+  }
+  return res.json();
+}

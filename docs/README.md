@@ -15,7 +15,7 @@ Semua yang dibutuhkan agent supaya kerja **lurus aturan**, tanpa improvisasi.
 | `TASKS.md` | status 6 tugas | dibuat oleh prompt 00 |
 | `prompts/00-ORCHESTRATOR.md` | setup sesi, inventaris, baseline screenshot | awal proyek |
 | `prompts/01..13-*.md` | satu prompt per tugas, copy-paste (T1–T13) | satu per sesi |
-| `prompts/07-REVIEW.md` | QA setelah merge | tiap PR |
+| `prompts/99-REVIEW.md` | QA setelah merge | tiap PR |
 
 Rujukan desain (di `design/`): `tokens.css`, `tailwind.theme.js`, `vizard-tokens.json`, `STUDIO-DIFF.md`, `COMPETITOR-MATRIX.md`, `RESTYLE-PLAN.md`, `ref_*.png`.
 
@@ -24,7 +24,7 @@ Rujukan desain (di `design/`): `tokens.css`, `tailwind.theme.js`, `vizard-tokens
 2. Tempel isi `docs/AGENTS.md` **atau** cukup beri path-nya kalau runner baca file otomatis.
 3. Tempel prompt tugas, misal `docs/prompts/01-T1-shell.md`.
 4. Set model sesuai `MODELS.md` (T1 → `T-SOTA/claude-sonnet-5`).
-5. Setelah selesai: jalankan `docs/prompts/07-REVIEW.md` dengan model berbeda (`T-SOTA/claude-opus-5`).
+5. Setelah selesai: jalankan `docs/prompts/99-REVIEW.md` dengan model berbeda (`T-SOTA/claude-opus-5`).
 6. Merge hanya kalau gate di `IMPLEMENTATION-STRATEGY.md` §3 lulus.
 
 ## Env yang harus ada di runner

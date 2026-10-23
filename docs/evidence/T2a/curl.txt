@@ -1,0 +1,10 @@
+== 1) GET /api/projects/261e5b42f5/transcript?word=1 (dipotong 400 char)
+{"words": [{"idx": 0, "word": "Berarti", "start_ms": 0, "end_ms": 670, "deleted": 0}, {"idx": 1, "word": "pembayaran", "start_ms": 670, "end_ms": 1340, "deleted": 0}, {"idx": 2, "word": "cash,", "start_ms": 1340, "end_ms": 2010, "deleted": 0}, "…+1826 kata"], "language": "id", "duration_ms": 679297}
+
+== 2) POST /api/projects/261e5b42f5/cut {"from_idx":0,"to_idx":2}
+{"ok":true,"removed_ms":2010,"new_duration_ms":677287,"deleted":3}
+== 3) POST cut invalid {"from_idx":5,"to_idx":1}
+{"ok":false,"reason":"Rentang tidak valid"} [HTTP 400]
+
+== 4) GET transcript project tanpa transkrip (80509fb51b) ==
+{"ok":false,"reason":"Transkrip belum siap","hint":"Jalankan analisis dulu"} [HTTP 404]

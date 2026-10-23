@@ -1,0 +1,47 @@
+Kamu agent pelaksana untuk repo `clip-web` (React 18 + Vite + Tailwind, backend FastAPI).
+Kerja **hanya** sesuai dokumen. Jangan improvisasi arsitektur.
+
+# PROMPT 02 — T2: Transcript Panel (6–8 jam)
+
+Branch: `t2-transcript` · Butuh `server.py` (endpoint baru, sudah dispesifikasikan)
+
+## BACA
+`docs/UI-SPEC.md` §4 "Aturan transcript" · `docs/DATA-MODEL.md` §1, §3 · `docs/ADR.md` ADR-004
+
+## TUGAS
+1. Backend (satu-satunya tugas yang boleh menyentuh `server.py`):
+   - `GET /api/projects/{id}/transcript?word=1` → `{words:[{idx,word,start_ms,end_ms,deleted}]}` (baca dari ASR yang sudah tersimpan).
+   - `POST /api/projects/{id}/cut` body `{from_idx,to_idx}` → set `deleted=1`, balas `{removed_ms,new_duration_ms}`.
+2. Buat `components/TranscriptPanel.jsx`:
+   - toggle `Transkrip` / `Edit subtitle` (segmented control, pill, radius 99).
+   - kolom cari (`.vz-input`, ikon magnifier), filter kata yang cocok.
+   - render kata inline: `kata` + `[3.0s]` (12px italic muted), klik = `onSeek(start_ms)`.
+   - kata aktif mengikuti `current` (background `--vz-accent-tint`, teks `--vz-accent`, radius 6).
+   - drag seleksi rentang kata → tombol mengambang `Potong bagian ini` → `onCut(from,to)`.
+   - kata `deleted` = line-through + opacity .45.
+   - auto-scroll ikut playhead, berhenti saat user scroll manual (flag `userScrolled`).
+3. Pasang di slot sidebar 360px; resizable 320–520 (drag handle 4px).
+4. State: `loading` (3 skeleton baris) · `empty` (`Transkrip belum siap. Jalankan analisis dulu.`) · `loaded`.
+
+## KRITERIA TERIMA
+- Klik kata → video seek ke timestamp itu (buktikan dengan screenshot playhead + teks aktif).
+- Seleksi 3 kata → klik Potong → `POST /cut` terpanggil (buktikan dari log network) dan durasi total berkurang.
+- Cari kata → hanya kata cocok yang tersorot, jumlahnya masuk akal.
+- Tidak ada `console.log` tersisa.
+
+## ATURAN (mengikat)
+- Light theme saja. Tanpa `dark:`, `bg-black`, `bg-dark-*`, `neon`, gradien, glow. Satu aksen `--vz-accent`.
+- Jangan sentuh `server.py`/`chopify/` kecuali tugas menyebutnya.
+- Jangan hapus CropStudioModal, SubtitleStyleEditor, pemilih model AI.
+- Jangan tambah dependency. Jangan port CSS/aset Vizard (angka boleh, kode/gambar tidak).
+- Tidak boleh ada TODO/stub/console.log/data dummy di akhir.
+- Bahasa UI: Indonesia, konsisten.
+
+## VERIFIKASI (jalankan, jangan diklaim)
+```bash
+cd frontend && npm run build
+```
+Screenshot: pakai `_mock.py` (API tiruan) + `_shot2.py`, simpan ke `docs/evidence/<TUGAS>/after/`.
+
+## OUTPUT
+Laporan format `AGENTS.md` §Format laporan: TUGAS / STATUS / FILE / BUKTI / MENYIMPANG / SISA.

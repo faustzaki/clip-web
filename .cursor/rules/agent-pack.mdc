@@ -1,0 +1,8 @@
+---
+description: clip-web agent rules
+alwaysApply: true
+---
+Baca `AGENTS.md` dan `docs/AGENTS.md` sebelum mengubah kode.
+Light theme saja (tanpa `dark:`/gradien/glow), satu aksen `--vz-accent` `#4822A5`.
+Jangan hapus CropStudioModal, SubtitleStyleEditor, pemilih model AI, `chopify/`.
+Satu tugas per sesi dari `docs/prompts/`. Verifikasi: `cd frontend && npm run build`.

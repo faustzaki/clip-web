@@ -38,3 +38,13 @@ config.json
 Thumbs.db
 .vscode/
 .idea/
+# agent pack
+_competitors.py
+_serve.py
+_diag.py
+_shot.py
+_shot2.py
+_studio_shot*.py
+_tokens*.py
+_mockmedia/
+__pycache__/

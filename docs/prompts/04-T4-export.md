@@ -1,0 +1,41 @@
+Kamu agent pelaksana untuk repo `clip-web` (React 18 + Vite + Tailwind, backend FastAPI).
+Kerja **hanya** sesuai dokumen. Jangan improvisasi arsitektur.
+
+# PROMPT 04 — T4: Export Modal (2 jam)
+
+Branch: `t4-export`
+
+## BACA
+`docs/UI-SPEC.md` §5 · `docs/DATA-MODEL.md` §3 (`export_jobs`)
+
+## TUGAS
+1. Backend: `POST /api/export` body `{clip_id,resolution,fps,burn_caption,name}` → buat baris `export_jobs` status `queued`, balas `{job_id}`. `GET /api/export/{job_id}` → `{status,path,error}`. Render memakai `chopify` yang sudah ada.
+2. Buat `components/ExportModal.jsx`:
+   - modal 480px, radius 12, shadow lg, overlay `rgba(0,0,0,.48)`.
+   - field: nama file (prefill judul klip), resolusi (1080p/720p), fps (30/24), burn caption (toggle), format mp4, perkiraan ukuran.
+   - footer: `Batal` (secondary) + `Export` (primary, 40px).
+   - state: `form` → `submitting` (spinner di tombol) → `done` (link `Unduh`) → `failed` (alasan + Coba lagi).
+3. Polling `GET /api/export/{job_id}` tiap 2s, berhenti saat `done`/`failed` (maks 5 menit).
+4. Tombol `Unduh` di `ClipStrip` membuka modal ini.
+
+## KRITERIA TERIMA
+- Export 720p dan 1080p menghasilkan dua file berbeda — buktikan `ffprobe` (resolusi tercetak).
+- Burn caption off/on menghasilkan file berbeda — buktikan sha256 beda + screenshot frame.
+- Modal bisa ditutup dengan Esc dan klik overlay; fokus kembali ke tombol asal.
+
+## ATURAN (mengikat)
+- Light theme saja. Tanpa `dark:`, `bg-black`, `bg-dark-*`, `neon`, gradien, glow. Satu aksen `--vz-accent`.
+- Jangan sentuh `server.py`/`chopify/` kecuali tugas menyebutnya.
+- Jangan hapus CropStudioModal, SubtitleStyleEditor, pemilih model AI.
+- Jangan tambah dependency. Jangan port CSS/aset Vizard (angka boleh, kode/gambar tidak).
+- Tidak boleh ada TODO/stub/console.log/data dummy di akhir.
+- Bahasa UI: Indonesia, konsisten.
+
+## VERIFIKASI (jalankan, jangan diklaim)
+```bash
+cd frontend && npm run build
+```
+Screenshot: pakai `_mock.py` (API tiruan) + `_shot2.py`, simpan ke `docs/evidence/<TUGAS>/after/`.
+
+## OUTPUT
+Laporan format `AGENTS.md` §Format laporan: TUGAS / STATUS / FILE / BUKTI / MENYIMPANG / SISA.

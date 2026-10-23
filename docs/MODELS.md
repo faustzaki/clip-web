@@ -21,7 +21,7 @@ Karena itu semua `ocf/*` **dihapus dari peta tugas**. Kalau butuh jawaban teks s
 | Model | Tool-call | Latensi | Skor kode | Peran |
 |---|---|---|---|---|
 | `ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash` | ✅ `write_file` | **1.1s** | **5/5** | **default**, tercepat |
-| `ninerouter/cbai/deepseek-v4.1-flash` | ✅ `write_file` | 4.7s | **5/5** | output panjang (4.1k char) |
+| `ninerouter/cbai/deepseek-v4.1-flash` | ⚠️ tool-call sering rusak di sesi panjang | 4.7s | 5/5 (teks) | **jangan untuk tugas multi-file** |
 | `ninerouter/T-SOTA/claude-sonnet-5` | ✅ `write_file` | 2.7s | — | eskalasi terakhir |
 | `grok-cli/grok-4.5` | ⚠️ tidak konsisten (kadang teks saja) | 13.3s | — | cadangan |
 | `ocf/glm-5.3-flash-free` | ❌ kosong | 2.0s | 5/5 (teks) | teks saja, **bukan agent** |
@@ -70,6 +70,10 @@ omp -p --approval-mode=yolo --model="ninerouter/river/deepseek-ai/DeepSeek-V4.1-
     --thinking=low @AGENTS.md @docs/prompts/01-T1-shell.md
 ```
 `--approval-mode=yolo` wajib untuk `-p`, kalau tidak OMP menunggu approval dan berhenti.
+
+## 5b. Pelajaran nyata (T2, 24 Okt)
+`cbai/deepseek-v4.1-flash` gagal di T2: setelah ~20 tool call, dia menulis *"tool calls keep failing due to malformed markup"* dan berhenti tanpa mengubah file.
+Aturan baru: **tugas yang menyentuh >2 file wajib pakai `ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash`**. `cbai` hanya untuk tugas 1 file.
 
 ## 6. Perbaikan config OMP yang sudah dilakukan
 `~/.omp/agent/config.yml`:

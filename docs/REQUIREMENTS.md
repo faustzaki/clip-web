@@ -13,14 +13,14 @@ Diperiksa di mesin josjis 23 Okt 2026. Yang ❌ harus dibereskan dulu.
 | `frontend/node_modules` | ✅ | ada | `cd frontend && npm i` |
 | Playwright (screenshot) | ✅ | 1.64.1 via npx | `npx playwright install chromium` |
 | 9Router hidup | ✅ | :20128 | nyalakan 9router |
-| **Ruang disk** | ⚠️ **5.3 GB (99% penuh)** | `df -h /c` | **kosongkan ≥ 10 GB** — whisper large-v3 ±3 GB + render temp |
+| **Ruang disk** | ✅ **27 GB bebas** (setelah bersih-bersih 23 Okt) | `df -h /c` | jaga ≥ 10 GB |
 | Font Inter | ❌ lokal | — | pakai CDN Google Fonts **atau** `npm i @fontsource/inter` (butuh izin) |
 
 ## 2. Khusus per tugas
 | Tugas | Butuh | Status |
 |---|---|---|
 | T7 | `faster_whisper` 1.2.1 ✅ | siap |
-| T7 | model whisper: `medium` (±1.5 GB) atau `large-v3` (±3 GB) | **pakai `medium` dulu** karena disk 5.3 GB; naik ke large-v3 setelah disk lega |
+| T7 | model whisper: `medium` (±1.5 GB) atau `large-v3` (±3 GB) | disk 27 GB → **boleh langsung `large-v3`** |
 | T8 | `pyannote.audio` + `HF_TOKEN` | ❌ → jalur B (FFT numpy) dulu |
 | T4/T6/T11/T12 | ffmpeg `libx264`, `zoompan`, `boxblur`, `overlay` | ✅ semua ada |
 | T9/T13 | `NINE_ROUTER_API_KEY` di env | wajib diisi di shell runner |

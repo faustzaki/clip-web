@@ -3,7 +3,7 @@
 Repo ini dikerjakan agent. Baca dokumen, jangan improvisasi.
 
 ## Baca berurutan (sekali per sesi)
-0. `docs/REQUIREMENTS.md` — dependency & env (cek dulu, disk 99% penuh)
+0. `docs/REQUIREMENTS.md` — dependency & env (disk sudah 27 GB bebas)
 1. `docs/AGENTS.md` — aturan keras, verifikasi, format laporan
 2. `docs/ADR.md` — keputusan terkunci (light-only, render lokal, cakupan T1–T13)
 3. `docs/UI-SPEC.md` — grid 56/360/72/96/240, komponen, state, copy Indonesia

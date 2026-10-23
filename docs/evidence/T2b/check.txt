@@ -1,0 +1,26 @@
+PASS TranscriptPanel.jsx ada — frontend\src\components\TranscriptPanel.jsx
+PASS props wajib panel lengkap — words/current/onSeek/onCut/loading/error
+PASS StudioView impor + pakai TranscriptPanel
+PASS StudioView kirim words/onSeek/onCut ke panel
+PASS sidebar 360px tetap ada
+PASS api.js punya fetchTranscript + cutTranscript
+PASS cut kirim from_idx/to_idx (kontrak server)
+PASS tanpa console.log di file baru
+PASS tanpa dark/glow/gradien di panel — bersih
+PASS tanpa dependency baru — lucide-react,react,react-dom
+PASS build memuat panel transcript — 329545 byte js
+PASS kontrak transcript 200 + words>0 — 1829 kata
+WORDS 1829
+SEEK 2.585
+HASIL 44
+UNDERLINE yes
+ERRORS 0
+PASS probe UI exit 0 — code=0
+PASS daftar kata render di sidebar — 1829 kata
+PASS klik kata → video.currentTime = start kata — got 2.585 expect 2.585
+PASS cari kata → jumlah hasil muncul — 44 hasil
+PASS kata cocok tersorot — UNDERLINE yes
+PASS tanpa pageerror / console.error — ERRORS 0
+PASS probe UI lengkap (5 penanda) — lengkap
+
+0 gagal

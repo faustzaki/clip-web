@@ -1,0 +1,27 @@
+PASS file T3b ada (Timeline.jsx, verifier, api.js) — 3/3
+PASS Timeline: data-region + tinggi 240/320 + ruler 24 + track 40
+PASS Timeline: 3 track Video/Teks/Audio, 4 zoom, playhead 2px accent, hint track kosong
+PASS StudioView: fetchTimeline + zoom/collapse persisten di localStorage
+PASS api.js: fetchTimeline + saveTimeline
+PASS tanpa dark/neon/gradient/TODO/console.log
+PASS build CSS memuat token aksen — index-mIAK3g8X.css
+PASS screenshot 1440 & 1280 ada — studio-1280x800.png, studio-1440x900.png
+PASS 3 track (1 Video / 2 Teks / 3 Audio) — [1,2,3]
+PASS label track Bahasa Indonesia — Timeline 0:00 / 11:19 25% 50% 100% 200% Video Teks Audio 0:00 0:15 0:30 0:45 1:0
+PASS blok item ter-render di tiap track — [1,499,1]
+PASS ruler berlabel m:ss tiap 15s — 46 label: 0:00,0:15,0:30,0:45…
+PASS klik ruler -> video.currentTime berubah — 0.00s -> 339.65s (harapan ≈339.00s)
+PASS playhead ikut bergeser — 0.0% -> 50.0%
+PASS readout posisi/durasi tampil — 5:39 / 11:19
+PASS zoom 200% memperlebar isi timeline — konten 1384px -> 2768px
+PASS durasi total tidak berubah — 5:39 / 11:19 -> 5:39 / 11:19
+PASS tinggi 320 -> 240 saat collapse — 320px -> 240px
+PASS collapse bertahan setelah reload — 240px, localStorage vz.timeline.collapsed=1
+PASS expand kembali ke 320 — 320px
+screenshot: playhead @ 55.0% dari lebar timeline
+PASS tanpa pageerror
+
+0 gagal
+PASS verify-t3b.mjs (backend :8000) exit 0 — exit 0
+
+0 gagal

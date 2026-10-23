@@ -1,0 +1,31 @@
+PRECHECK T3b — 2026-10-24
+
+$ curl -s localhost:8000/api/health
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+
+$ curl -s localhost:8000/api/projects -> project ber-transkrip: 261e5b42f5 (durasi transkrip 679297 ms)
+
+$ curl -s localhost:8000/api/projects/261e5b42f5/timeline | head -c 400
+{"duration_ms":679297,"tracks":[{"track":1,"items":[{"id":"d1-0","kind":"video","start_ms":0,"end_ms":679297,"payload":{}}]},
+{"track":2,"items":[{"id":"d2-0","kind":"caption","start_ms":0,"end_ms":2680,"payload":{"text":"Berarti pembayaran cash, Kak?"}}, ...]}]}
+
+Bentuk respons per track (jumlah item):
+    track 1 (video)   : 1 item
+    track 2 (caption) : 499 item
+    track 3 (audio)   : 1 item
+Kesimpulan: backend T3a hidup -> jalur aman, Timeline.jsx dikerjakan dengan data nyata.
+
+$ grep -n data-region frontend/src/components/StudioView.jsx
+894:  data-region="sidebar"        (aset kiri)
+1283: <main>                        (stage, belum ber-data-region)
+1833: data-region="clips-panel"     (mode kolom kanan)
+Konvensi komponen tetangga: ClipStrip.jsx:41 `data-region="strip"`, TranscriptPanel.jsx:191 `data-region="transcript-count"`.
+
+$ ls frontend/src/components/Timeline.jsx -> No such file or directory (baru, sesuai prompt)
+$ ls scripts/check_t3b.py               -> No such file or directory (baru, sesuai prompt)
+$ wc -l frontend/src/components/StudioView.jsx frontend/src/api.js
+  2016 frontend/src/components/StudioView.jsx
+   265 frontend/src/api.js
+
+$ ls _shot2.py -> tidak ada; skrip screenshot yang dipakai: frontend/tools/shot.mjs (Playwright + _mock.py :8005).
+_mock.py belum punya route /api/projects/<pid>/timeline -> ditambahkan agar screenshot T3b menampilkan data (bukan state kosong).

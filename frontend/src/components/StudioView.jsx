@@ -37,7 +37,7 @@ import {
   Play,
   Pause,
 } from 'lucide-react';
-import { scoreMoments, renderClip, putPrefs, publishClip, renameProject, fetchTranscript, cutTranscript } from '../api';
+import { scoreMoments, renderClip, putPrefs, publishClip, renameProject, fetchTranscript, cutTranscript, fetchTimeline } from '../api';
 import SubtitlePreview from './SubtitlePreview';
 import SubtitleStyleEditor from './SubtitleStyleEditor';
 import TranscriptPanel from './TranscriptPanel';
@@ -45,6 +45,7 @@ import IconDropdown from './IconDropdown';
 import EditorHeader from './EditorHeader';
 import ToolRail from './ToolRail';
 import ClipStrip from './ClipStrip';
+import Timeline from './Timeline';
 
 const FRAMING_OPTIONS = [
   {
@@ -99,6 +100,10 @@ export default function StudioView({
   const [rightCollapsed, setRightCollapsed] = useState(() => localStorage.getItem('studio.rightCollapsed') === '1');
   const [activeTool, setActiveTool] = useState(null);
   const [saveState, setSaveState] = useState('saved');
+  const [timeline, setTimeline] = useState(null);
+  const [timelineError, setTimelineError] = useState(null);
+  const [timelineZoom, setTimelineZoom] = useState(() => Number(localStorage.getItem('vz.timeline.zoom')) || 100);
+  const [timelineCollapsed, setTimelineCollapsed] = useState(() => localStorage.getItem('vz.timeline.collapsed') === '1');
 
   const handleTitle = async (nextTitle) => {
     const current = state?.project?.title || '';
@@ -388,6 +393,24 @@ export default function StudioView({
     setTranscript(null);
     loadTranscript();
   }, [projectId]);
+
+  useEffect(() => {
+    localStorage.setItem('vz.timeline.zoom', String(timelineZoom));
+    localStorage.setItem('vz.timeline.collapsed', timelineCollapsed ? '1' : '0');
+  }, [timelineZoom, timelineCollapsed]);
+
+  useEffect(() => {
+    let alive = true;
+    setTimeline(null);
+    setTimelineError(null);
+    fetchTimeline(projectId)
+      .then((data) => { if (alive) setTimeline(data); })
+      .catch((err) => { if (alive) setTimelineError(err?.message || 'Gagal memuat timeline'); });
+    return () => { alive = false; };
+  }, [projectId]);
+
+  const timelineItems = (timeline?.tracks || []).flatMap((t) => (t.items || []).map((it) => ({ ...it, track: t.track })));
+  const timelineDuration = timeline?.duration_ms || Math.round(duration * 1000);
 
   const seekToMs = (ms) => {
     const v = videoRef.current;
@@ -2004,6 +2027,18 @@ export default function StudioView({
 
         <ToolRail active={activeTool} onSelect={setActiveTool} />
       </div>
+
+      <Timeline
+        items={timelineItems}
+        duration={timelineDuration}
+        current={Math.round(currentTime * 1000)}
+        zoom={timelineZoom}
+        collapsed={timelineCollapsed}
+        onSeek={seekToMs}
+        onZoom={setTimelineZoom}
+        onToggleCollapse={() => setTimelineCollapsed((v) => !v)}
+        error={timelineError}
+      />
 
       <ClipStrip
         clips={clips}

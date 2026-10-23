@@ -242,3 +242,24 @@ export async function openRenderDir() {
   }
   return res.json();
 }
+
+// null = transkrip belum siap (404), bukan error
+export async function fetchTranscript(projectId) {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/transcript?word=1`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('Gagal memuat transkrip');
+  return res.json();
+}
+
+export async function cutTranscript(projectId, fromIdx, toIdx) {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/cut`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from_idx: fromIdx, to_idx: toIdx }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.reason || err.detail || 'Gagal memotong transkrip');
+  }
+  return res.json();
+}

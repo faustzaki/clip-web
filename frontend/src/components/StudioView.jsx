@@ -37,9 +37,10 @@ import {
   Play,
   Pause,
 } from 'lucide-react';
-import { scoreMoments, renderClip, putPrefs, publishClip, renameProject } from '../api';
+import { scoreMoments, renderClip, putPrefs, publishClip, renameProject, fetchTranscript, cutTranscript } from '../api';
 import SubtitlePreview from './SubtitlePreview';
 import SubtitleStyleEditor from './SubtitleStyleEditor';
+import TranscriptPanel from './TranscriptPanel';
 import IconDropdown from './IconDropdown';
 import EditorHeader from './EditorHeader';
 import ToolRail from './ToolRail';
@@ -364,6 +365,41 @@ export default function StudioView({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+
+  // Panel transkrip (kata + potong rentang)
+  const [transcript, setTranscript] = useState(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+  const [transcriptError, setTranscriptError] = useState(null);
+
+  const loadTranscript = async () => {
+    if (!projectId) return;
+    setTranscriptLoading(true);
+    setTranscriptError(null);
+    try {
+      setTranscript(await fetchTranscript(projectId));
+    } catch (err) {
+      setTranscriptError(err?.message || 'Gagal memuat transkrip.');
+    } finally {
+      setTranscriptLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setTranscript(null);
+    loadTranscript();
+  }, [projectId]);
+
+  const seekToMs = (ms) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(0, (Number(ms) || 0) / 1000);
+    setCurrentTime(v.currentTime);
+  };
+
+  const handleTranscriptCut = async (fromIdx, toIdx) => {
+    await cutTranscript(projectId, fromIdx, toIdx);
+    await loadTranscript();
+  };
 
   const mmss = (s) => {
     const sec = Math.max(0, Number(s) || 0);
@@ -1218,6 +1254,19 @@ export default function StudioView({
                     )}
                   </>
                 )}
+
+                {/* Transcript Panel — di bawah panel Generate/Edit Clip, sidebar tetap scrollable */}
+                <div className="pt-3 border-t border-[var(--vz-border-strong)] min-w-0">
+                  <TranscriptPanel
+                    words={transcript?.words || []}
+                    current={Math.round(currentTime * 1000)}
+                    onSeek={seekToMs}
+                    onCut={handleTranscriptCut}
+                    loading={transcriptLoading}
+                    error={transcriptError}
+                    onRetry={loadTranscript}
+                  />
+                </div>
               </div>
             </div>
           )}

@@ -1,0 +1,14 @@
+PRECHECK T1 — dijalankan sebelum patch:
+    grep -c 'dark:' frontend/src/index.css   -> 0
+    ls frontend/tailwind.config.js           -> frontend/tailwind.config.js
+    grep -c Inter frontend/index.html        -> 0
+
+Hasil deteksi:
+- index.css lama tidak memakai varian `dark:` tetapi bertema gelap lewat warna literal (#0d0d11) -> jalur: ganti total isi dengan token.
+- tailwind.config.js ADA (ESM `export default`) -> jalur: extend di file yang sama, tanpa install Tailwind baru.
+- index.html belum memuat Inter (Plus Jakarta Sans) -> jalur: ganti link font + hapus class `dark` di <html>, `bg-slate-950` di <body>.
+
+Prasyarat lain:
+    wc -l: StudioView.jsx 1916 · App.jsx 256 · Navbar.jsx 108 · ProjectsView.jsx 159 · index.css 50
+    ls _shot2.py  -> tidak ada (skrip screenshot baru; dipakai Playwright devDependency + _mock.py :8005)
+    ls scripts/   -> tidak ada (dibuat scripts/check_t1.py)

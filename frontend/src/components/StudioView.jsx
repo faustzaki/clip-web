@@ -37,10 +37,13 @@ import {
   Play,
   Pause,
 } from 'lucide-react';
-import { scoreMoments, renderClip, putPrefs, publishClip } from '../api';
+import { scoreMoments, renderClip, putPrefs, publishClip, renameProject } from '../api';
 import SubtitlePreview from './SubtitlePreview';
 import SubtitleStyleEditor from './SubtitleStyleEditor';
 import IconDropdown from './IconDropdown';
+import EditorHeader from './EditorHeader';
+import ToolRail from './ToolRail';
+import ClipStrip from './ClipStrip';
 
 const FRAMING_OPTIONS = [
   {
@@ -84,7 +87,7 @@ export default function StudioView({
 }) {
   // Layout mode: 'bottom' (horizontal filmstrip) vs 'right' (3-column vertical)
   const [pipelinePos, setPipelinePos] = useState(() => localStorage.getItem('studio.pipelinePos') || 'bottom');
-  const [leftW, setLeftW] = useState(() => Number(localStorage.getItem('studio.leftW')) || 320);
+  const [leftW, setLeftW] = useState(() => Number(localStorage.getItem('studio.leftW')) || 360);
   const [leftCollapsed, setLeftCollapsed] = useState(() => localStorage.getItem('studio.leftCollapsed') === '1');
   const [bottomH, setBottomH] = useState(() => {
     const saved = Number(localStorage.getItem('studio.bottomH'));
@@ -93,6 +96,30 @@ export default function StudioView({
   const [bottomCollapsed, setBottomCollapsed] = useState(() => localStorage.getItem('studio.bottomCollapsed') === '1');
   const [rightW, setRightW] = useState(() => Number(localStorage.getItem('studio.rightW')) || 340);
   const [rightCollapsed, setRightCollapsed] = useState(() => localStorage.getItem('studio.rightCollapsed') === '1');
+  const [activeTool, setActiveTool] = useState(null);
+  const [saveState, setSaveState] = useState('saved');
+
+  const handleTitle = async (nextTitle) => {
+    const current = state?.project?.title || '';
+    if (!nextTitle || nextTitle === current) return;
+    setSaveState('saving');
+    try {
+      await renameProject(projectId, nextTitle);
+      await onRefreshState();
+      setSaveState('saved');
+    } catch {
+      setSaveState('error');
+    }
+  };
+
+  const handleClipDownload = (clip) => {
+    const href = clip.raw_url || clip.url;
+    if (!href) return;
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = `${clip.slug}.mp4`;
+    a.click();
+  };
 
   // Sync boolean collapse/mode states to localStorage (NOT high-frequency pixel dimensions)
   useEffect(() => {
@@ -272,6 +299,7 @@ export default function StudioView({
   const candidates = state?.candidates || [];
   const currentVideo = state?.video;
   const clips = state?.clips || [];
+  const selectedClip = clips.find((cl) => cl.candidate_index === activeCandidateIdx) || null;
   const panelTitle = editMode ? 'Edit Clip' : 'Generate Clip';
   const activeCandidate = candidates[activeCandidateIdx] || null;
   const aspect = prefs?.aspect || '9:16';
@@ -811,14 +839,26 @@ export default function StudioView({
   };
 
   return (
-    <div className="p-2 md:p-3 w-full h-full max-w-[1750px] mx-auto flex flex-col gap-2 overflow-hidden select-none">
-      {/* ROW 1: Settings + Center Player (+ Right Pipeline if active) */}
-      <div className="flex flex-col lg:flex-row gap-2 flex-1 min-h-0 overflow-hidden">
-        {/* Left Settings Panel */}
-        <aside
-          style={{ width: leftCollapsed ? 48 : leftW }}
-          className="lg:shrink-0 min-w-0 h-full flex flex-col overflow-hidden"
-        >
+    <div className="w-full h-full bg-vz-bg flex flex-col overflow-hidden select-none">
+      <EditorHeader
+        title={state?.project?.title || ''}
+        onTitle={handleTitle}
+        canUndo={false}
+        canRedo={false}
+        saveState={saveState}
+        onSave={handleTitle}
+        onBackToProjects={onBackToProjects}
+      />
+
+      <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
+        <div className="flex flex-col lg:flex-row gap-2 flex-1 min-h-0 overflow-hidden p-2 md:p-2">
+          {/* ROW 1: Settings + Center Player (+ Right Pipeline if active) */}
+          <div className="flex flex-col lg:flex-row gap-2 flex-1 min-h-0 overflow-hidden">
+            {/* Left Settings Panel */}
+            <aside
+              style={{ width: leftCollapsed ? 48 : leftW }}
+              className="lg:shrink-0 min-w-0 h-full flex flex-col overflow-hidden"
+            >
           {leftCollapsed ? (
             /* Collapsed Rail */
             <div className="bg-dark-card border border-dark-border rounded-2xl p-2 flex flex-col items-center gap-4 h-full shadow-lg">
@@ -1825,9 +1865,9 @@ export default function StudioView({
             </aside>
           </>
         )}
-      </div>
+          </div>
 
-      {/* BOTTOM PANEL MODE: If pipelinePos === 'bottom' */}
+        {/* BOTTOM PANEL MODE: If pipelinePos === 'bottom' */}
       {pipelinePos === 'bottom' && (
         <>
           {/* Resizer Handle: Top to Bottom */}
@@ -1911,6 +1951,17 @@ export default function StudioView({
           </section>
         </>
       )}
+        </div>
+
+        <ToolRail active={activeTool} onSelect={setActiveTool} />
+      </div>
+
+      <ClipStrip
+        clips={clips}
+        selected={selectedClip?.slug}
+        onSelect={(clip) => setActiveCandidateIdx(clip.candidate_index ?? 0)}
+        onDownload={handleClipDownload}
+      />
     </div>
   );
 }

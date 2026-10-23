@@ -3,6 +3,19 @@ Kerja **hanya** sesuai dokumen. Jangan improvisasi arsitektur.
 
 # PROMPT 09 — T9: Translasi Subtitle (5 jam) · P1
 
+## MODE: PATCH, BUKAN BUILD ULANG
+Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat aplikasi baru.
+- Sebelum menulis: `wc -l` dan baca file target. Jangan menebak isi file.
+- Komponen yang sudah ada **diedit di tempat** (pindahkan/potong baris). Jangan membuat file baru dengan fungsi sama.
+- Jangan scaffold ulang `App.jsx`, `StudioView.jsx`, `server.py` dari nol. Jangan menghapus fitur yang sudah jalan.
+- Diff maksimum ±600 baris. Kalau lebih, kemungkinan besar kamu mulai dari nol → berhenti dan lapor.
+
+**File yang disentuh tugas ini:**
+- `baru: translate.py + docs/prompts/translate.md`
+- `server.py`
+- `ToolPanel.jsx`
+- `subtitle_burn.py (dua bahasa)`
+
 Branch: `t9-translasi`. Tergantung T7 (butuh kata yang bersih).
 
 ## BACA

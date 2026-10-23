@@ -11,6 +11,11 @@ Repo ini dikerjakan agent. Baca dokumen, jangan improvisasi.
 6. `docs/MODELS.md` — model 9Router/OMP yang terbukti hidup
 7. `docs/prompts/<tugas>.md` — satu tugas per sesi (T1–T13)
 
+## PATCH, bukan build ulang
+Repo sudah jalan (~7.500 baris). Semua prompt tugas = **ubah file yang ada**, bukan scaffold baru.
+Baseline: `StudioView.jsx` 1.916 · `server.py` 1.565 · `CropStudioModal.jsx` 605 · `SettingsModal.jsx` 601 · `App.jsx` 256.
+Target setelah T3: `StudioView.jsx` ≤ 400 baris (sisanya dipecah ke komponen + `hooks/useEditorState.js`).
+
 ## Aturan yang paling sering dilanggar
 - Light theme saja. Tidak ada `dark:`, `bg-black`, `bg-dark-*`, `neon`, gradien, glow. Satu aksen `--vz-accent` (`#4822A5`).
 - Jangan hapus: `CropStudioModal`, `SubtitleStyleEditor`, pemilih model AI, `chopify/`.

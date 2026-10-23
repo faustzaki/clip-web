@@ -3,6 +3,23 @@ Kerja **hanya** sesuai dokumen. Jangan improvisasi arsitektur.
 
 # PROMPT 01 — T1: Token + Shell (5 jam)
 
+## MODE: PATCH, BUKAN BUILD ULANG
+Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat aplikasi baru.
+- Sebelum menulis: `wc -l` dan baca file target. Jangan menebak isi file.
+- Komponen yang sudah ada **diedit di tempat** (pindahkan/potong baris). Jangan membuat file baru dengan fungsi sama.
+- Jangan scaffold ulang `App.jsx`, `StudioView.jsx`, `server.py` dari nol. Jangan menghapus fitur yang sudah jalan.
+- Diff maksimum ±600 baris. Kalau lebih, kemungkinan besar kamu mulai dari nol → berhenti dan lapor.
+
+**File yang disentuh tugas ini:**
+- `frontend/src/index.css (ganti isi)`
+- `frontend/tailwind.config.js (extend)`
+- `frontend/index.html (font+lang)`
+- `frontend/src/App.jsx (edit di tempat)`
+- `frontend/src/components/Navbar.jsx (edit)`
+- `frontend/src/components/ProjectsView.jsx (edit)`
+- `frontend/src/components/StudioView.jsx (hanya shell grid)`
+- `baru: components/EditorHeader.jsx, ToolRail.jsx, ClipStrip.jsx`
+
 Branch: `t1-shell`
 
 ## BACA

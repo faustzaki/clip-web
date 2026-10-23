@@ -3,6 +3,18 @@ Kerja **hanya** sesuai dokumen. Jangan improvisasi arsitektur.
 
 # PROMPT 04 — T4: Export Modal (2 jam)
 
+## MODE: PATCH, BUKAN BUILD ULANG
+Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat aplikasi baru.
+- Sebelum menulis: `wc -l` dan baca file target. Jangan menebak isi file.
+- Komponen yang sudah ada **diedit di tempat** (pindahkan/potong baris). Jangan membuat file baru dengan fungsi sama.
+- Jangan scaffold ulang `App.jsx`, `StudioView.jsx`, `server.py` dari nol. Jangan menghapus fitur yang sudah jalan.
+- Diff maksimum ±600 baris. Kalau lebih, kemungkinan besar kamu mulai dari nol → berhenti dan lapor.
+
+**File yang disentuh tugas ini:**
+- `server.py (export job)`
+- `baru: components/ExportModal.jsx`
+- `StudioView.jsx + ClipStrip.jsx (pasang tombol)`
+
 Branch: `t4-export`
 
 ## BACA

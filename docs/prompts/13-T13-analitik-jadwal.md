@@ -3,6 +3,17 @@ Kerja **hanya** sesuai dokumen. Jangan improvisasi arsitektur.
 
 # PROMPT 13 — T13: Antrian Posting + Analitik (8 jam) · P2, butuh OAuth
 
+## MODE: PATCH, BUKAN BUILD ULANG
+Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat aplikasi baru.
+- Sebelum menulis: `wc -l` dan baca file target. Jangan menebak isi file.
+- Komponen yang sudah ada **diedit di tempat** (pindahkan/potong baris). Jangan membuat file baru dengan fungsi sama.
+- Jangan scaffold ulang `App.jsx`, `StudioView.jsx`, `server.py` dari nol. Jangan menghapus fitur yang sudah jalan.
+- Diff maksimum ±600 baris. Kalau lebih, kemungkinan besar kamu mulai dari nol → berhenti dan lapor.
+
+**File yang disentuh tugas ini:**
+- `server.py (queue)`
+- `baru: components/PostQueue.jsx (kalender)`
+
 Branch: `t13-posting`. **Bisa BLOCKED** kalau kredensial OAuth platform belum ada — kerjakan bagian yang tidak butuh itu.
 
 ## BACA

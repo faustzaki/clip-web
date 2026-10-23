@@ -3,6 +3,18 @@ Kerja **hanya** sesuai dokumen. Jangan improvisasi arsitektur.
 
 # PROMPT 03 — T3: Timeline 3 Track (5–6 jam)
 
+## MODE: PATCH, BUKAN BUILD ULANG
+Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat aplikasi baru.
+- Sebelum menulis: `wc -l` dan baca file target. Jangan menebak isi file.
+- Komponen yang sudah ada **diedit di tempat** (pindahkan/potong baris). Jangan membuat file baru dengan fungsi sama.
+- Jangan scaffold ulang `App.jsx`, `StudioView.jsx`, `server.py` dari nol. Jangan menghapus fitur yang sudah jalan.
+- Diff maksimum ±600 baris. Kalau lebih, kemungkinan besar kamu mulai dari nol → berhenti dan lapor.
+
+**File yang disentuh tugas ini:**
+- `server.py (timeline get/post)`
+- `StudioView.jsx (pakai hook)`
+- `baru: components/Timeline.jsx, hooks/useEditorState.js`
+
 Branch: `t3-timeline`
 
 ## BACA

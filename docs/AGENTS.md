@@ -23,6 +23,19 @@ Baca berurutan. Jangan lompat. Kalau ada konflik antar dokumen, urutan menang: *
 9. **Setiap tugas wajib meninggalkan bukti**: screenshot `before/`+`after/` di `docs/evidence/<tugas>/`, plus output perintah verifikasi.
 10. Bahasa UI: **Indonesia**, konsisten. Istilah teknis yang sudah lazim tetap Inggris (transcript, export, clip, timeline).
 
+## Baseline kode (jangan di-scaffold ulang)
+| File | Baris |
+|---|---|
+| `frontend/src/components/StudioView.jsx` | 1.916 |
+| `server.py` | 1.565 |
+| `frontend/src/components/CropStudioModal.jsx` | 605 |
+| `frontend/src/components/SettingsModal.jsx` | 601 |
+| `frontend/src/components/SubtitleApplyModal.jsx` | 448 |
+| `frontend/src/App.jsx` | 256 |
+| `chopify/subtitle_burn.py` | 423 |
+| `chopify/tighten.py` | 128 |
+Semua prompt tugas berisi blok **MODE: PATCH** + daftar file yang disentuh. Kalau agent membuat file baru untuk fungsi yang sudah ada, itu pelanggaran.
+
 ## Cara verifikasi (jalankan, jangan diklaim)
 ```bash
 cd frontend && npm run build          # wajib 0 error

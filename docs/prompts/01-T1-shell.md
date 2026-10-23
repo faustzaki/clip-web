@@ -22,6 +22,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t1-shell`
 
+## MODEL (jalankan dengan ini)
+```
+ninerouter/T-SOTA/claude-sonnet-5
+```
+Fallback kalau gagal 2×: `ninerouter/T-SOTA/claude-sonnet-4-6`.
+```bash
+omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/01-T1-shell.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `docs/UI-SPEC.md` §1–§2, §6 · `docs/ADR.md` ADR-001 · `design/tokens.css` · `design/tailwind.theme.js`
 

@@ -18,12 +18,22 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t7-akurasi`. Ini prasyarat T8/T9 — diarisasi & translasi jelek kalau transkripnya jelek.
 
+## MODEL (jalankan dengan ini)
+```
+ninerouter/T-SOTA/claude-sonnet-5
+```
+Fallback kalau gagal 2×: `ninerouter/cbai/deepseek-v4.1-flash`.
+```bash
+omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/07-T7-akurasi-transkripsi.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `chopify/transcribe.py` (atau file ASR yang ada) · `docs/DATA-MODEL.md` §1 · `docs/MODELS.md` §5
 
 ## TUGAS
 1. Naikkan kualitas ASR (parameter, bukan model baru):
-   - `model_size="large-v3"`, `compute_type="int8"`, `beam_size=5`, `language="id"` (dikunci, jangan auto),
+   - `model_size` dari setting: default **`medium`** (disk 5.3 GB), naik ke `large-v3` kalau `df -h /c` menunjukkan ≥ 10 GB bebas, `compute_type="int8"`, `beam_size=5`, `language="id"` (dikunci, jangan auto),
    - `vad_filter=True`, `vad_parameters=dict(min_silence_duration_ms=400)`,
    - `condition_on_previous_text=False` (mencegah halusinasi berulang),
    - `word_timestamps=True`.

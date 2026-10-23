@@ -17,6 +17,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t11-brandkit`.
 
+## MODEL (jalankan dengan ini)
+```
+ocf/glm-5.3-flash-free
+```
+Fallback kalau gagal 2×: `ninerouter/cbai/deepseek-v4.1-flash`.
+```bash
+omp -p --model="ocf/glm-5.3-flash-free" @AGENTS.md @docs/prompts/11-T11-brandkit.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `docs/DATA-MODEL.md` · `chopify/subtitle_burn.py`
 

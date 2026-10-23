@@ -10,6 +10,7 @@ Semua yang dibutuhkan agent supaya kerja **lurus aturan**, tanpa improvisasi.
 | `UI-SPEC.md` | grid 56/360/72/96/240, komponen, state, copy | sebelum menyentuh UI |
 | `DATA-MODEL.md` | skema SQLite additive + kontrak API | sebelum menyentuh BE |
 | `IMPLEMENTATION-STRATEGY.md` | fase T1–T6, gate, paralelisasi, rollback | sebelum mulai tugas |
+| `REQUIREMENTS.md` | dependency, port, env, interpreter, risiko disk | **sebelum T1** |
 | `TESTING.md` | cek per tugas, template `scripts/check_tN.py`, matriks prasyarat + placeholder | sebelum ngoding tiap tugas |
 | `MODELS.md` | model 9Router yang hidup (hasil uji) + nama picker OMP + perintah | sebelum pilih model |
 | `READINESS-AUDIT.md` | audit: picker OMP, siap/tidak siap, cakupan fitur vs Vizard | sebelum mulai, wajib |

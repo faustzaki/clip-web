@@ -17,6 +17,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t12-background`.
 
+## MODEL (jalankan dengan ini)
+```
+ninerouter/ag/gemini-3.8-flash-high
+```
+Fallback kalau gagal 2×: `ocf/glm-5.3-flash-free`.
+```bash
+omp -p --model="ninerouter/ag/gemini-3.8-flash-high" @AGENTS.md @docs/prompts/12-T12-background-layout.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `docs/UI-SPEC.md` §4 (pill toolbar) · `chopify/render_clips.py`
 

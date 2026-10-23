@@ -13,6 +13,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 **File yang disentuh tugas ini:**
 - `hanya membaca diff — tidak menulis kode`
 
+## MODEL (jalankan dengan ini)
+```
+ninerouter/T-SOTA/claude-opus-5
+```
+Fallback kalau gagal 2×: `grok-cli/grok-4.5`.
+```bash
+omp -p --model="ninerouter/T-SOTA/claude-opus-5" @AGENTS.md @docs/prompts/99-REVIEW.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `docs/AGENTS.md` (aturan keras) · `docs/UI-SPEC.md` · diff PR yang direview.
 

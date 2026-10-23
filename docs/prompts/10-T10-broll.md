@@ -18,6 +18,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t10-broll`.
 
+## MODEL (jalankan dengan ini)
+```
+ninerouter/T-SOTA/claude-sonnet-5
+```
+Fallback kalau gagal 2×: `ocf/glm-5.3-flash-free`.
+```bash
+omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/10-T10-broll.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `docs/DATA-MODEL.md` §1 (`timeline_items.kind='broll'`) · `docs/UI-SPEC.md` §4 (rail)
 

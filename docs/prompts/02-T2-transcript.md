@@ -17,6 +17,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t2-transcript` · Butuh `server.py` (endpoint baru, sudah dispesifikasikan)
 
+## MODEL (jalankan dengan ini)
+```
+ninerouter/T-SOTA/claude-opus-5-5
+```
+Fallback kalau gagal 2×: `ninerouter/T-SOTA/claude-sonnet-5`.
+```bash
+omp -p --model="ninerouter/T-SOTA/claude-opus-5-5" @AGENTS.md @docs/prompts/02-T2-transcript.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `docs/UI-SPEC.md` §4 "Aturan transcript" · `docs/DATA-MODEL.md` §1, §3 · `docs/ADR.md` ADR-004
 

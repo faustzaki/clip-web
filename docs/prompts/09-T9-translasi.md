@@ -18,6 +18,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t9-translasi`. Tergantung T7 (butuh kata yang bersih).
 
+## MODEL (jalankan dengan ini)
+```
+ninerouter/T-SOTA/claude-sonnet-5
+```
+Fallback kalau gagal 2×: `ninerouter/ag/gemini-3.8-flash-high`.
+```bash
+omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/09-T9-translasi.md
+```
+Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+
 ## BACA
 `docs/MODELS.md` §5 · `docs/DATA-MODEL.md` §1, §3 · `prompts/translate.md` (buat file ini, isi di langkah 1)
 

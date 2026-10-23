@@ -27,7 +27,7 @@ mimetypes.types_map['.mjs'] = 'application/javascript'
 mimetypes.types_map['.css'] = 'text/css'
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -146,19 +146,6 @@ def clear_temp_cache() -> dict:
                     cleaned_files += 1
                 except Exception:
                     pass
-    for pd in WORKDIR.iterdir():
-        sdir = pd / '_section'
-        if sdir.is_dir():
-            for f in sdir.glob('*'):
-                if not f.is_file():
-                    continue
-                try:
-                    sz = f.stat().st_size
-                    f.unlink()
-                    freed_bytes += sz
-                    cleaned_files += 1
-                except Exception:
-                    pass
     return {
         "freed_mb": round(freed_bytes / (1024 * 1024), 2),
         "cleaned_files": cleaned_files
@@ -171,10 +158,6 @@ PID_RE = re.compile(r'^[0-9a-f]{10}$')
 
 INGEST_JOBS: dict[str, dict] = {}      # pid -> {'cancel': bool}
 INGEST_LOCK = threading.Lock()
-
-PREPARE_JOBS: dict[str, dict] = {}     # pid -> {'tier': str}
-PREPARE_LOCK = threading.Lock()
-PREPARE_DEFAULT = {"status": "idle", "tier": None, "percent": 0, "message": "", "error": None}
 
 class _Cancelled(Exception):
     pass
@@ -301,9 +284,6 @@ class IngestUrlRequest(BaseModel):
     language: Optional[str] = None
 
 
-class PrepareRequest(BaseModel):
-    tier: Optional[str] = "preview"
-
 class ScoreRequest(BaseModel):
     model_name: Optional[str] = "ag/gemini-3.8-flash"
     min_score: Optional[float] = 6.0
@@ -345,7 +325,6 @@ class RenderRequest(BaseModel):
     watermark: Optional[str] = None
     quality: Optional[str] = "hd"
     crop_rect: Optional[CropRect] = None
-    full_download: Optional[bool] = False
 
 
 class CreateProjectRequest(BaseModel):
@@ -569,51 +548,6 @@ def _validate_pid(project_id: str):
     if not PID_RE.match(project_id):
         raise HTTPException(404, "Project not found")
 
-YT_ID_RE = re.compile(r"(?:v=|youtu\.be/|/shorts/|/embed/)([0-9A-Za-z_-]{11})")
-
-def _youtube_id(url: Optional[str]) -> Optional[str]:
-    if not url:
-        return None
-    m = YT_ID_RE.search(url)
-    return m.group(1) if m else None
-
-def _prepare_write(pid: str, **fields):
-    try:
-        meta = read_project_meta(pid)
-        state = dict(PREPARE_DEFAULT)
-        state.update(meta.get('prepare') or {})
-        state.update(fields)
-        meta['prepare'] = state
-        write_project_meta(pid, meta)
-    except Exception:
-        pass
-
-def _prepare_worker(pid: str, url: str, tier: str):
-    label = '720p' if tier == 'preview' else ('1080p' if tier == 'hd' else 'terbaik')
-    try:
-        _prepare_write(pid, status='running', tier=tier, percent=1, error=None,
-                       message=f'Mengunduh video {label}... 0%')
-
-        def cb(frac):
-            f = frac if frac is not None else 0.0
-            _prepare_write(pid, percent=min(99, 1 + round(f * 98)),
-                           message=f'Mengunduh video {label}... {round(f * 100)}%')
-
-        path = core_engine.download_to(url, project_dir(pid) / 'source', preset=tier, on_progress=cb)
-        meta = read_project_meta(pid)
-        meta['local_tier'] = tier
-        write_project_meta(pid, meta)
-        if not (project_dir(pid) / 'cover.jpg').exists():
-            grab_cover(pid, path)
-        _prepare_write(pid, status='done', percent=100, message='Video lokal siap')
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        _prepare_write(pid, status='error', error=str(e), message='Gagal mengunduh video')
-    finally:
-        with PREPARE_LOCK:
-            PREPARE_JOBS.pop(pid, None)
-
 
 # --------------------------------------------------------------------------
 # Project CRUD
@@ -750,7 +684,6 @@ def get_state(project_id: str):
     src = get_source_video_path(project_id)
     transcript = load_transcript_file(project_id)
     candidates = load_segments_file(project_id)
-    yt_id = _youtube_id(meta.get('source_url'))
 
     ingest = meta.get('ingest') or {"status": "idle"}
     if ingest.get('status') == 'running':
@@ -794,11 +727,9 @@ def get_state(project_id: str):
     return {
         "project": project_summary(project_id),
         "video": video_info,
-        "youtube": {"id": yt_id} if yt_id else None,
         "transcript": transcript_info,
         "candidates": candidates,
         "ingest": ingest,
-        "prepare": meta.get('prepare') or dict(PREPARE_DEFAULT),
         "clips": _list_project_clips(project_id),
     }
 
@@ -849,6 +780,17 @@ def _start_ingest(pid: str, url: Optional[str] = None, uploaded: bool = False, m
     ).start()
 
 
+def _format_error_message(err: Exception) -> str:
+    msg = str(err)
+    if "Sign in to confirm you're not a bot" in msg or "RequestBlocked" in msg:
+        return (
+            "YouTube memblokir download otomatis (Bot Detection). "
+            "Solusi tercepat: Pakai tab 'Upload File Video' untuk upload file video .mp4 langsung, "
+            "atau letakkan file 'cookies.txt' akun YouTube Anda di folder project."
+        )
+    return msg
+
+
 def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str, language: Optional[str] = None):
     pdir = project_dir(pid)
     try:
@@ -857,6 +799,7 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
 
         # Step 1: metadata
         _ingest_write(pid, status='running', stage='metadata', percent=1, message='Menyiapkan project...')
+        has_yt_transcript = False
         if url:
             try:
                 meta = read_project_meta(pid)
@@ -886,34 +829,39 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
             try:
                 tr = core_engine.youtube_transcript(url, language)
                 core_engine.write_transcript(pdir, tr)
+                has_yt_transcript = True
             except Exception as e:
                 print(f"YouTube Transcript API unavailable or failed ({e}), will fallback to Whisper later.", flush=True)
 
         if _ingest_cancelled(pid):
             raise _Cancelled()
 
-        # Step 3: Whisper if transcript does not exist
+        # Step 3: Download proxy (unless uploaded)
+        if not uploaded:
+            _ingest_write(pid, stage='download', percent=12, message='Mengunduh video proxy... 0%')
+            span = 80 if has_yt_transcript else 73
+            max_pct = 92 if has_yt_transcript else 85
+
+            def cb(frac):
+                if _ingest_cancelled(pid):
+                    raise _Cancelled()
+                f = frac if frac is not None else 0.0
+                calc = 12 + round(f * span)
+                _ingest_write(
+                    pid,
+                    percent=min(max_pct, calc),
+                    message=f'Mengunduh video proxy... {round(f * 100)}%'
+                )
+
+            core_engine.download_to(url, pdir / 'source', preset='proxy', on_progress=cb)
+
+        if _ingest_cancelled(pid):
+            raise _Cancelled()
+
+        # Step 4: Whisper if transcript does not exist
         transcript_file = pdir / 'transcript.json'
         if not transcript_file.exists():
-            if url:
-                _ingest_write(pid, stage='download', percent=40, message='Mengunduh video 720p untuk transkripsi... 0%')
-
-                def cb(frac):
-                    if _ingest_cancelled(pid):
-                        raise _Cancelled()
-                    f = frac if frac is not None else 0.0
-                    _ingest_write(
-                        pid,
-                        percent=min(85, 40 + round(f * 45)),
-                        message=f'Mengunduh video 720p untuk transkripsi... {round(f * 100)}%'
-                    )
-
-                core_engine.download_to(url, pdir / 'source', preset='preview', on_progress=cb)
-                meta_local = read_project_meta(pid)
-                meta_local['local_tier'] = 'preview'
-                write_project_meta(pid, meta_local)
-
-            _ingest_write(pid, stage='transcript', percent=85, message='Transkripsi audio (Whisper)...')
+            _ingest_write(pid, stage='transcript', percent=92, message='Transkripsi audio (Whisper)...')
             video_path = get_source_video_path(pid)
             if not video_path:
                 raise RuntimeError("Video source tidak ditemukan untuk transkripsi.")
@@ -922,7 +870,7 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
         if _ingest_cancelled(pid):
             raise _Cancelled()
 
-        # Step 4: Finalize
+        # Step 5: Finalize
         _ingest_write(pid, stage='finalize', percent=98, message='Menyelesaikan...')
         video_path = get_source_video_path(pid)
         if video_path:
@@ -955,7 +903,7 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
     except Exception as e:
         import traceback
         traceback.print_exc()
-        _ingest_write(pid, status='error', error=str(e), message='Gagal memproses project', finished_at=time.time())
+        _ingest_write(pid, status='error', error=_format_error_message(e), message='Gagal memproses project', finished_at=time.time())
     finally:
         with INGEST_LOCK:
             INGEST_JOBS.pop(pid, None)
@@ -1010,28 +958,6 @@ async def upload_video(project_id: str, file: UploadFile = File(...),
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-
-@app.post("/api/projects/{project_id}/prepare")
-def prepare_video(project_id: str, payload: PrepareRequest):
-    _validate_pid(project_id)
-    meta = read_project_meta(project_id)
-    tier = (payload.tier or 'preview').lower()
-    if tier not in ('preview', 'hd', 'best'):
-        raise HTTPException(400, "Kualitas tidak dikenal: pakai preview|hd|best")
-    if not meta.get('source_url'):
-        raise HTTPException(400, "Project ini tidak punya sumber YouTube")
-    if get_source_video_path(project_id):
-        raise HTTPException(400, "Video lokal sudah ada")
-    with PREPARE_LOCK:
-        if project_id in PREPARE_JOBS:
-            raise HTTPException(409, "Unduhan lain sedang berjalan")
-        with INGEST_LOCK:
-            if project_id in INGEST_JOBS:
-                raise HTTPException(409, "Unduhan lain sedang berjalan")
-        PREPARE_JOBS[project_id] = {'tier': tier}
-    threading.Thread(target=_prepare_worker, args=(project_id, meta['source_url'], tier),
-                     daemon=True, name=f'prepare-{project_id}').start()
-    return {"status": "started"}
 
 @app.post("/api/projects/{project_id}/score")
 def score_moments(project_id: str, payload: ScoreRequest):
@@ -1110,7 +1036,7 @@ def render_clip(project_id: str, payload: RenderRequest):
     cdir = project_clips_dir(project_id)
 
     src = get_source_video_path(project_id)
-    if not src and not meta.get('source_url'):
+    if not src:
         raise HTTPException(status_code=400, detail="No source video found")
 
     transcript = load_transcript_file(project_id)
@@ -1126,55 +1052,19 @@ def render_clip(project_id: str, payload: RenderRequest):
         seg["hook"] = payload.custom_hook
 
     tier = (payload.quality or 'hd').lower()
-    if tier == 'original':
-        if not src:
-            tier = 'hd'          # tidak ada file lokal: pakai 1080p (upload selalu punya file lokal)
-    elif tier not in ('proxy', 'preview', 'hd', 'best'):
-        raise HTTPException(400, "Kualitas tidak dikenal: pakai proxy|preview|hd|best|original")
-
-    section_dir = pdir / '_section'
-    section_path = None
-    offset = 0.0
-    if tier != 'original' and meta.get('source_url'):
-        if payload.full_download:
+    if not meta.get('source_url') or tier == 'original':
+        pass
+    else:
+        if tier not in ('proxy', 'hd', 'best'):
+            raise HTTPException(400, "Kualitas tidak dikenal: pakai proxy|hd|best|original")
+        if tier != 'proxy':
             hq = pdir / 'hq' / f'{tier}.mp4'
             if not hq.exists():
                 try:
                     core_engine.download_to(meta['source_url'], pdir / 'hq' / tier, preset=tier)
                 except Exception as e:
-                    return JSONResponse(status_code=409, content={
-                        "detail": f"Unduhan penuh gagal: {e}",
-                        "code": "full_download_failed",
-                    })
+                    raise HTTPException(status_code=500, detail=f"Render failed: {_format_error_message(e)}")
             src = hq
-        else:
-            MARGIN = 3.0
-            total = float(transcript.get('duration') or 0) or (float(seg['end']) + MARGIN)
-            S = max(0.0, float(seg['start']) - MARGIN)
-            E = min(total, float(seg['end']) + MARGIN)
-            section_dir.mkdir(parents=True, exist_ok=True)
-            sec = section_dir / f"{tier}_{int(S * 1000)}.mp4"
-            try:
-                core_engine.download_section(meta['source_url'], sec, S, E, preset=tier)
-            except Exception as e:
-                for f in section_dir.glob('*.mp4'):
-                    f.unlink(missing_ok=True)
-                return JSONResponse(status_code=409, content={
-                    "detail": f"Gagal mengunduh potongan klip: {e}",
-                    "code": "section_download_failed",
-                })
-            fs = core_engine.probe_start_time(sec)
-            if abs(fs) > 0.05:
-                norm = sec.with_name(sec.stem + '_norm.mp4')
-                subprocess.run(
-                    ["ffmpeg", "-y", "-ss", f"{fs:.3f}", "-i", str(sec),
-                     "-c", "copy", "-avoid_negative_ts", "make_zero", str(norm)],
-                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                sec.unlink(missing_ok=True)
-                norm.rename(sec)
-            src = sec
-            section_path = sec
-            offset = S
 
     prefs = meta.get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
     crops = meta.get("crops") or {}
@@ -1185,16 +1075,9 @@ def render_clip(project_id: str, payload: RenderRequest):
 
     try:
         cdir.mkdir(parents=True, exist_ok=True)
-        seg_render, words_render = seg, transcript["words"]
-        if section_path:
-            seg_render = {**seg, "start": float(seg["start"]) - offset, "end": float(seg["end"]) - offset}
-            words_render = [
-                {"word": w["word"], "start": float(w["start"]) - offset, "end": float(w["end"]) - offset}
-                for w in transcript["words"]
-            ]
         w, h = render_clips.ffprobe_dims(src)
         res_p = render_clips.render(
-            seg=seg_render, words=words_render, source=src,
+            seg=seg, words=transcript["words"], source=src,
             W=w, H=h, workdir=pdir,
             aspect=payload.aspect or "9:16",
             out_dir=cdir,
@@ -1246,10 +1129,6 @@ def render_clip(project_id: str, payload: RenderRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Render failed: {str(e)}")
-    finally:
-        if section_path and section_dir.exists():
-            for f in section_dir.glob('*.mp4'):
-                f.unlink(missing_ok=True)
 
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -1595,7 +1474,6 @@ def reset_workspace(project_id: str):
     meta = read_project_meta(project_id)
     pdir = project_dir(project_id)
     shutil.rmtree(pdir / 'hq', ignore_errors=True)
-    shutil.rmtree(pdir / '_section', ignore_errors=True)
     shutil.rmtree(project_clips_dir(project_id), ignore_errors=True)
     # Remove source, transcript, segments — keep project.json + cover.jpg
     for pattern in ['source.*', 'transcript.json', 'segments.json']:
@@ -1606,8 +1484,6 @@ def reset_workspace(project_id: str):
         del meta['ingest']
     if 'crops' in meta:
         del meta['crops']
-    meta.pop('prepare', None)
-    meta.pop('local_tier', None)
     write_project_meta(project_id, meta)
     return {"status": "ok", "message": "Workspace reset"}
 

@@ -29,11 +29,9 @@ import {
   Move,
   Maximize2,
 } from 'lucide-react';
-import { scoreMoments, renderClip, putPrefs, publishClip, prepareVideo } from '../api';
+import { scoreMoments, renderClip, putPrefs, publishClip } from '../api';
 import SubtitleStyleEditor from './SubtitleStyleEditor';
 import SubtitlePreview from './SubtitlePreview';
-import YouTubePreview from './YouTubePreview';
-import NoticeBar from './NoticeBar';
 
 const SUBTITLE_SAMPLE = ['CONTOH', 'TEKS', 'SUBTITLE', 'KARAOKE'];
 
@@ -232,12 +230,6 @@ export default function StudioView({
   const currentVideo = state?.video;
   const clips = state?.clips || [];
   const activeCandidate = candidates[activeCandidateIdx] || null;
-  const youtubeId = state?.youtube?.id || null;
-  const hasLocal = !!currentVideo?.url;
-  const [embedFailed, setEmbedFailed] = useState(false);
-  const useEmbed = !hasLocal && !!youtubeId && !embedFailed;
-  const ytApiRef = useRef(null);
-  const [notice, setNotice] = useState(null);
   const aspect = prefs?.aspect || '9:16';
   const st = prefs?.subtitle_style || {};
   const subPx = (v) => Math.max(2, Math.round((Number(v) || 0) * (frameSize.h || 800) / 1920));
@@ -291,29 +283,6 @@ export default function StudioView({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  // YouTubePreview's onTime callback is captured once at player ready, so read the
-  // loop range from a ref instead of a stale closure.
-  const activeCandidateRef = useRef(activeCandidate);
-  useEffect(() => { activeCandidateRef.current = activeCandidate; }, [activeCandidate]);
-  const effDuration = duration || Number(state?.transcript?.duration || 0);
-  const prepare = state?.prepare;
-
-  // Klik prepare tidak mengubah state sampai refresh pertama: App hanya polling saat
-  // prepare sudah 'running', jadi refresh sekali di sini agar banner progress muncul.
-  const startPrepare = () => {
-    Promise.resolve(prepareVideo(projectId, 'preview')).catch(() => {}).then(() => onRefreshState?.());
-  };
-
-  useEffect(() => {
-    if (prepare?.status === 'error') {
-      setNotice({
-        tone: 'error',
-        message: prepare.error || 'Gagal mengunduh video',
-        actionLabel: 'Coba lagi',
-        onAction: () => startPrepare(),
-      });
-    }
-  }, [prepare?.status, prepare?.error]);
 
   const mmss = (s) => {
     const sec = Math.max(0, Number(s) || 0);
@@ -321,24 +290,17 @@ export default function StudioView({
     const rem = Math.floor(sec % 60);
     return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
   };
-  const pct = effDuration > 0 ? Math.min(100, Math.max(0, (currentTime / effDuration) * 100)) : 0;
-  const handleTimeUpdate = (t) => {
-    const time = typeof t === 'number' ? t : (videoRef.current?.currentTime ?? 0);
-    setCurrentTime(time);
-    const cand = activeCandidateRef.current;
-    if (cand && typeof cand.end === 'number' && time >= cand.end) {
-      if (useEmbed) ytApiRef.current?.seek(cand.start || 0);
-      else if (videoRef.current) videoRef.current.currentTime = cand.start || 0;
+  const pct = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+      if (activeCandidate && typeof activeCandidate.end === 'number' && videoRef.current.currentTime >= activeCandidate.end) {
+        videoRef.current.currentTime = activeCandidate.start || 0;
+      }
     }
   };
 
   const togglePlay = () => {
-    if (useEmbed) {
-      const api = ytApiRef.current;
-      if (!api) return;
-      if (api.isPaused()) api.play(); else api.pause();
-      return;
-    }
     const v = videoRef.current;
     if (!v || !currentVideo?.url) return;
     if (v.paused) v.play().catch(() => {});
@@ -346,12 +308,6 @@ export default function StudioView({
   };
 
   const toggleMute = () => {
-    if (useEmbed) {
-      const next = !isMuted;
-      ytApiRef.current?.muted(next);
-      setIsMuted(next);
-      return;
-    }
     const v = videoRef.current;
     if (!v) return;
     v.muted = !v.muted;
@@ -361,18 +317,13 @@ export default function StudioView({
   const seekToClientX = (clientX) => {
     const el = trackRef.current;
     const v = videoRef.current;
-    if (!el || (!useEmbed && !v) || !effDuration) return;
+    if (!el || !v || !duration) return;
     const b = el.getBoundingClientRect();
     if (b.width <= 0) return;
     const ratio = Math.min(1, Math.max(0, (clientX - b.left) / b.width));
-    const t = ratio * effDuration;
-    if (useEmbed) {
-      ytApiRef.current?.seek(t);
-      setCurrentTime(t);
-    } else {
-      v.currentTime = t;
-      setCurrentTime(t);
-    }
+    const t = ratio * duration;
+    v.currentTime = t;
+    setCurrentTime(t);
     const hit = candidates.findIndex((c) => t >= c.start && t <= c.end);
     if (hit !== activeCandidateIdx) setActiveCandidateIdx(hit === -1 ? null : hit);
   };
@@ -595,13 +546,7 @@ export default function StudioView({
   const jumpToCandidate = (idx) => {
     setActiveCandidateIdx(idx);
     const cand = candidates[idx];
-    if (!cand) return;
-    if (useEmbed) {
-      ytApiRef.current?.seek(cand.start);
-      ytApiRef.current?.play();
-      return;
-    }
-    if (videoRef.current) {
+    if (cand && videoRef.current) {
       videoRef.current.currentTime = cand.start;
       videoRef.current.play().catch(() => {});
     }
@@ -639,7 +584,7 @@ export default function StudioView({
     }
   };
 
-  const handleRenderSingle = async (idx, opts = {}) => {
+  const handleRenderSingle = async (idx) => {
     const cand = candidates[idx];
     if (!cand) return;
 
@@ -652,8 +597,7 @@ export default function StudioView({
         crop_rect: (state?.project?.crops || {})[String(idx)] || null,
         do_tighten: tightenCuts,
         custom_hook: cand.hook,
-        quality: state?.project?.source_url ? renderQuality : 'original',
-        full_download: !!opts.full_download,
+        quality: renderQuality && state?.project?.source_url ? renderQuality : 'original'
       });
 
       setRenderingIndices((prev) => {
@@ -671,16 +615,7 @@ export default function StudioView({
         next.delete(idx);
         return next;
       });
-      if (err.code === 'section_download_failed') {
-        setNotice({
-          tone: 'error',
-          message: err.message,
-          actionLabel: 'Unduh penuh & render',
-          onAction: () => handleRenderSingle(idx, { full_download: true }),
-        });
-      } else {
-        alert(`Render gagal: ${err.message}`);
-      }
+      alert(`Render gagal: ${err.message}`);
     }
   };
 
@@ -860,25 +795,8 @@ export default function StudioView({
                   )
                 )}
 
-                {/* Prepare (720p on-demand) Progress Banner */}
-                {prepare?.status === 'running' && (
-                  <div className="p-3 rounded-xl border border-dark-border bg-dark-bg/80 space-y-2 shrink-0">
-                    <div className="flex items-center justify-between text-[11px] text-gray-300">
-                      <span className="flex items-center gap-1.5">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-neon" />
-                        {prepare.message || 'Mengunduh video 720p...'}
-                      </span>
-                      <span className="text-neon font-mono font-bold text-[11px]">{prepare.percent || 0}%</span>
-                    </div>
-                    <div className="w-full bg-dark-card rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-gradient-to-r from-[#c11e38] to-[#220b34] h-full transition-all duration-300"
-                           style={{ width: `${prepare.percent || 0}%` }} />
-                    </div>
-                  </div>
-                )}
-
                 {/* No-source Warning */}
-                {!hasLocal && !useEmbed ? (
+                {!state?.video ? (
                   <div className="rounded-xl border border-dashed border-dark-border bg-dark-bg/60 p-4 text-center space-y-2 shrink-0">
                     <FileVideo className="w-10 h-10 text-gray-600 mx-auto" />
                     {state?.ingest?.status === 'running' || state?.ingest?.status === 'starting' ? (
@@ -1084,7 +1002,7 @@ export default function StudioView({
                     {/* Primary Find Moments Button */}
                     <button
                       onClick={handleFindMoments}
-                      disabled={isScoring || !state?.transcript}
+                      disabled={isScoring || !state?.video}
                       className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white font-extrabold text-sm tracking-wide shadow-[0_0_20px_rgba(193,30,56,0.3)] flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                     >
                       {isScoring ? (
@@ -1135,21 +1053,7 @@ export default function StudioView({
               ))}
             </div>
 
-            {/* On-demand Sharp Preview (720p) */}
-            {useEmbed && (
-              <button
-                type="button"
-                onClick={() => startPrepare()}
-                disabled={prepare?.status === 'running'}
-                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-dark-card border border-dark-border text-gray-200 hover:border-neon hover:text-neon transition-all disabled:opacity-50"
-                title="Unduh video 720p untuk preview tajam + Crop Studio"
-              >
-                {prepare?.status === 'running' ? `Mengunduh... ${prepare.percent || 0}%` : 'Muat preview tajam 720p'}
-              </button>
-            )}
-
             {/* Video View Mode Selector */}
-            {hasLocal && (
             <div className="flex items-center gap-1 bg-dark-card p-1 rounded-xl border border-dark-border shadow-md">
               <span className="text-[10px] font-bold text-gray-400 uppercase px-1.5">Video</span>
               {[
@@ -1177,14 +1081,7 @@ export default function StudioView({
                 </button>
               ))}
             </div>
-            )}
           </div>
-
-          {notice && (
-            <div className="w-full max-w-[520px] shrink-0 px-1">
-              <NoticeBar {...notice} onDismiss={() => setNotice(null)} />
-            </div>
-          )}
 
           {/* Vertical Mobile Phone Viewport (auto-scales cleanly to available height) */}
           <div ref={frameBoxRef} className="w-full flex-1 min-h-0 flex items-center justify-center">
@@ -1276,7 +1173,7 @@ export default function StudioView({
               )}
 
               {/* Subtitle Drag & Transform Overlay */}
-              {(hasLocal || useEmbed) && prefs?.subtitles_enabled !== false && (
+              {currentVideo?.url && prefs?.subtitles_enabled !== false && (
                 <div
                   className="absolute inset-0 z-20 flex justify-center pointer-events-none"
                   style={{
@@ -1407,7 +1304,7 @@ export default function StudioView({
               )}
 
               {/* Video Player */}
-              {hasLocal ? (
+              {currentVideo?.url ? (
                 <video
                   ref={videoRef}
                   src={currentVideo.url}
@@ -1434,27 +1331,6 @@ export default function StudioView({
                   playsInline
                   loop={!activeCandidate}
                 />
-              ) : useEmbed ? (
-                <>
-                  <YouTubePreview
-                    videoId={youtubeId}
-                    start={activeCandidate?.start || 0}
-                    muted={isMuted}
-                    apiRef={ytApiRef}
-                    onTime={handleTimeUpdate}
-                    onDuration={setDuration}
-                    onError={() => {
-                      setEmbedFailed(true);
-                      setNotice({
-                        tone: 'warn',
-                        message: 'Video ini tidak bisa di-embed. Muat video lokal untuk preview.',
-                        actionLabel: 'Muat video 720p',
-                        onAction: () => startPrepare(),
-                      });
-                    }}
-                  />
-                  <div className="absolute inset-0 z-10 cursor-pointer" onClick={togglePlay} title="Klik untuk play/pause" />
-                </>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-gray-500 space-y-2">
                   <FileVideo className="w-12 h-12 text-gray-600" />
@@ -1468,7 +1344,7 @@ export default function StudioView({
           </div>
 
           {/* Freeform Mini-Dock Toolbar */}
-          {hasLocal && videoViewMode === 'freeform' && (
+          {videoViewMode === 'freeform' && (
             <div className="flex items-center gap-2 bg-dark-card/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-dark-border shadow-xl shrink-0 text-xs">
               <div className="flex items-center gap-1 text-gray-400">
                 <Move className="w-3.5 h-3.5 text-neon" />
@@ -1536,7 +1412,7 @@ export default function StudioView({
           )}
 
           {/* Full Video Timeline Scrubber */}
-          {(hasLocal || useEmbed) && frameSize.w > 0 && (
+          {currentVideo?.url && frameSize.w > 0 && (
             <div style={{ width: frameSize.w }} className="flex items-center gap-2 shrink-0 px-1">
               <span className="text-[11px] font-mono text-gray-300 tabular-nums">{mmss(currentTime)}</span>
               <div
@@ -1546,12 +1422,12 @@ export default function StudioView({
                 title="Klik atau tarik untuk pindah posisi video"
               >
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-dark-border overflow-hidden">
-                  {activeCandidate && effDuration > 0 && (
+                  {activeCandidate && duration > 0 && (
                     <div
                       className="absolute inset-y-0 bg-neon/40"
                       style={{
-                        left: `${(activeCandidate.start / effDuration) * 100}%`,
-                        width: `${((activeCandidate.end - activeCandidate.start) / effDuration) * 100}%`,
+                        left: `${(activeCandidate.start / duration) * 100}%`,
+                        width: `${((activeCandidate.end - activeCandidate.start) / duration) * 100}%`,
                       }}
                     />
                   )}
@@ -1562,7 +1438,7 @@ export default function StudioView({
                   style={{ left: `${pct}%` }}
                 />
               </div>
-              <span className="text-[11px] font-mono text-gray-400 tabular-nums">{mmss(effDuration)}</span>
+              <span className="text-[11px] font-mono text-gray-400 tabular-nums">{mmss(duration)}</span>
               <button
                 type="button"
                 onClick={toggleMute}

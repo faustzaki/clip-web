@@ -7,7 +7,7 @@ import GalleryView from './components/GalleryView';
 import CropStudioModal from './components/CropStudioModal';
 import SubtitleApplyModal from './components/SubtitleApplyModal';
 import SettingsModal from './components/SettingsModal';
-import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace, putCrop, prepareVideo } from './api';
+import { fetchHealth, fetchState, fetchOptions, fetchProjects, resetWorkspace, putCrop } from './api';
 
 export default function App() {
   const [view, setView] = useState('projects');
@@ -20,6 +20,7 @@ export default function App() {
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [serverDown, setServerDown] = useState(false);
 
   const [cropStudioCandidate, setCropStudioCandidate] = useState(null);
   const [subtitleApplyTarget, setSubtitleApplyTarget] = useState(null);
@@ -60,22 +61,37 @@ export default function App() {
     loadProjects();
   };
 
+  const checkHealth = async () => {
+    try {
+      const h = await fetchHealth();
+      setHealth(h);
+      setServerDown(false);
+      return true;
+    } catch {
+      setServerDown(true);
+      return false;
+    }
+  };
+
   useEffect(() => {
-    fetchHealth().then(setHealth).catch(() => {});
-    fetchOptions().then(setOptions).catch(() => {});
-    loadProjects();
+    checkHealth().then((ok) => {
+      if (ok) {
+        fetchOptions().then(setOptions).catch(() => {});
+        loadProjects();
+      }
+    });
     const interval = setInterval(() => {
-      fetchHealth().then(setHealth).catch(() => {});
+      checkHealth().catch(() => {});
     }, 10000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    const busy = ['running', 'starting'].includes(state?.ingest?.status) || state?.prepare?.status === 'running';
+    const busy = ['running', 'starting'].includes(state?.ingest?.status);
     if (!activeProjectId || !busy) return;
     const t = setInterval(() => loadProjectState(activeProjectId), 1500);
     return () => clearInterval(t);
-  }, [activeProjectId, state?.ingest?.status, state?.prepare?.status]);
+  }, [activeProjectId, state?.ingest?.status]);
 
   const handleReset = async () => {
     if (!activeProjectId) return;
@@ -90,6 +106,38 @@ export default function App() {
       alert('Gagal reset workspace: ' + err.message);
     }
   };
+
+  if (serverDown) {
+    return (
+      <div className="h-screen w-screen bg-dark-bg text-gray-100 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-dark-card border border-dark-border rounded-2xl p-6 text-center space-y-4 shadow-2xl">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 border border-red-500/30 flex items-center justify-center mx-auto text-xl font-bold">
+            !
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-lg font-bold text-white">Server backend tidak jalan</h1>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Jalankan <code className="px-1.5 py-0.5 rounded bg-dark-bg border border-dark-border text-neon font-mono">run.bat</code> di folder project, lalu coba lagi.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              checkHealth().then((ok) => {
+                if (ok) {
+                  fetchOptions().then(setOptions).catch(() => {});
+                  loadProjects();
+                }
+              });
+            }}
+            className="w-full py-2.5 px-4 rounded-xl bg-neon hover:bg-neon/90 text-white font-semibold text-xs transition-colors cursor-pointer"
+          >
+            Coba lagi
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-dark-bg text-gray-100 flex flex-col font-sans selection:bg-neon selection:text-white">
@@ -154,8 +202,6 @@ export default function App() {
           videoWidth={state?.video?.width}
           videoHeight={state?.video?.height}
           cropRect={state?.project?.crops?.[String(cropStudioCandidate.idx)]}
-          prepare={state?.prepare}
-          onPrepare={() => { Promise.resolve(prepareVideo(activeProjectId, 'preview')).catch(() => {}).then(() => loadProjectState(activeProjectId)); }}
           onClose={() => setCropStudioCandidate(null)}
           onApply={async ({ rect }) => {
             try {

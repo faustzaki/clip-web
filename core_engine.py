@@ -74,9 +74,15 @@ YT_PRESETS = {
     'hd':    {'format': 'bv*[height<=1080]+ba/b[height<=1080]/b', 'sort': 'res:1080,vcodec:h264'},
     # best: 401+251 = 1.18 GB, 4K AV1; tanpa preferensi vcodec karena 4K H.264 tidak ada
     'best':  {'format': 'bv*+ba/b', 'sort': 'res'},
-    # preview: 720p H.264 untuk player Studio + Crop Studio (±120-180 MB)
-    'preview': {'format': 'bv*[height<=720]+ba/b[height<=720]/b', 'sort': 'res:720,vcodec:h264'},
 }
+
+
+def find_cookies_file() -> Path | None:
+    """Cari cookies.txt di direktori root atau cwd."""
+    for cand in [HERE / "cookies.txt", Path("cookies.txt"), Path.cwd() / "cookies.txt"]:
+        if cand.is_file() and cand.stat().st_size > 0:
+            return cand.resolve()
+    return None
 
 
 def yt_dlp_cmd(url: str, out_tmpl: Path, preset: str = 'proxy', progress: bool = False) -> list:
@@ -97,6 +103,9 @@ def yt_dlp_cmd(url: str, out_tmpl: Path, preset: str = 'proxy', progress: bool =
         "-S", cfg["sort"],
         "--newline",
     ]
+    cookies_path = find_cookies_file()
+    if cookies_path:
+        cmd.extend(["--cookies", str(cookies_path)])
     if progress:
         cmd.extend([
             "--progress-template",
@@ -176,62 +185,6 @@ def download_to(url: str, dest_base: Path, preset: str = 'proxy', on_progress=No
     return vids[0].resolve()
 
 
-def download_section(url: str, dest: Path, start: float, end: float, preset: str = 'hd') -> Path:
-    """Unduh hanya rentang [start, end] detik video sumber ke dest (.mp4)."""
-    dest = Path(dest)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if preset not in YT_PRESETS:
-        raise ValueError(f"Preset tidak dikenal: {preset}")
-    cfg = YT_PRESETS[preset]
-    cmd = [
-        sys.executable, "-m", "yt_dlp",
-        "--no-playlist",
-        "--merge-output-format", "mp4",
-        "--js-runtimes", "node",
-        "--retries", "10",
-        "--fragment-retries", "10",
-        "--concurrent-fragments", "8",
-        "--download-sections", f"*{start:.3f}-{end:.3f}",
-        "--force-keyframes-at-cuts",
-        "-f", cfg["format"],
-        "-S", cfg["sort"],
-        "--newline",
-        "-o", str(dest), url,
-    ]
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                            bufsize=1, encoding='utf-8', errors='replace')
-    tail = collections.deque(maxlen=40)
-    for line in proc.stdout:
-        tail.append(line.rstrip('\r\n'))
-    rc = proc.wait()
-    if rc != 0:
-        raise RuntimeError(f"yt-dlp section gagal (kode {rc}): " + "\n".join(tail))
-    if not dest.exists():
-        raise RuntimeError("Section download tidak menghasilkan mp4.")
-    expected = float(end) - float(start)
-    actual = media_duration(dest)
-    if actual <= 0 or abs(actual - expected) > 0.75:
-        raise RuntimeError(f"Durasi section tidak sesuai: {actual:.2f}s vs {expected:.2f}s")
-    return dest
-
-def media_duration(path: Path) -> float:
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(path)],
-        capture_output=True, text=True).stdout.strip()
-    try:
-        return float(out)
-    except (TypeError, ValueError):
-        return 0.0
-
-def probe_start_time(path: Path) -> float:
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=start_time", "-of", "default=nw=1:nk=1", str(path)],
-        capture_output=True, text=True).stdout.strip()
-    try:
-        return float(out)
-    except (TypeError, ValueError):
-        return 0.0
-
 def download_source(url_or_path, workdir, preset: str = 'proxy', on_progress=None) -> Path:
     """Wrapper kompatibel 2-arg lama (dipakai app.py); cabang copy file lokal dipertahankan."""
     workdir = Path(workdir)
@@ -273,7 +226,19 @@ def youtube_transcript(url: str, language: str = None) -> dict:
         raise ValueError(f"Tidak dapat mengekstrak video ID dari URL: {url}")
     video_id = m.group(1)
     lang_code = language if (language and language.lower() not in ("auto", "none")) else None
-    api = YouTubeTranscriptApi()
+    cookies_path = find_cookies_file()
+    session = None
+    if cookies_path:
+        try:
+            import http.cookiejar
+            import requests
+            jar = http.cookiejar.MozillaCookieJar(cookies_path)
+            jar.load(ignore_discard=True, ignore_expires=True)
+            session = requests.Session()
+            session.cookies = jar
+        except Exception as e:
+            print(f"Warning: Gagal memuat cookies.txt: {e}", flush=True)
+    api = YouTubeTranscriptApi(http_client=session) if session else YouTubeTranscriptApi()
     transcripts_list = api.list(video_id)
     pref_langs = [lang_code] if lang_code else ['id', 'en']
     try:

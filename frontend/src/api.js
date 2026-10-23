@@ -1,26 +1,38 @@
 const BASE_URL = '';
 
+async function apiFetch(input, init) {
+  try {
+    return await fetch(input, init);
+  } catch (err) {
+    const msg = String(err?.message || '');
+    if (err instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(msg)) {
+      throw new Error('Server backend tidak jalan. Jalankan run.bat lalu refresh.');
+    }
+    throw err;
+  }
+}
+
 export async function fetchHealth() {
-  const res = await fetch(`${BASE_URL}/api/health`);
+  const res = await apiFetch(`${BASE_URL}/api/health`);
   if (!res.ok) throw new Error('Health check failed');
   return res.json();
 }
 
 export async function fetchOptions() {
-  const res = await fetch(`${BASE_URL}/api/options`);
+  const res = await apiFetch(`${BASE_URL}/api/options`);
   if (!res.ok) throw new Error('Failed to fetch options');
   return res.json();
 }
 
 export async function fetchProjects() {
-  const res = await fetch(`${BASE_URL}/api/projects`);
+  const res = await apiFetch(`${BASE_URL}/api/projects`);
   if (!res.ok) throw new Error('Failed to fetch projects');
   const data = await res.json();
   return data.projects || [];
 }
 
 export async function createProject(title = null) {
-  const res = await fetch(`${BASE_URL}/api/projects`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title })
   });
@@ -29,7 +41,7 @@ export async function createProject(title = null) {
 }
 
 export async function renameProject(projectId, title) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title })
   });
@@ -38,19 +50,19 @@ export async function renameProject(projectId, title) {
 }
 
 export async function deleteProject(projectId) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}`, { method: 'DELETE' });
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}`, { method: 'DELETE' });
   if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.detail || 'Delete failed'); }
   return res.json();
 }
 
 export async function fetchState(projectId) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/state`);
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/state`);
   if (!res.ok) throw new Error('Failed to fetch state');
   return res.json();
 }
 
 export async function ingestUrl(projectId, url, model_size = 'base', language = null) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/ingest`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/ingest`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url, model_size, language: language === 'auto' ? null : language })
   });
@@ -63,13 +75,13 @@ export async function uploadVideoFile(projectId, file, model_size = 'base', lang
   formData.append('file', file);
   formData.append('model_size', model_size);
   if (language && language !== 'auto') formData.append('language', language);
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/upload`, { method: 'POST', body: formData });
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/upload`, { method: 'POST', body: formData });
   if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.detail || 'Upload failed'); }
   return res.json();
 }
 
 export async function scoreMoments(projectId, params = {}) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/score`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/score`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params)
   });
@@ -77,17 +89,8 @@ export async function scoreMoments(projectId, params = {}) {
   return res.json();
 }
 
-export async function prepareVideo(projectId, tier = 'preview') {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/prepare`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tier })
-  });
-  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || 'Gagal menyiapkan video'); }
-  return res.json();
-}
-
 export async function renderClip(projectId, params) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/render`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/render`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params)
   });
@@ -102,19 +105,19 @@ export async function renderClip(projectId, params) {
 }
 
 export async function fetchClips(projectId) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/clips`);
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips`);
   if (!res.ok) throw new Error('Failed to fetch clips');
   return res.json();
 }
 
 export async function resetWorkspace(projectId) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/reset`, { method: 'DELETE' });
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/reset`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Reset failed');
   return res.json();
 }
 
 export async function putPrefs(projectId, render_prefs) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/prefs`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/prefs`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ render_prefs }),
@@ -127,7 +130,7 @@ export async function putPrefs(projectId, render_prefs) {
 }
 
 export async function putCrop(projectId, index, rect) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/crops`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/crops`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ index, rect }),
@@ -140,7 +143,7 @@ export async function putCrop(projectId, index, rect) {
 }
 
 export async function transcribeClip(projectId, slug, force = false) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/transcribe?force=${force ? 'true' : 'false'}`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/transcribe?force=${force ? 'true' : 'false'}`, {
     method: 'POST',
   });
   if (!res.ok) {
@@ -151,7 +154,7 @@ export async function transcribeClip(projectId, slug, force = false) {
 }
 
 export async function applySubtitles(projectId, slug, body = {}) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/subtitles`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/subtitles`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -164,7 +167,7 @@ export async function applySubtitles(projectId, slug, body = {}) {
 }
 
 export async function publishClip(projectId, slug) {
-  const res = await fetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/publish`, {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/publish`, {
     method: 'POST',
   });
   if (!res.ok) {
@@ -175,7 +178,7 @@ export async function publishClip(projectId, slug) {
 }
 
 export async function fetchSettings() {
-  const res = await fetch(`${BASE_URL}/api/settings`);
+  const res = await apiFetch(`${BASE_URL}/api/settings`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || 'Failed to fetch settings');
@@ -184,7 +187,7 @@ export async function fetchSettings() {
 }
 
 export async function updateSettings(data) {
-  const res = await fetch(`${BASE_URL}/api/settings`, {
+  const res = await apiFetch(`${BASE_URL}/api/settings`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -197,7 +200,7 @@ export async function updateSettings(data) {
 }
 
 export async function testConnection(data) {
-  const res = await fetch(`${BASE_URL}/api/settings/test-connection`, {
+  const res = await apiFetch(`${BASE_URL}/api/settings/test-connection`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -206,7 +209,7 @@ export async function testConnection(data) {
 }
 
 export async function fetchEndpointModels(data) {
-  const res = await fetch(`${BASE_URL}/api/settings/fetch-models`, {
+  const res = await apiFetch(`${BASE_URL}/api/settings/fetch-models`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -219,7 +222,7 @@ export async function fetchEndpointModels(data) {
 }
 
 export async function clearCache() {
-  const res = await fetch(`${BASE_URL}/api/settings/clear-cache`, {
+  const res = await apiFetch(`${BASE_URL}/api/settings/clear-cache`, {
     method: 'POST',
   });
   if (!res.ok) {
@@ -230,7 +233,7 @@ export async function clearCache() {
 }
 
 export async function openRenderDir() {
-  const res = await fetch(`${BASE_URL}/api/settings/open-render-dir`, {
+  const res = await apiFetch(`${BASE_URL}/api/settings/open-render-dir`, {
     method: 'POST',
   });
   if (!res.ok) {

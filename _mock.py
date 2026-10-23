@@ -12,9 +12,9 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-DIST = Path(r"C:/Users/faust/Downloads/clip-web-review/frontend/dist")
-ASSETS = Path(r"C:/Users/faust/Downloads/clipper_re/work/assets")
-MEDIA = Path(r"C:/Users/faust/Downloads/clip-web-review/_mockmedia")
+DIST = Path(__file__).resolve().parent / "frontend" / "dist"
+ASSETS = Path(__file__).resolve().parent / "work" / "assets"
+MEDIA = Path(__file__).resolve().parent / "_mockmedia"
 MEDIA.mkdir(exist_ok=True)
 for src, dst in ((ASSETS / "snapshot.jpg", "cover.jpg"), (Path(r"C:/Users/faust/Downloads/clipper_re/work/exported720.mp4"), "clip.mp4")):
     if src.exists() and not (MEDIA / dst).exists():

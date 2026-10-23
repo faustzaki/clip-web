@@ -17,16 +17,18 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t12-background`.
 
-## MODEL (murah dulu)
+## MODEL (murah dulu, wajib bisa tool-call)
 ```
-ocf/glm-5.3-flash-free
+ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash
 ```
-Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
-1. `ninerouter/ag/gemini-3.8-flash-low`
+Eskalasi **hanya kalau gagal 2× nyata**:
+1. `ninerouter/cbai/deepseek-v4.1-flash`
 ```bash
-omp -p --model="ocf/glm-5.3-flash-free" @AGENTS.md @docs/prompts/12-T12-background-layout.md
+# cek dulu model ini bisa nulis file (bukan plan-mode)
+py -3.13 docs/scripts/check_model_tools.py "ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash"
+omp -p --approval-mode=yolo --model="ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash" --thinking=low @AGENTS.md @docs/prompts/12-T12-background-layout.md
 ```
-Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
+⚠️ `ocf/*` **jangan dipakai**: model di provider itu balas "Plan mode block file writes" — tidak bisa menulis file.
 
 ## BACA
 `docs/UI-SPEC.md` §4 (pill toolbar) · `chopify/render_clips.py`

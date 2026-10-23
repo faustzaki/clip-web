@@ -2,6 +2,12 @@
 
 Aturan: **satu tugas = satu skrip cek yang bisa dijalankan**. Tanpa skrip, tugas belum selesai.
 
+## 0. Cek model sebelum sesi (30 detik, wajib)
+```bash
+py -3.13 docs/scripts/check_model_tools.py "ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash"
+```
+Kalau hasilnya `PLAN` atau `TIDAK`, model itu tidak bisa menulis file — ganti. `ocf/*` selalu PLAN.
+
 ## 1. Alur wajib tiap tugas
 ```
 PRECHECK  → deteksi prasyarat (tempel output ke docs/evidence/<T>/precheck.txt)

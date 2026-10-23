@@ -13,16 +13,18 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 **File yang disentuh tugas ini:**
 - `hanya membaca diff — tidak menulis kode`
 
-## MODEL (murah dulu)
+## MODEL (murah dulu, wajib bisa tool-call)
 ```
-ninerouter/ag/gemini-3.8-flash-low
+ninerouter/cbai/deepseek-v4.1-flash
 ```
-Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+Eskalasi **hanya kalau gagal 2× nyata**:
 1. `ninerouter/T-SOTA/claude-sonnet-5`
+2. `grok-cli/grok-4.5` (kadang cuma membalas teks, bukan memanggil tool)
 ```bash
-omp -p --model="ninerouter/ag/gemini-3.8-flash-low" @AGENTS.md @docs/prompts/99-REVIEW.md
+py -3.13 docs/scripts/check_model_tools.py "ninerouter/cbai/deepseek-v4.1-flash"
+omp -p --approval-mode=yolo --model="ninerouter/cbai/deepseek-v4.1-flash" --thinking=low @docs/prompts/99-REVIEW.md
 ```
-Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
+⚠️ `ocf/*` **jangan dipakai**: balas "Plan mode block file writes" — tidak bisa menulis file.
 
 ## BACA
 `docs/AGENTS.md` (aturan keras) · `docs/UI-SPEC.md` · diff PR yang direview.

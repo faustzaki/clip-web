@@ -17,17 +17,19 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t3-timeline`
 
-## MODEL (murah dulu)
+## MODEL (murah dulu, wajib bisa tool-call)
 ```
 ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash
 ```
-Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+Eskalasi **hanya kalau gagal 2× nyata**:
 1. `ninerouter/cbai/deepseek-v4.1-flash`
 2. `ninerouter/T-SOTA/claude-sonnet-5`
 ```bash
-omp -p --model="ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash" @AGENTS.md @docs/prompts/03-T3-timeline.md
+# cek dulu model ini bisa nulis file (bukan plan-mode)
+py -3.13 docs/scripts/check_model_tools.py "ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash"
+omp -p --approval-mode=yolo --model="ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash" --thinking=low @AGENTS.md @docs/prompts/03-T3-timeline.md
 ```
-Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
+⚠️ `ocf/*` **jangan dipakai**: model di provider itu balas "Plan mode block file writes" — tidak bisa menulis file.
 
 ## BACA
 `docs/UI-SPEC.md` §4 "Aturan timeline" · `docs/DATA-MODEL.md` §1, §3

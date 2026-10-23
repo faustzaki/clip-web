@@ -18,16 +18,18 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t9-translasi`. Tergantung T7 (butuh kata yang bersih).
 
-## MODEL (murah dulu)
+## MODEL (murah dulu, wajib bisa tool-call)
 ```
-ocf/deepseek-v4.1-flash-free
+ninerouter/cbai/deepseek-v4.1-flash
 ```
-Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
-1. `ninerouter/cbai/deepseek-v4.1-flash`
+Eskalasi **hanya kalau gagal 2× nyata**:
+1. `ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash`
 ```bash
-omp -p --model="ocf/deepseek-v4.1-flash-free" @AGENTS.md @docs/prompts/09-T9-translasi.md
+# cek dulu model ini bisa nulis file (bukan plan-mode)
+py -3.13 docs/scripts/check_model_tools.py "ninerouter/cbai/deepseek-v4.1-flash"
+omp -p --approval-mode=yolo --model="ninerouter/cbai/deepseek-v4.1-flash" --thinking=low @AGENTS.md @docs/prompts/09-T9-translasi.md
 ```
-Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
+⚠️ `ocf/*` **jangan dipakai**: model di provider itu balas "Plan mode block file writes" — tidak bisa menulis file.
 
 ## BACA
 `docs/MODELS.md` §5 · `docs/DATA-MODEL.md` §1, §3 · `prompts/translate.md` (buat file ini, isi di langkah 1)

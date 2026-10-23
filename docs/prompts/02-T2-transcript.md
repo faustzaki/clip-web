@@ -17,17 +17,19 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t2-transcript` · Butuh `server.py` (endpoint baru, sudah dispesifikasikan)
 
-## MODEL (murah dulu)
+## MODEL (murah dulu, wajib bisa tool-call)
 ```
 ninerouter/cbai/deepseek-v4.1-flash
 ```
-Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+Eskalasi **hanya kalau gagal 2× nyata**:
 1. `ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash`
 2. `ninerouter/T-SOTA/claude-sonnet-5`
 ```bash
-omp -p --model="ninerouter/cbai/deepseek-v4.1-flash" @AGENTS.md @docs/prompts/02-T2-transcript.md
+# cek dulu model ini bisa nulis file (bukan plan-mode)
+py -3.13 docs/scripts/check_model_tools.py "ninerouter/cbai/deepseek-v4.1-flash"
+omp -p --approval-mode=yolo --model="ninerouter/cbai/deepseek-v4.1-flash" --thinking=low @AGENTS.md @docs/prompts/02-T2-transcript.md
 ```
-Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
+⚠️ `ocf/*` **jangan dipakai**: model di provider itu balas "Plan mode block file writes" — tidak bisa menulis file.
 
 ## BACA
 `docs/UI-SPEC.md` §4 "Aturan transcript" · `docs/DATA-MODEL.md` §1, §3 · `docs/ADR.md` ADR-004

@@ -77,3 +77,21 @@ ffprobe.txt       (T4, T6, T11, T12) resolusi/durasi hasil render
 sha256.txt        (T4, T11, T12) pembanding dua file
 BLOCKED.md        hanya kalau ada prasyarat yang absen
 ```
+
+## 7. Hasil deteksi mesin josjis (23 Okt 2026, `py -3.13`)
+Dijalankan sungguhan, bukan perkiraan. **Semua perintah backend memakai `py -3.13`** (`python` di PATH = env lain, tanpa dependency).
+
+| Dependency | Status | Efek |
+|---|---|---|
+| `fastapi` | ✅ | BE bisa jalan |
+| `faster_whisper` 1.2.1 | ✅ | T7 bisa langsung |
+| `torch` 2.13.0+cpu | ✅ | bahan T8 ada |
+| `numpy` 2.3.3 · `cv2` 4.13.0 | ✅ | face track & sinyal |
+| ffmpeg `zoompan` + `boxblur` | ✅ | T6 & T12 jalan |
+| `pyannote.audio` | ❌ | T8 jalur A perlu `py -3.13 -m pip install pyannote.audio` |
+| `HF_TOKEN` | ❌ | T8 jalur A perlu token HuggingFace (gratis, model gated) |
+| `librosa` | ❌ | tidak dipakai — jalur B pakai FFT `numpy` |
+| `whisperx` | ❌ | tidak perlu |
+| `edge_tts` | ❌ | hanya untuk bikin audio uji, bukan fitur |
+
+Konsekuensi: T7 **siap**, T8 **mulai dari jalur B** dan tombol `Diarisasi (model)` disabled sampai pyannote+HF_TOKEN dipasang.

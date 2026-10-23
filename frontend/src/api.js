@@ -264,6 +264,23 @@ export async function cutTranscript(projectId, fromIdx, toIdx) {
   return res.json();
 }
 
+// Buang jeda sunyi + kata pengisi; server balas {ok:false,reason,hint} kalau transkrip belum siap
+export async function applyTighten(projectId, body = {}) {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/tighten`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      silence_ms: body.silence_ms ?? 400,
+      filler: body.filler ?? true,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.reason || err.detail || 'Gagal menerapkan pemotongan jeda');
+  }
+  return res.json();
+}
+
 // null = timeline belum tersedia (404), bukan error
 export async function fetchTimeline(projectId) {
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/timeline`);

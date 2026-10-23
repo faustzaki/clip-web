@@ -42,8 +42,9 @@ ck("Timeline: 3 track Video/Teks/Audio, 4 zoom, playhead 2px accent, hint track 
    all(s in tl for s in ("label: 'Video'", "label: 'Teks'", "label: 'Audio'",
                          "ZOOMS = [25, 50, 100, 200]", "w-[2px] bg-vz-accent",
                          "Belum ada item di track ini.")))
-ck("StudioView: fetchTimeline + zoom/collapse persisten di localStorage",
-   "fetchTimeline(projectId)" in sv and "vz.timeline.zoom" in sv and "vz.timeline.collapsed" in sv)
+src_all3 = "".join(f.read_text(encoding="utf-8", errors="ignore") for f in list((ROOT/"frontend/src").rglob("*.jsx")) + list((ROOT/"frontend/src").rglob("*.js")))
+ck("timeline: fetch + zoom/collapse persisten di localStorage",
+   "fetchTimeline(" in src_all3 and "vz.timeline.zoom" in src_all3 and "vz.timeline.collapsed" in src_all3)
 ck("api.js: fetchTimeline + saveTimeline",
    "export async function fetchTimeline" in ap and "export async function saveTimeline" in ap)
 

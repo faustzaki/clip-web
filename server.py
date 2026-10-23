@@ -41,6 +41,7 @@ if str(CHOPIFY_DIR) not in sys.path:
 import core_engine
 import render_clips
 import subtitle_burn
+import tighten
 
 DEFAULT_RENDER_PREFS = {
     "subtitles_enabled": False,
@@ -49,6 +50,7 @@ DEFAULT_RENDER_PREFS = {
     "watermark": "",
     "aspect": "9:16",
     "subtitle_style": dict(subtitle_burn.DEFAULT_STYLE),
+    "caption_preset": subtitle_burn.DEFAULT_CAPTION_PRESET,
 }
 WORKDIR = ROOT_DIR / "work"
 CLIPS_DIR = ROOT_DIR / "clips"
@@ -321,6 +323,10 @@ class CutRequest(BaseModel):
     from_idx: int
     to_idx: int
 
+class TightenRequest(BaseModel):
+    silence_ms: int = 400
+    filler: bool = True
+
 class RenderRequest(BaseModel):
     candidate_index: int
     aspect: Optional[str] = "9:16"
@@ -392,6 +398,10 @@ def get_options():
             {"id": "top", "label": "Atas"},
             {"id": "middle", "label": "Tengah"},
             {"id": "bottom", "label": "Bawah"}
+        ],
+        "caption_presets": [
+            {"id": name, "label": meta.get("label") or name, "style": subtitle_burn.preset_style(name)}
+            for name, meta in subtitle_burn.CAPTION_PRESETS.items()
         ],
         "crop_modes": [
             {"id": "speaker-tracked", "label": "Auto Face Tracking (YuNet)", "desc": "Follow speaker motion dynamically"},
@@ -663,8 +673,8 @@ def _list_project_clips(pid: str) -> list[dict]:
             })
 
     for mp4 in cdir.glob("*.mp4"):
-        if mp4.name.startswith("_"):
-            continue
+        if mp4.name.startswith("_") or EXPORT_SUFFIX_RE.search(mp4.stem):
+            continue  # hasil export (mis. _720p) bukan klip sumber
         poster = mp4.with_suffix(".png")
         meta_file = mp4.with_suffix(".meta.json")
         meta = {}
@@ -816,6 +826,57 @@ def cut_transcript(project_id: str, payload: CutRequest):
         "new_duration_ms": duration - removed,
         "deleted": payload.to_idx - payload.from_idx + 1,
     }
+
+# --------------------------------------------------------------------------
+# Tighten: buang jeda sunyi + kata pengisi (T5) — pakai perencana chopify/tighten.py
+# --------------------------------------------------------------------------
+@app.post("/api/projects/{project_id}/tighten")
+def tighten_transcript(project_id: str, payload: TightenRequest):
+    _validate_pid(project_id)
+    tr = load_transcript_file(project_id)
+    if not tr or not tr.get('words'):
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": "Transkrip belum siap",
+            "hint": "Jalankan analisis dulu supaya jeda dan kata pengisi bisa dipotong"})
+
+    duration_ms = _transcript_duration_ms(tr)
+    silence_ms = int(payload.silence_ms)
+    if silence_ms < 200 or silence_ms > 1200:
+        silence_ms = min(1200, max(200, silence_ms))
+
+    live = [w for w in tr["words"] if not w.get('deleted')]
+    if not live or duration_ms <= 0:
+        return {"ok": True, "saved_ms": 0, "deleted": 0,
+                "new_duration_ms": duration_ms, "silence_ms": silence_ms, "filler": bool(payload.filler)}
+
+    keeps = tighten.plan_cuts(live, 0.0, duration_ms / 1000.0,
+                              gap=silence_ms / 1000.0,
+                              fillers=bool(payload.filler), silence=True)
+    keep_ranges = [(round(a * 1000), round(b * 1000)) for a, b in keeps]
+    new_duration_ms = max(0, min(duration_ms, sum(b - a for a, b in keep_ranges)))
+
+    deleted = 0
+    for w in live:
+        s, e = _word_ms(w, 'start'), _word_ms(w, 'end')
+        if any(a <= s and e <= b for a, b in keep_ranges):
+            continue
+        w['deleted'] = 1
+        deleted += 1
+
+    if deleted or new_duration_ms != duration_ms:
+        path = project_dir(project_id) / 'transcript.json'
+        bak = path.with_name('transcript.json.bak')
+        if not bak.exists():
+            shutil.copy2(path, bak)
+        tr['duration'] = round(new_duration_ms / 1000.0, 3)
+        tr['duration_ms'] = new_duration_ms
+        tmp = path.with_name('transcript.json.tmp')
+        tmp.write_text(json.dumps(tr, ensure_ascii=False), encoding='utf-8')
+        os.replace(tmp, path)
+
+    return {"ok": True, "saved_ms": duration_ms - new_duration_ms, "deleted": deleted,
+            "new_duration_ms": new_duration_ms, "silence_ms": silence_ms,
+            "filler": bool(payload.filler)}
 
 # --------------------------------------------------------------------------
 # Timeline project (T3a) — turunan read-only kalau timeline.json belum ada
@@ -1396,11 +1457,20 @@ def update_prefs(project_id: str, payload: PrefsRequest):
             raise HTTPException(400, "Rasio tidak valid: aspect")
         merged["aspect"] = aspect_in
 
+    if "caption_preset" in new_prefs:
+        preset_name = str(new_prefs["caption_preset"] or "")
+        if preset_name and preset_name not in subtitle_burn.CAPTION_PRESETS:
+            raise HTTPException(400, f"Preset caption tidak dikenal: {preset_name}")
+        merged["caption_preset"] = preset_name or subtitle_burn.DEFAULT_CAPTION_PRESET
+        # Preset menang atas gaya lama; patch subtitle_style (kalau ada) diterapkan setelah ini.
+        merged["subtitle_style"] = subtitle_burn.preset_style(merged["caption_preset"])
+
     if "subtitle_style" in new_prefs:
         style_in = new_prefs["subtitle_style"]
         if not isinstance(style_in, dict):
             raise HTTPException(400, "Setelan subtitle tidak valid: subtitle_style")
-        merged_style = dict(current.get("subtitle_style") or DEFAULT_RENDER_PREFS["subtitle_style"])
+        merged_style = dict(merged.get("subtitle_style") or current.get("subtitle_style")
+                            or DEFAULT_RENDER_PREFS["subtitle_style"])
         merged_style.update(style_in)
 
         font = str(merged_style.get("font", "")).strip()
@@ -1713,6 +1783,7 @@ def list_clips(project_id: str, response: Response):
 # --------------------------------------------------------------------------
 # Export jobs (T4a) — re-render klip yang sudah ada ke resolusi/fps pilihan
 # --------------------------------------------------------------------------
+EXPORT_SUFFIX_RE = re.compile(r"_\d{3,4}p$")
 EXPORT_RES = {"1080p": 1.0, "720p": 720 / 1080}
 EXPORT_FPS = (30, 24)
 EXPORT_LOCK = threading.Lock()

@@ -100,7 +100,8 @@ export default function ExportModal({ open, clip, onClose, onStart }) {
   if (!open || !clip) return null;
 
   const busy = phase === 'submitting' || phase === 'running';
-  const fileName = `${(form.name || slug).trim() || slug}.mp4`;
+  const baseName = (form.name || slug).trim() || slug;
+  const fileName = `${baseName}_${form.resolution}.mp4`;  // server menambahkan suffix resolusi
 
   const handleStart = async () => {
     setPhase('submitting');

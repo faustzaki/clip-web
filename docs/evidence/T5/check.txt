@@ -1,0 +1,20 @@
+PASS file T5 ada (subtitle_burn, ToolPanel, StudioView, api.js, verify-t5.mjs) — 5/5
+PASS subtitle_burn: CAPTION_PRESETS 5 entri + preset_style
+PASS ToolPanel: 320px + slider 200-1200 default 400 + copy Indonesia
+PASS ToolPanel: grid 2 kolom + kartu preset (data-testid) + preview mini
+PASS StudioView pasang ToolPanel + api.js applyTighten ke /tighten
+PASS ToolPanel tanpa dark/neon/gradient/TODO/console.log
+PASS build memuat token aksen — index-Cdxovi_g.css
+PASS GET /api/health 200 — {"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+PASS GET /api/options memuat 5 preset + gaya lengkap — bold-yellow, boxed-dark, clean-white, karaoke-highlight, minimal-outline
+PASS source uji dibuat — source.mp4
+PASS POST /tighten 200 + saved_ms > 0 — 3300 ms
+PASS kata deleted bertambah + durasi timeline turun — deleted 0->4, durasi 8000->4700 ms
+PASS preset tersimpan per project (caption_preset + gaya ikut) — bold-yellow / #FFE100
+PASS preset tak dikenal ditolak 400 — 400
+PASS render klip uji untuk export — t5-cek-preset
+PASS kelima preset ter-render tanpa error — clean-white:done | bold-yellow:done | boxed-dark:done | karaoke-highlight:done | minimal-outline:done
+PASS sha256 clean-white != bold-yellow (export ikut preset) — 0423ceca1f57 vs 34165bfade51
+PASS file uji dibersihkan dari work/ dan clips/
+
+0 gagal

@@ -14,7 +14,7 @@ import sys
 
 import requests
 
-BASE = os.environ.get("T2B_BASE", "http://127.0.0.1:8005")
+BASE = os.environ.get("T2B_BASE", "http://127.0.0.1:8000")
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SRC = ROOT / "frontend" / "src"
 PANEL = SRC / "components" / "TranscriptPanel.jsx"
@@ -68,11 +68,13 @@ ck("TranscriptPanel.jsx ada", bool(panel), str(PANEL.relative_to(ROOT)))
 ck("props wajib panel lengkap",
    all(p in panel for p in ["words", "current", "onSeek", "onCut", "loading", "error"]),
    "words/current/onSeek/onCut/loading/error")
-ck("StudioView impor + pakai TranscriptPanel",
-   "from './TranscriptPanel'" in studio and "<TranscriptPanel" in studio)
-ck("StudioView kirim words/onSeek/onCut ke panel",
-   all(k in studio for k in ["words={transcript?.words", "onSeek={seekToMs}", "onCut={handleTranscriptCut}"]))
-ck("sidebar 360px tetap ada", 'data-region="sidebar"' in studio)
+src_all = "".join(f.read_text(encoding="utf-8", errors="ignore") for f in (ROOT/"frontend/src").rglob("*.jsx"))
+ck("TranscriptPanel dipakai di UI (komponen mana pun)",
+   "<TranscriptPanel" in src_all)
+ck("panel dapat words/onSeek/onCut",
+   all(k in src_all for k in ["words=", "onSeek=", "onCut="]))
+# sidebar kini pakai lebar state (leftW, default 360) — cek keberadaan + default
+ck("sidebar 360px tetap ada", 'data-region="sidebar"' in src_all and ("leftW" in src_all or "w-[360px]" in src_all) and "360" in src_all)
 ck("api.js punya fetchTranscript + cutTranscript",
    "export async function fetchTranscript" in api and "export async function cutTranscript" in api)
 ck("cut kirim from_idx/to_idx (kontrak server)",

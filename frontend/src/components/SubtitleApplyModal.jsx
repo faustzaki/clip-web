@@ -123,29 +123,29 @@ export default function SubtitleApplyModal({
   const videoSrc = clip?.raw_url || clip?.url;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-dark-card border border-dark-border rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 bg-[var(--vz-overlay)] backdrop-blur-md flex items-center justify-center p-4">
+      <div className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="p-4 border-b border-dark-border flex justify-between items-center bg-dark-bg/50">
+        <div className="p-4 border-b border-[var(--vz-border)] flex justify-between items-center bg-[var(--vz-surface-muted)]">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-neon" />
+            <Sparkles className="w-5 h-5 text-[var(--vz-accent)]" />
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-[var(--vz-text-strong)] flex items-center gap-2">
                 Terapkan Subtitle Akurat (CapCut-style)
                 {language && (
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-neon/10 text-neon border border-neon/20">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--vz-accent-tint)] text-[var(--vz-accent)] border border-[var(--vz-accent)]">
                     {language.toUpperCase()}
                   </span>
                 )}
               </h2>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-[var(--vz-text-muted)]">
                 {clip?.slug || 'Clip'} • Transkripsi langsung dari audio clip
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-dark-hover transition-colors"
+            className="p-1.5 rounded-lg text-[var(--vz-text-muted)] hover:text-[var(--vz-text)] hover:bg-[var(--vz-surface-muted)] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -154,9 +154,9 @@ export default function SubtitleApplyModal({
         {/* Content Body */}
         <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           {/* Left: 9:16 Video Player with Karaoke Overlay */}
-          <div className="w-full md:w-[340px] shrink-0 bg-black p-4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-dark-border select-none">
+          <div className="w-full md:w-[340px] shrink-0 bg-black p-4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[var(--vz-border)] select-none">
             <div
-              className="relative w-[298px] h-[530px] rounded-xl overflow-hidden border border-dark-border bg-dark-bg flex items-center justify-center shadow-lg group cursor-pointer"
+              className="relative w-[298px] h-[530px] rounded-xl overflow-hidden border border-[var(--vz-border)] bg-[var(--vz-bg)] flex items-center justify-center shadow-lg group cursor-pointer"
               onClick={togglePlay}
             >
               <video
@@ -227,29 +227,29 @@ export default function SubtitleApplyModal({
                   isPlaying ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'
                 }`}
               >
-                <div className="w-12 h-12 rounded-full bg-dark-bg/80 backdrop-blur border border-dark-border flex items-center justify-center text-white shadow-xl">
+                <div className="w-12 h-12 rounded-full bg-[var(--vz-surface)] backdrop-blur border border-[var(--vz-border)] flex items-center justify-center text-[var(--vz-text)] shadow-xl">
                   {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
                 </div>
               </div>
             </div>
 
-            <div className="w-[298px] flex justify-between items-center mt-2 text-[11px] font-mono text-gray-400">
+            <div className="w-[298px] flex justify-between items-center mt-2 text-[11px] font-mono text-white/70">
               <span>{currentTime.toFixed(2)}s</span>
               <span>{words.length} kata</span>
             </div>
           </div>
 
           {/* Right: Tabs (Kata | Gaya) */}
-          <div className="flex-1 flex flex-col min-w-0 bg-dark-card/50">
+          <div className="flex-1 flex flex-col min-w-0 bg-[var(--vz-surface-muted)]">
             {/* Tab Header */}
-            <div className="flex border-b border-dark-border px-4 pt-3 bg-dark-bg/30">
+            <div className="flex border-b border-[var(--vz-border)] px-4 pt-3 bg-[var(--vz-surface-muted)]">
               <button
                 type="button"
                 onClick={() => setActiveTab('words')}
                 className={`px-4 py-2 font-semibold text-xs border-b-2 transition-colors ${
                   activeTab === 'words'
-                    ? 'border-neon text-neon'
-                    : 'border-transparent text-gray-400 hover:text-white'
+                    ? 'border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                    : 'border-transparent text-[var(--vz-text-muted)] hover:text-[var(--vz-text)]'
                 }`}
               >
                 Kata ({words.length})
@@ -259,8 +259,8 @@ export default function SubtitleApplyModal({
                 onClick={() => setActiveTab('style')}
                 className={`px-4 py-2 font-semibold text-xs border-b-2 transition-colors ${
                   activeTab === 'style'
-                    ? 'border-neon text-neon'
-                    : 'border-transparent text-gray-400 hover:text-white'
+                    ? 'border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                    : 'border-transparent text-[var(--vz-text-muted)] hover:text-[var(--vz-text)]'
                 }`}
               >
                 Gaya Subtitle
@@ -272,14 +272,14 @@ export default function SubtitleApplyModal({
               {activeTab === 'words' && (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-[var(--vz-text-muted)]">
                       Klik kata untuk mengedit ejaan kata hasil Whisper.
                     </p>
                     <button
                       type="button"
                       onClick={() => loadTranscript(true)}
                       disabled={loadingTranscribe}
-                      className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-lg bg-dark-bg border border-dark-border text-gray-300 hover:text-white hover:border-neon transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] rounded-lg bg-[var(--vz-surface)] border border-[var(--vz-border)] text-[var(--vz-text-muted)] hover:text-[var(--vz-text)] hover:border-[var(--vz-accent)] transition-colors disabled:opacity-50"
                     >
                       <RefreshCw className={`w-3 h-3 ${loadingTranscribe ? 'animate-spin' : ''}`} />
                       Putar ulang transkrip
@@ -288,22 +288,22 @@ export default function SubtitleApplyModal({
 
                   {loadingTranscribe ? (
                     <div className="p-8 text-center flex flex-col items-center justify-center gap-3">
-                      <RefreshCw className="w-8 h-8 text-neon animate-spin" />
-                      <p className="text-xs text-gray-300">Mentranskrip audio clip (Whisper)...</p>
-                      <p className="text-[11px] text-gray-500">Mengekstrak kata per kata 0-based langsung dari clip mentah</p>
+                      <RefreshCw className="w-8 h-8 text-[var(--vz-accent)] animate-spin" />
+                      <p className="text-xs text-[var(--vz-text)]">Mentranskrip audio clip (Whisper)...</p>
+                      <p className="text-[11px] text-[var(--vz-text-faint)]">Mengekstrak kata per kata 0-based langsung dari clip mentah</p>
                     </div>
                   ) : transcribeError ? (
-                    <div className="p-4 bg-red-950/40 border border-red-500/50 rounded-xl flex items-start gap-2.5 text-xs text-red-300">
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                    <div className="p-4 bg-[var(--vz-danger-bg)] border border-[var(--vz-danger-fg)] rounded-xl flex items-start gap-2.5 text-xs text-[var(--vz-danger-fg)]">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-[var(--vz-danger-fg)]" />
                       <div>
                         <p className="font-semibold">Transkripsi Gagal</p>
                         <p className="mt-0.5">{transcribeError}</p>
                       </div>
                     </div>
                   ) : words.length === 0 ? (
-                    <p className="text-xs text-gray-500 text-center py-6">Tidak ada kata terdeteksi dalam klip.</p>
+                    <p className="text-xs text-[var(--vz-text-faint)] text-center py-6">Tidak ada kata terdeteksi dalam klip.</p>
                   ) : (
-                    <div className="flex flex-wrap gap-1.5 max-h-[380px] overflow-y-auto p-1 bg-dark-bg/60 rounded-xl border border-dark-border">
+                    <div className="flex flex-wrap gap-1.5 max-h-[380px] overflow-y-auto p-1 bg-[var(--vz-surface-muted)] rounded-xl border border-[var(--vz-border)]">
                       {words.map((w, idx) => {
                         const isEditing = editingWordIdx === idx;
                         const isCurrent = currentTime >= w.start && currentTime <= w.end;
@@ -312,8 +312,8 @@ export default function SubtitleApplyModal({
                             key={idx}
                             className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-all ${
                               isCurrent
-                                ? 'bg-neon/20 border-neon text-white font-semibold'
-                                : 'bg-dark-card border-dark-border text-gray-200 hover:border-gray-500'
+                                ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] text-[var(--vz-accent)] font-semibold'
+                                : 'bg-[var(--vz-surface)] border-[var(--vz-border)] text-[var(--vz-text)] hover:border-[var(--vz-border-strong)]'
                             }`}
                           >
                             {isEditing ? (
@@ -326,7 +326,7 @@ export default function SubtitleApplyModal({
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') setEditingWordIdx(null);
                                 }}
-                                className="bg-black text-white px-1 py-0.5 rounded text-xs border border-neon focus:outline-none w-20 font-sans"
+                                className="bg-[var(--vz-bg)] text-[var(--vz-text)] px-1 py-0.5 rounded text-xs border border-[var(--vz-accent)] focus:outline-none w-20 font-sans"
                               />
                             ) : (
                               <span
@@ -343,7 +343,7 @@ export default function SubtitleApplyModal({
                                 e.stopPropagation();
                                 handleRemoveWord(idx);
                               }}
-                              className="text-gray-500 hover:text-red-400 p-0.5 rounded transition-colors"
+                              className="text-[var(--vz-text-faint)] hover:text-[var(--vz-danger-fg)] p-0.5 rounded transition-colors"
                               title="Hapus kata"
                             >
                               <X className="w-3 h-3" />
@@ -371,14 +371,14 @@ export default function SubtitleApplyModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-dark-border bg-dark-bg/70 flex flex-col sm:flex-row justify-between items-center gap-3">
-          <p className="text-[11px] text-gray-500 text-center sm:text-left">
+        <div className="p-4 border-t border-[var(--vz-border)] bg-[var(--vz-surface-muted)] flex flex-col sm:flex-row justify-between items-center gap-3">
+          <p className="text-[11px] text-[var(--vz-text-faint)] text-center sm:text-left">
             Judul & watermark sudah dibakar saat pemotongan — ubah di Pengaturan lalu potong ulang.
           </p>
 
           <div className="flex items-center gap-2">
             {applyError && (
-              <span className="text-xs text-red-400 font-medium flex items-center gap-1">
+              <span className="text-xs text-[var(--vz-danger-fg)] font-medium flex items-center gap-1">
                 <AlertCircle className="w-3.5 h-3.5" />
                 {applyError}
               </span>
@@ -386,7 +386,7 @@ export default function SubtitleApplyModal({
 
             {applySuccess ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-green-400 font-medium flex items-center gap-1">
+                <span className="text-xs text-[var(--vz-success-fg)] font-medium flex items-center gap-1">
                   <CheckCircle className="w-4 h-4" />
                   Subtitle diterapkan!
                 </span>
@@ -397,7 +397,7 @@ export default function SubtitleApplyModal({
                       onGoToGallery();
                       onClose();
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-md"
+                    className="px-3 py-1.5 rounded-lg bg-[var(--vz-accent)] text-white font-bold text-xs flex items-center gap-1.5 hover:bg-[var(--vz-accent-hover)] shadow-md"
                   >
                     <Film className="w-3.5 h-3.5" />
                     Lihat di Galeri
@@ -406,7 +406,7 @@ export default function SubtitleApplyModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-gray-300 text-xs font-semibold hover:text-white"
+                  className="px-3 py-1.5 rounded-lg bg-[var(--vz-surface)] border border-[var(--vz-border)] text-[var(--vz-text-muted)] text-xs font-semibold hover:text-[var(--vz-text)]"
                 >
                   Tutup
                 </button>
@@ -416,7 +416,7 @@ export default function SubtitleApplyModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-gray-300 text-xs font-semibold hover:text-white"
+                  className="px-3 py-1.5 rounded-lg bg-[var(--vz-surface)] border border-[var(--vz-border)] text-[var(--vz-text-muted)] text-xs font-semibold hover:text-[var(--vz-text)]"
                 >
                   Batal
                 </button>
@@ -424,7 +424,7 @@ export default function SubtitleApplyModal({
                   type="button"
                   onClick={handleApply}
                   disabled={applying || loadingTranscribe || words.length === 0}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold text-xs flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 shadow-md transition-all"
+                  className="px-4 py-2 rounded-lg bg-[var(--vz-accent)] text-white font-bold text-xs flex items-center gap-1.5 hover:bg-[var(--vz-accent-hover)] disabled:opacity-50 shadow-md transition-all"
                 >
                   {applying ? (
                     <>

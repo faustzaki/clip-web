@@ -15,8 +15,11 @@ page.on("pageerror", (e) => errs.push(String(e)));
 await page.goto("http://127.0.0.1:8005/", { waitUntil: "networkidle" });
 await sleep(500);
 
-const card = page.locator("main a, main button, .project-card").first();
-if (await card.count()) { await card.click({ timeout: 4000 }).catch(() => {}); await sleep(1500); }
+await page.evaluate(() => {
+  const el = document.querySelector(".vz-card, [class*=cursor-pointer]");
+  if (el) el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+});
+await sleep(1800);
 
 const m = await page.evaluate(() => {
   const pick = (sel) => {

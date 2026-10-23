@@ -1,0 +1,39 @@
+PASS tanpa dark/neon/gradient/aksen liar
+PASS tanpa bg-[var(--vz-*)]/<opacity>
+PASS tanpa rounded-2xl/3xl di file T1b
+PASS tanpa TODO/console.log
+PASS token accent + overlay utuh
+PASS tanpa hex maroon/neon sisa
+PASS build CSS memuat token
+PASS 4 screenshot after — 8 png
+
+0 gagal
+--- precheck (sebelum patch, 8 file) ---
+frontend/src\components\CropStudioModal.jsx
+frontend/src\components\GalleryView.jsx
+frontend/src\components\IconDropdown.jsx
+frontend/src\components\NewProjectView.jsx
+frontend/src\components\SettingsModal.jsx
+frontend/src\components\StudioView.jsx
+frontend/src\components\SubtitleApplyModal.jsx
+frontend/src\components\SubtitleStyleEditor.jsx
+--- grep kriteria terima: dark:|bg-dark|neon|gradient (harus kosong) ---
+(kosong)
+--- bg-black sisa (media surface saja) ---
+frontend/src\components\CropStudioModal.jsx:353:          <div className="flex-1 bg-black p-4 flex flex-col items-center justify-center overflow-hidden border-b lg:border-b-0 lg:border-r border-[var(--vz-border)]">
+frontend/src\components\CropStudioModal.jsx:386:            <div className="relative max-w-full max-h-[58vh] flex items-center justify-center overflow-hidden rounded-xl border border-[var(--vz-border)] bg-black">
+frontend/src\components\CropStudioModal.jsx:490:                className="mx-auto rounded-xl overflow-hidden border-2 border-[var(--vz-border)] bg-black relative shadow-xl"
+frontend/src\components\GalleryView.jsx:87:                <div className="relative aspect-[9/16] bg-black overflow-hidden flex items-center justify-center">
+frontend/src\components\StudioView.jsx:752:          <div className="relative w-24 h-full rounded-lg overflow-hidden bg-black border border-[var(--vz-border)] shrink-0">
+frontend/src\components\StudioView.jsx:803:        <div className="relative w-full h-28 rounded-lg overflow-hidden bg-black border border-[var(--vz-border)]">
+frontend/src\components\StudioView.jsx:1155:                                <div className="bg-black/60 border border-[var(--vz-border)] rounded-xl p-2 w-full flex justify-center">
+frontend/src\components\StudioView.jsx:1297:              className="relative bg-black rounded-[24px] border-4 border-[var(--vz-border)] overflow-hidden shadow-2xl select-none"
+frontend/src\components\StudioView.jsx:1305:                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black/60 backdrop-blur-sm border border-[var(--vz-border)] flex items-center justify-center text-white shadow-2xl">
+frontend/src\components\StudioView.jsx:1316:                  <div className="bg-black/90 backdrop-blur-sm border border-[var(--vz-text-strong)] px-4 py-2 rounded-lg shadow-xl max-w-[90%] text-center">
+frontend/src\components\StudioView.jsx:1326:                <div className="absolute top-4 right-4 z-20 text-[10px] text-white/60 font-semibold tracking-wider bg-black/40 px-2 py-0.5 rounded-full">
+frontend/src\components\StudioView.jsx:1533:                      ? 'object-contain bg-black cursor-pointer'
+frontend/src\components\SubtitleApplyModal.jsx:157:          <div className="w-full md:w-[340px] shrink-0 bg-black p-4 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[var(--vz-border)] select-none">
+frontend/src\components\SubtitleApplyModal.jsx:226:                className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity ${
+frontend/src\components\SubtitlePreview.jsx:19:      className="bg-black rounded-xl border border-[var(--vz-border)] flex justify-center overflow-hidden shrink-0 mx-auto select-none"
+--- build ---
+vite build: 0 error, dist/assets/index-BagkgvL6.js

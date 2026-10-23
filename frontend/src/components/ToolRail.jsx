@@ -12,6 +12,7 @@ export default function ToolRail({ active, onSelect }) {
   return (
     <nav
       aria-label="Tool editor"
+      data-region="rail"
       className="w-[72px] shrink-0 h-full border-l border-vz-border bg-vz-surface flex flex-col items-center gap-1 py-3"
     >
       {TOOLS.map(({ id, label, Icon }) => {

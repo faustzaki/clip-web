@@ -38,6 +38,7 @@ export default function ClipStrip({ clips = [], selected, onSelect, onDownload }
     <section
       ref={stripRef}
       aria-label="Klip"
+      data-region="strip"
       className="h-[96px] shrink-0 border-t border-vz-border bg-vz-surface px-3 py-2 flex items-center gap-3 overflow-x-auto"
     >
       {clips.length === 0 ? (

@@ -46,7 +46,7 @@ export default function EditorHeader({
   };
 
   return (
-    <header className="h-header shrink-0 border-b border-vz-border bg-vz-surface px-5 flex items-center justify-between gap-4">
+    <header data-region="header" className="h-header shrink-0 border-b border-vz-border bg-vz-surface px-5 flex items-center justify-between gap-4">
       <div className="flex items-center gap-2.5 shrink-0">
         <span className="w-8 h-8 rounded-vz-lg bg-vz-accent text-white flex items-center justify-center">
           <Scissors className="w-[18px] h-[18px]" />

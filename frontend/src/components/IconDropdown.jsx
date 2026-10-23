@@ -46,8 +46,8 @@ export default function IconDropdown({ icon: Icon, activeIcon, title, items = []
         aria-expanded={open}
         className={`p-1.5 rounded-xl border shadow-md transition-all ${
           open
-            ? 'bg-dark-card border-neon text-neon'
-            : 'bg-dark-card border-dark-border text-gray-300 hover:text-white hover:border-neon'
+            ? 'bg-[var(--vz-surface)] border-[var(--vz-accent)] text-[var(--vz-accent)]'
+            : 'bg-[var(--vz-surface)] border-[var(--vz-border)] text-[var(--vz-text-soft)] hover:text-[var(--vz-text)] hover:border-[var(--vz-accent)]'
         }`}
       >
         {TriggerIcon && <TriggerIcon className="w-4 h-4" />}
@@ -56,7 +56,7 @@ export default function IconDropdown({ icon: Icon, activeIcon, title, items = []
       {open && (
         <div
           role="menu"
-          className={`absolute z-50 mt-2 min-w-[168px] py-1 bg-dark-surface border border-dark-border rounded-xl shadow-2xl overflow-hidden ${
+          className={`absolute z-50 mt-2 min-w-[168px] py-1 bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-xl shadow-2xl overflow-hidden ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >
@@ -69,8 +69,8 @@ export default function IconDropdown({ icon: Icon, activeIcon, title, items = []
                 role="menuitemcheckbox"
                 aria-checked={Boolean(it.active)}
                 onClick={() => handleSelect(it.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold transition-colors hover:bg-dark-card ${
-                  it.active ? 'text-neon' : 'text-gray-300 hover:text-white'
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold transition-colors hover:bg-[var(--vz-surface-muted)] ${
+                  it.active ? 'text-[var(--vz-accent)]' : 'text-[var(--vz-text-soft)] hover:text-[var(--vz-text)]'
                 }`}
               >
                 {ItemIcon && <ItemIcon className="w-4 h-4 shrink-0" />}

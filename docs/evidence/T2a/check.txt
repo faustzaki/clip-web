@@ -1,0 +1,11 @@
+PASS GET /api/projects 200 — 5 project
+PASS GET transcript 200 + words>0 — 200 · 1829 kata
+PASS field kata lengkap + ms integer — keys=['deleted', 'end_ms', 'idx', 'start_ms', 'word'] duration_ms=int
+PASS cut invalid 400 ok:false — 400 {"ok":false,"reason":"Rentang tidak valid"}
+PASS cut valid ok + removed_ms>0 + deleted=3 — {"ok": true, "removed_ms": 2010, "new_duration_ms": 677287, "deleted": 3}
+PASS new_duration_ms = duration_ms - removed_ms — 677287 vs 679297-2010
+PASS file JSON valid + deleted=1 pada rentang
+PASS backup transcript.json.bak dibuat — work\261e5b42f5\transcript.json.bak
+PASS transcript.json dipulihkan ke isi asli
+
+0 gagal

@@ -1,0 +1,15 @@
+== curl -s localhost:8000/api/health
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+== grep -n "load_transcript_file\|def project_dir" server.py | head
+165:def project_dir(pid: str) -> Path: return WORKDIR / pid
+185:def load_transcript_file(pid: str) -> Optional[dict]:
+203:    tr = load_transcript_file(pid)
+692:    transcript = load_transcript_file(project_id)
+766:    tr = load_transcript_file(project_id)
+787:    tr = load_transcript_file(project_id)
+1051:    transcript = load_transcript_file(project_id)
+1127:    transcript = load_transcript_file(project_id)
+1394:    tr_proj = load_transcript_file(project_id) or {}
+1420:    tr_proj = load_transcript_file(project_id) or {}
+== py -3.13 transcript.json ===
+1829 dict_keys(['video', 'language', 'duration', 'model', 'segments', 'words'])

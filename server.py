@@ -27,7 +27,7 @@ mimetypes.types_map['.mjs'] = 'application/javascript'
 mimetypes.types_map['.css'] = 'text/css'
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -316,6 +316,10 @@ class SubtitlesRequest(BaseModel):
     model_size: Optional[str] = "base"
     regenerate: Optional[bool] = False
 
+
+class CutRequest(BaseModel):
+    from_idx: int
+    to_idx: int
 
 class RenderRequest(BaseModel):
     candidate_index: int
@@ -736,6 +740,75 @@ def get_state(project_id: str):
         "clips": _list_project_clips(project_id),
     }
 
+
+# --------------------------------------------------------------------------
+# Transcript kata (word-level) + cut
+# --------------------------------------------------------------------------
+def _word_ms(w: dict, key: str) -> int:
+    """Milidetik integer dari kata; sumber boleh detik float atau *_ms."""
+    v = w.get(f'{key}_ms')
+    return int(round(v)) if v is not None else int(round((w.get(key) or 0) * 1000))
+
+def _transcript_duration_ms(tr: dict) -> int:
+    v = tr.get('duration_ms')
+    if v is None:
+        v = tr.get('duration')
+        return int(round((v or 0) * 1000))
+    return int(round(v))
+
+def _transcript_unready() -> JSONResponse:
+    return JSONResponse(status_code=404, content={
+        "ok": False, "reason": "Transkrip belum siap", "hint": "Jalankan analisis dulu"})
+
+@app.get("/api/projects/{project_id}/transcript")
+def get_transcript(project_id: str, word: int = 1):
+    _validate_pid(project_id)
+    tr = load_transcript_file(project_id)
+    if not tr or not tr.get('words'):
+        return _transcript_unready()
+    return {
+        "words": [
+            {
+                "idx": i,
+                "word": w.get("word", ""),
+                "start_ms": _word_ms(w, "start"),
+                "end_ms": _word_ms(w, "end"),
+                "deleted": int(w.get("deleted") or 0),
+            }
+            for i, w in enumerate(tr["words"])
+        ],
+        "language": tr.get("language"),
+        "duration_ms": _transcript_duration_ms(tr),
+    }
+
+@app.post("/api/projects/{project_id}/cut")
+def cut_transcript(project_id: str, payload: CutRequest):
+    _validate_pid(project_id)
+    tr = load_transcript_file(project_id)
+    if not tr or not tr.get('words'):
+        return _transcript_unready()
+    words = tr["words"]
+    if not (0 <= payload.from_idx <= payload.to_idx < len(words)):
+        return JSONResponse(status_code=400,
+                            content={"ok": False, "reason": "Rentang tidak valid"})
+    path = project_dir(project_id) / 'transcript.json'
+    bak = path.with_name('transcript.json.bak')
+    if not bak.exists():
+        shutil.copy2(path, bak)
+    removed = 0
+    for w in words[payload.from_idx:payload.to_idx + 1]:
+        removed += max(0, _word_ms(w, 'end') - _word_ms(w, 'start'))
+        w['deleted'] = 1
+    duration = _transcript_duration_ms(tr)
+    tmp = path.with_name('transcript.json.tmp')
+    tmp.write_text(json.dumps(tr, ensure_ascii=False), encoding='utf-8')
+    os.replace(tmp, path)
+    return {
+        "ok": True,
+        "removed_ms": removed,
+        "new_duration_ms": duration - removed,
+        "deleted": payload.to_idx - payload.from_idx + 1,
+    }
 
 def _ingest_cancelled(pid: str) -> bool:
     with INGEST_LOCK:

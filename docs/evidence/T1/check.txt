@@ -1,0 +1,10 @@
+PASS file wajib ada — 8/8
+PASS token accent di index.css
+PASS tanpa kelas gelap/neon/gradient di file T1
+PASS tailwind extend vz + Inter + tanpa darkMode
+PASS index.html Inter + lang id
+PASS rail 72px + strip 96px
+PASS tanpa TODO/console.log di file T1
+PASS build CSS memuat token + h-header
+
+0 gagal

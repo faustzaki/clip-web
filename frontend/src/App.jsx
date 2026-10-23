@@ -109,15 +109,15 @@ export default function App() {
 
   if (serverDown) {
     return (
-      <div className="h-screen w-screen bg-dark-bg text-gray-100 flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full bg-dark-card border border-dark-border rounded-2xl p-6 text-center space-y-4 shadow-2xl">
-          <div className="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 border border-red-500/30 flex items-center justify-center mx-auto text-xl font-bold">
+      <div className="h-screen w-screen bg-vz-bg text-vz-text flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-vz-surface border border-vz-border rounded-vz-2xl p-6 text-center space-y-4 shadow-vz-md">
+          <div className="w-12 h-12 rounded-vz-xl bg-vz-muted text-vz-accent border border-vz-border flex items-center justify-center mx-auto text-xl font-semibold">
             !
           </div>
           <div className="space-y-1">
-            <h1 className="text-lg font-bold text-white">Server backend tidak jalan</h1>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Jalankan <code className="px-1.5 py-0.5 rounded bg-dark-bg border border-dark-border text-neon font-mono">run.bat</code> di folder project, lalu coba lagi.
+            <h1 className="text-h font-semibold text-vz-strong">Server backend tidak jalan</h1>
+            <p className="text-meta text-vz-dim leading-relaxed">
+              Jalankan <code className="px-1.5 py-0.5 rounded-vz-sm bg-vz-muted border border-vz-border text-vz-accent font-mono">run.bat</code> di folder project, lalu coba lagi.
             </p>
           </div>
           <button
@@ -130,7 +130,7 @@ export default function App() {
                 }
               });
             }}
-            className="w-full py-2.5 px-4 rounded-xl bg-neon hover:bg-neon/90 text-white font-semibold text-xs transition-colors cursor-pointer"
+            className="vz-btn vz-btn--primary w-full justify-center"
           >
             Coba lagi
           </button>
@@ -140,7 +140,7 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-dark-bg text-gray-100 flex flex-col font-sans selection:bg-neon selection:text-white">
+    <div className="h-screen w-screen overflow-hidden bg-vz-bg text-vz-text flex flex-col font-sans">
       <Navbar
         projectId={view === 'project' ? activeProjectId : null}
         projectTitle={state?.project?.title || null}

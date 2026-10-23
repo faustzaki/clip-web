@@ -38,32 +38,32 @@ export default function ProjectsView({ projects, isLoading, onOpen, onNew, onRef
   const fmtDate = (ts) => new Date(ts * 1000).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
   const fmtDuration = (s) => { const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
 
-  const badgeBase = 'font-extrabold px-2.5 py-0.5 rounded-full shadow text-[10px]';
+  const badgeBase = 'vz-badge';
 
   const statusBadge = (p) => {
-    if (!p.has_source) return <span className={`${badgeBase} bg-amber-500 text-black`}>Belum ada video</span>;
+    if (!p.has_source) return <span className={`${badgeBase} vz-badge--warn`}>Belum ada video</span>;
     const badges = [];
-    if (p.clip_count > 0) badges.push(<span key="clips" className={`${badgeBase} bg-[#c11e38] text-white`}>{p.clip_count} klip</span>);
-    if (p.candidate_count > 0) badges.push(<span key="cands" className={`${badgeBase} bg-blue-600 text-white`}>{p.candidate_count} kandidat</span>);
-    if (badges.length === 0) badges.push(<span key="ready" className={`${badgeBase} bg-[#00FFCC] text-black`}>Siap di-clip</span>);
+    if (p.clip_count > 0) badges.push(<span key="clips" className={`${badgeBase} vz-badge--success`}>{p.clip_count} klip</span>);
+    if (p.candidate_count > 0) badges.push(<span key="cands" className={`${badgeBase} vz-badge--info`}>{p.candidate_count} kandidat</span>);
+    if (badges.length === 0) badges.push(<span key="ready" className={`${badgeBase} vz-badge--info`}>Siap di-clip</span>);
     return <>{badges}</>;
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-[1500px] mx-auto space-y-6">
-      <div className="flex items-center justify-between border-b border-dark-border pb-4">
+    <div className="max-w-content mx-auto px-5 py-8 space-y-6">
+      <div className="flex items-center justify-between border-b border-vz-border pb-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-extrabold text-white flex items-center gap-2">
-            <Film className="w-6 h-6 text-neon" />
-            <span>Projects</span>
+          <h1 className="text-h font-semibold text-vz-strong flex items-center gap-2">
+            <Film className="w-5 h-5 text-vz-accent" />
+            <span>Project</span>
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-meta text-vz-dim mt-1">
             Pilih project untuk lanjut clipping, atau buat project baru.
           </p>
         </div>
         <button
           onClick={onNew}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white text-xs font-extrabold shadow-[0_0_15px_rgba(193,30,56,0.3)] transition-all"
+          className="vz-btn vz-btn--primary"
         >
           <Plus className="w-4 h-4" />
           <span>Project Baru</span>
@@ -71,36 +71,43 @@ export default function ProjectsView({ projects, isLoading, onOpen, onNew, onRef
       </div>
 
       {isLoading ? (
-        <div className="h-64 flex items-center justify-center text-gray-400 text-xs">
+        <div className="h-64 flex items-center justify-center text-vz-dim text-ui">
           Memuat projects...
         </div>
       ) : projects.length === 0 ? (
-        <div className="h-72 flex flex-col items-center justify-center text-center border-2 border-dashed border-dark-border rounded-2xl p-6 space-y-3">
-          <Film className="w-12 h-12 text-gray-600" />
-          <p className="text-sm font-semibold text-gray-400">Belum ada project.</p>
-          <p className="text-xs text-gray-600">Buat project dari link YouTube atau upload video untuk mulai clipping.</p>
+        <div className="h-72 flex flex-col items-center justify-center text-center border-2 border-dashed border-vz-border rounded-vz-2xl p-6 space-y-3">
+          <Film className="w-12 h-12 text-vz-faint" />
+          <p className="text-base font-medium text-vz-soft">Belum ada project.</p>
+          <p className="text-meta text-vz-dim">Buat project dari link YouTube atau upload video untuk mulai clipping.</p>
           <button
             onClick={onNew}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white text-xs font-extrabold shadow-sm transition-all mt-2"
+            className="vz-btn vz-btn--primary mt-2"
           >
             <Plus className="w-4 h-4" />
             <span>Project Baru</span>
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="vz-grid">
           {projects.map((p) => (
             <div
               key={p.id}
               onClick={() => onOpen(p.id)}
-              className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden hover:border-neon/50 transition-all group cursor-pointer"
+              className="vz-card overflow-hidden cursor-pointer group"
             >
               {/* Cover */}
-              <div className="relative aspect-video bg-dark-bg">
+              <div className="relative aspect-video bg-vz-muted">
                 {p.cover_url ? (
-                  <img src={p.cover_url} className="w-full h-full object-cover" alt="" />
+                  <img
+                    src={p.cover_url}
+                    className="w-full h-full object-cover"
+                    alt=""
+                    onError={(e) => {
+                      e.currentTarget.style.visibility = 'hidden';
+                    }}
+                  />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-dark-surface to-dark-bg text-gray-600">
+                  <div className="w-full h-full flex items-center justify-center bg-vz-muted text-vz-faint">
                     {p.source_type === 'youtube' ? <Video className="w-10 h-10" /> : <Upload className="w-10 h-10" />}
                   </div>
                 )}
@@ -109,18 +116,20 @@ export default function ProjectsView({ projects, isLoading, onOpen, onNew, onRef
                   {statusBadge(p)}
                 </div>
                 {/* Hover actions */}
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => startRename(e, p)}
-                    className="p-1.5 rounded-lg bg-dark-surface/90 border border-dark-border text-gray-300 hover:text-white transition-colors"
-                    title="Rename"
+                    aria-label={`Ubah nama ${p.title || p.id}`}
+                    title="Ubah nama"
+                    className="p-1.5 rounded-vz-md bg-vz-surface border border-vz-border text-vz-soft hover:text-vz-accent transition-colors"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={(e) => handleDelete(e, p)}
-                    className="p-1.5 rounded-lg bg-dark-surface/90 border border-dark-border text-gray-300 hover:text-red-400 transition-colors"
+                    aria-label={`Hapus ${p.title || p.id}`}
                     title="Hapus"
+                    className="p-1.5 rounded-vz-md bg-vz-surface border border-vz-border text-vz-soft hover:text-vz-accent transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -140,12 +149,13 @@ export default function ProjectsView({ projects, isLoading, onOpen, onNew, onRef
                     }}
                     onBlur={() => commitRename(p.id)}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full bg-dark-bg border border-neon/50 rounded-lg px-2 py-1 text-xs font-bold text-white focus:outline-none"
+                    aria-label="Judul project"
+                    className="w-full bg-vz-surface border border-vz-accent rounded-vz-md px-2 py-1 text-ui font-medium text-vz-strong focus:outline-none focus:shadow-[0_0_0_3px_var(--vz-accent-ring)]"
                   />
                 ) : (
-                  <h3 className="text-xs font-extrabold text-white truncate">{p.title || `Project ${p.id}`}</h3>
+                  <h3 className="text-ui font-medium text-vz-strong truncate">{p.title || `Project ${p.id}`}</h3>
                 )}
-                <div className="flex items-center gap-3 text-[11px] text-gray-400 font-mono">
+                <div className="flex items-center gap-3 text-meta text-vz-dim font-mono">
                   <span>{fmtDate(p.created_at)}</span>
                   {p.duration != null && <span>{fmtDuration(p.duration)}</span>}
                 </div>

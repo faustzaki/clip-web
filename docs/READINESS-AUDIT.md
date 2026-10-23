@@ -23,17 +23,17 @@ Rekomendasi awal gue memakai prefix mentah 9Router — 3 dari 8 **tidak ada** di
 Bukti tambahan diuji langsung: `omp -p --model="ninerouter/T-SOTA/claude-sonnet-5"` → **`PICKER_OK`**.
 Backup config: `models.yml.pre-cinder-<timestamp>`.
 
-### Nama final untuk OMP (pakai ini, bukan nama 9Router mentah)
-| Kebutuhan | Nama di OMP |
-|---|---|
-| default / kode harian | `ninerouter/T-SOTA/claude-sonnet-5` |
-| refactor besar (T2, T3) | `ninerouter/T-SOTA/claude-opus-5-5` |
-| review / QA | `ninerouter/T-SOTA/claude-opus-5` |
-| perencanaan | `ninerouter/T-SOTA/claude-opus-5-thinking` |
-| kerja mekanis cepat | `ninerouter/cbai/deepseek-v4.1-flash` |
-| CSS/edit massal | `ocf/glm-5.3-flash-free` |
-| overlay visual (T6) | `ninerouter/ag/gemini-3.8-flash-high` |
-| opini kedua | `grok-cli/grok-4.5` |
+### Nama final untuk OMP — versi hemat (revisi 23 Okt)
+| Kebutuhan | Nama di OMP | Biaya |
+|---|---|---|
+| default semua tugas | `ocf/glm-5.3-flash-free` | gratis |
+| cepat & tepat | `ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash` | murah |
+| output panjang | `ninerouter/cbai/deepseek-v4.1-flash` | murah |
+| review (beda keluarga) | `ninerouter/ag/gemini-3.8-flash-low` | murah |
+| eskalasi terakhir | `ninerouter/T-SOTA/claude-sonnet-5` | premium |
+
+Uji koding nyata (bikin `Timeline.jsx`): `river/deepseek` 2.2s **5/5**, `cbai/deepseek` 4.2s **5/5**,
+`glm-flash-free` 5.9s **5/5** — model gratis tidak kalah untuk tugas komponen. Detail: `MODELS.md`.
 
 ### Jebakan: model MATI yang masih ada di picker
 Sudah diuji, semua gagal 401/402/403/404/502/429: `mistral/*`, `clean/*`, `beat/*`, `tokenharbor/*`,

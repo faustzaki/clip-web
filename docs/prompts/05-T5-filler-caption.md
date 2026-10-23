@@ -18,15 +18,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t5-filler-caption`
 
-## MODEL (jalankan dengan ini)
+## MODEL (murah dulu)
 ```
 ocf/glm-5.3-flash-free
 ```
-Fallback kalau gagal 2×: `ninerouter/cbai/deepseek-v4.1-flash`.
+Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+1. `ocf/mimo-v2.6-flash-free`
 ```bash
 omp -p --model="ocf/glm-5.3-flash-free" @AGENTS.md @docs/prompts/05-T5-filler-caption.md
 ```
-Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
 
 ## BACA
 `design/COMPETITOR-MATRIX.md` (baris "Hapus filler/silence") · `chopify/tighten.py` · `chopify/subtitle_burn.py`

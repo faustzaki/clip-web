@@ -52,23 +52,23 @@ Total ±68 jam. P0 dulu sampai gate lulus — jangan lompat ke P1.
 - Tiap PR kecil (≤600 baris diff). Kalau gate gagal 2× pada tugas yang sama: `git revert` PR, tulis BLOCKED + penyebab.
 - Simpan screenshot `before/` sebelum mulai — dipakai bukti kalau harus rollback.
 
-## 6. Pembagian model (ringkas, detail di `MODELS.md`)
-| Tugas | Model utama | Fallback |
+## 6. Pembagian model (murah dulu — detail di `MODELS.md`)
+| Tugas | Utama (gratis/murah) | Eskalasi |
 |---|---|---|
-| T1 shell | `T-SOTA/claude-sonnet-5` | `T-SOTA/claude-sonnet-4-6` |
-| T2 transcript | `T-SOTA/claude-opus-5-5` | `T-SOTA/claude-sonnet-5` |
-| T3 timeline | `T-SOTA/claude-opus-5-5` | `T-SOTA/claude-sonnet-5-thinking` |
-| T4 export | `T-SOTA/claude-sonnet-5` | `cbai/deepseek-v4.1-flash` |
-| T5 filler+caption | `oc/glm-5.3-flash-free` | `oc/deepseek-v4.1-flash-free` |
-| T6 safe-zone+zoom | `ag/gemini-3.8-flash-high` | `oc/glm-5.3-flash-free` |
-| T7 akurasi ASR | `T-SOTA/claude-sonnet-5` | `cbai/deepseek-v4.1-flash` |
-| T8 diarisasi | `T-SOTA/claude-opus-5-5` | `T-SOTA/claude-sonnet-5` |
-| T9 translasi | `T-SOTA/claude-sonnet-5` | `ninerouter/ag/gemini-3.8-flash-high` |
-| T10 b-roll | `T-SOTA/claude-sonnet-5` | `ocf/glm-5.3-flash-free` |
-| T11 brand kit | `ocf/glm-5.3-flash-free` | `cbai/deepseek-v4.1-flash` |
-| T12 background | `ninerouter/ag/gemini-3.8-flash-high` | `ocf/glm-5.3-flash-free` |
-| T13 posting | `T-SOTA/claude-sonnet-5` | `T-SOTA/claude-sonnet-4-6` |
-| Review/QA | `T-SOTA/claude-opus-5` | `gcli/grok-4.5` |
+| T1 shell | `ocf/glm-5.3-flash-free` | `ocf/deepseek-v4.1-flash-free` → sonnet-5 |
+| T2 transcript | `ninerouter/cbai/deepseek-v4.1-flash` | river/deepseek → sonnet-5 |
+| T3 timeline | `ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash` | cbai → sonnet-5 |
+| T4 export | `ocf/deepseek-v4.1-flash-free` | cbai |
+| T5 filler+caption | `ocf/glm-5.3-flash-free` | mimo-free |
+| T6 safe-zone+zoom | `ocf/glm-5.3-flash-free` | deepseek-free |
+| T7 akurasi | `ninerouter/cbai/deepseek-v4.1-flash` | glm-free |
+| T8 diarisasi | `ninerouter/cbai/deepseek-v4.1-flash` | river/deepseek |
+| T9 translasi | `ocf/deepseek-v4.1-flash-free` | cbai |
+| T10–T12 | `ocf/glm-5.3-flash-free` | deepseek-free / gemini-low |
+| T13 posting | `ninerouter/cbai/deepseek-v4.1-flash` | deepseek-free |
+| Review | `ninerouter/ag/gemini-3.8-flash-low` | sonnet-5 |
+
+Eskalasi hanya setelah 2 kegagalan nyata. Catat di laporan: model, alasan gagal.
 
 ## 7. Definisi "selesai" proyek
 - Semua T1–T6 merged, gate lulus.

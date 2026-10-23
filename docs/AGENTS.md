@@ -25,8 +25,9 @@ Baca berurutan. Jangan lompat. Kalau ada konflik antar dokumen, urutan menang: *
 10. Bahasa UI: **Indonesia**, konsisten.
 11. **PRECHECK wajib**: jalankan perintah deteksi di prompt, tempel output ke `docs/evidence/<T>/precheck.txt`, baru ngoding.
 12. **Tes wajib per tugas**: `scripts/check_<t>.py` harus ada dan exit 0. Tanpa itu tugas belum selesai. Detail: `TESTING.md`.
-13. **Placeholder wajib kalau prasyarat absen**: endpoint balas `{ok:false,reason,hint}` (200), UI tampilkan alasan Indonesia, tulis `BLOCKED.md`. Dilarang crash, dilarang menyembunyikan fitur tanpa alasan.
-14. Istilah teknis yang sudah lazim tetap Inggris (transcript, export, clip, timeline).
+13. **Model murah dulu**: default `ocf/glm-5.3-flash-free` / `river/deepseek-ai/DeepSeek-V4.1-Flash`. Premium hanya eskalasi setelah 2 gagal nyata (`MODELS.md`).
+14. **Placeholder wajib kalau prasyarat absen**: endpoint balas `{ok:false,reason,hint}` (200), UI tampilkan alasan Indonesia, tulis `BLOCKED.md`. Dilarang crash, dilarang menyembunyikan fitur tanpa alasan.
+15. Istilah teknis yang sudah lazim tetap Inggris (transcript, export, clip, timeline).
 
 ## Baseline kode (jangan di-scaffold ulang)
 | File | Baris |

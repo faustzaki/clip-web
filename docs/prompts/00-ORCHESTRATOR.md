@@ -14,15 +14,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 - `docs/TASKS.md (baru)`
 - `docs/evidence/before/ (screenshot)`
 
-## MODEL (jalankan dengan ini)
+## MODEL (murah dulu)
 ```
-ninerouter/T-SOTA/claude-sonnet-5
+ocf/glm-5.3-flash-free
 ```
-Fallback kalau gagal 2×: `ninerouter/cbai/deepseek-v4.1-flash`.
+Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+1. `ocf/deepseek-v4.1-flash-free`
 ```bash
-omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/00-ORCHESTRATOR.md
+omp -p --model="ocf/glm-5.3-flash-free" @AGENTS.md @docs/prompts/00-ORCHESTRATOR.md
 ```
-Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
 
 ## BACA (berurutan, jangan lompat)
 `docs/AGENTS.md` → `docs/ADR.md` → `docs/UI-SPEC.md` → `docs/DATA-MODEL.md` → `docs/IMPLEMENTATION-STRATEGY.md` → `docs/MODELS.md`

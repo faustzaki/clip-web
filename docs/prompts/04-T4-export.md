@@ -17,15 +17,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t4-export`
 
-## MODEL (jalankan dengan ini)
+## MODEL (murah dulu)
 ```
-ninerouter/T-SOTA/claude-sonnet-5
+ocf/deepseek-v4.1-flash-free
 ```
-Fallback kalau gagal 2×: `ninerouter/cbai/deepseek-v4.1-flash`.
+Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+1. `ninerouter/cbai/deepseek-v4.1-flash`
 ```bash
-omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/04-T4-export.md
+omp -p --model="ocf/deepseek-v4.1-flash-free" @AGENTS.md @docs/prompts/04-T4-export.md
 ```
-Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
 
 ## BACA
 `docs/UI-SPEC.md` §5 · `docs/DATA-MODEL.md` §3 (`export_jobs`)

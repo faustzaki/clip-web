@@ -18,15 +18,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t7-akurasi`. Ini prasyarat T8/T9 — diarisasi & translasi jelek kalau transkripnya jelek.
 
-## MODEL (jalankan dengan ini)
+## MODEL (murah dulu)
 ```
-ninerouter/T-SOTA/claude-sonnet-5
+ninerouter/cbai/deepseek-v4.1-flash
 ```
-Fallback kalau gagal 2×: `ninerouter/cbai/deepseek-v4.1-flash`.
+Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+1. `ocf/glm-5.3-flash-free`
 ```bash
-omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/07-T7-akurasi-transkripsi.md
+omp -p --model="ninerouter/cbai/deepseek-v4.1-flash" @AGENTS.md @docs/prompts/07-T7-akurasi-transkripsi.md
 ```
-Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
 
 ## BACA
 `chopify/transcribe.py` (atau file ASR yang ada) · `docs/DATA-MODEL.md` §1 · `docs/MODELS.md` §5

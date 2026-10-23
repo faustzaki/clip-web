@@ -17,15 +17,17 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t3-timeline`
 
-## MODEL (jalankan dengan ini)
+## MODEL (murah dulu)
 ```
-ninerouter/T-SOTA/claude-opus-5-5
+ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash
 ```
-Fallback kalau gagal 2×: `ninerouter/T-SOTA/claude-opus-5`.
+Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+1. `ninerouter/cbai/deepseek-v4.1-flash`
+2. `ninerouter/T-SOTA/claude-sonnet-5`
 ```bash
-omp -p --model="ninerouter/T-SOTA/claude-opus-5-5" @AGENTS.md @docs/prompts/03-T3-timeline.md
+omp -p --model="ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash" @AGENTS.md @docs/prompts/03-T3-timeline.md
 ```
-Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
 
 ## BACA
 `docs/UI-SPEC.md` §4 "Aturan timeline" · `docs/DATA-MODEL.md` §1, §3

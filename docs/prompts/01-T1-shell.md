@@ -22,15 +22,17 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t1-shell`
 
-## MODEL (jalankan dengan ini)
+## MODEL (murah dulu)
 ```
-ninerouter/T-SOTA/claude-sonnet-5
+ocf/glm-5.3-flash-free
 ```
-Fallback kalau gagal 2×: `ninerouter/T-SOTA/claude-sonnet-4-6`.
+Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+1. `ocf/deepseek-v4.1-flash-free`
+2. `ninerouter/T-SOTA/claude-sonnet-5`
 ```bash
-omp -p --model="ninerouter/T-SOTA/claude-sonnet-5" @AGENTS.md @docs/prompts/01-T1-shell.md
+omp -p --model="ocf/glm-5.3-flash-free" @AGENTS.md @docs/prompts/01-T1-shell.md
 ```
-Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
 
 ## BACA
 `docs/UI-SPEC.md` §1–§2, §6 · `docs/ADR.md` ADR-001 · `design/tokens.css` · `design/tailwind.theme.js`

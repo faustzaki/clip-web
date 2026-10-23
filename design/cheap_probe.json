@@ -1,0 +1,11 @@
+{
+ "ocf/glm-5.3-flash-free": 2.6,
+ "ocf/deepseek-v4.1-flash-free": 1.7,
+ "ocf/mimo-v2.6-flash-free": 2.7,
+ "ocf/nemotron-3.5-lightning-free": 1.9,
+ "ocf/beam-free": 1.0,
+ "cbai/deepseek-v4.1-flash": 1.7,
+ "river/zai-org/GLM-5.3-Flash": 1.4,
+ "river/deepseek-ai/DeepSeek-V4.1-Flash": 1.0,
+ "ag/gemini-3.8-flash-low": 21.3
+}

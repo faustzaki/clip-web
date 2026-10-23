@@ -18,15 +18,16 @@ Repo sudah jalan (~7.500 baris). Tugas ini **mengubah** yang ada, bukan membuat 
 
 Branch: `t6-safezone-zoom`
 
-## MODEL (jalankan dengan ini)
+## MODEL (murah dulu)
 ```
-ninerouter/ag/gemini-3.8-flash-high
+ocf/glm-5.3-flash-free
 ```
-Fallback kalau gagal 2×: `ocf/glm-5.3-flash-free`.
+Eskalasi **hanya kalau gagal 2× nyata** (bukan karena ragu):
+1. `ocf/deepseek-v4.1-flash-free`
 ```bash
-omp -p --model="ninerouter/ag/gemini-3.8-flash-high" @AGENTS.md @docs/prompts/06-T6-safezone-zoom.md
+omp -p --model="ocf/glm-5.3-flash-free" @AGENTS.md @docs/prompts/06-T6-safezone-zoom.md
 ```
-Temp: 0.2 · thinking: `low` (pakai `high` hanya untuk T2/T3 perencanaan). Ganti model = buang konteks tugas, mulai ulang dari prompt ini.
+Temp 0.2 · `--thinking=low` · `--prewalk` boleh. Kalau eskalasi, tulis di laporan: model apa, gagal karena apa.
 
 ## BACA
 `docs/UI-SPEC.md` §4 · `design/COMPETITOR-MATRIX.md` (baris auto zoom)

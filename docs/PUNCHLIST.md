@@ -11,3 +11,4 @@ Diisi dari verifikasi visual/angka tiap tugas. Item dicoret setelah dikerjakan.
 | P-05 | Preview 9:16 memuat video landscape → letterbox besar, caption tak terbaca | idem | T6 (ratio + background fill) | OPEN |
 | P-06 | Ruang kosong besar di kanan bawah panel CLIPS dan bawah rail | idem | T3/T10 (timeline + panel tool) | OPEN |
 | P-07 | Meta text abu-abu `--vz-text-muted` di atas putih ~3.5:1 | `T1b` audit kontras | T4 | OPEN |
+| P-08 | `GalleryView` blank di harness mock: `c.name` dipakai, mock cuma kirim `slug` | laporan T1b | gue patch `_mock.py` (kirim `name` juga) | **FIXED** |

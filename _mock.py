@@ -32,13 +32,13 @@ PROJECTS = [
 ]
 
 CLIPS = [
-    {"slug": "clip_01", "url": "/mock/clip.mp4", "raw_url": "/mock/clip.mp4",
+    {"slug": "clip_01", "name": "clip_01.mp4", "url": "/mock/clip.mp4", "raw_url": "/mock/clip.mp4",
      "poster_url": "/mock/cover.jpg", "subtitled": True, "score": 9.4, "candidate_index": 0, "duration": 42.6,
      "title": "Kenapa Hook 3 Detik Menentukan Segalanya"},
-    {"slug": "clip_02", "url": "/mock/clip.mp4", "raw_url": "/mock/clip.mp4",
+    {"slug": "clip_02", "name": "clip_02.mp4", "url": "/mock/clip.mp4", "raw_url": "/mock/clip.mp4",
      "poster_url": "/mock/cover.jpg", "subtitled": True, "score": 8.8, "candidate_index": 1, "duration": 58.0,
      "title": "Ritme Potongan yang Bikin Orang Bertahan"},
-    {"slug": "clip_03", "url": "/mock/clip.mp4", "raw_url": "/mock/clip.mp4",
+    {"slug": "clip_03", "name": "clip_03.mp4", "url": "/mock/clip.mp4", "raw_url": "/mock/clip.mp4",
      "poster_url": "/mock/cover.jpg", "subtitled": False, "score": 7.2, "candidate_index": 2, "duration": 30.5,
      "title": "Caption: Senjata Nonton Tanpa Suara"},
 ]

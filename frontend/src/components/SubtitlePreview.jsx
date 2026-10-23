@@ -16,7 +16,7 @@ export default function SubtitlePreview({ style, height = 260, words }) {
         paddingTop: style.position === 'top' ? px(style.margin_v ?? 300) : 0,
         paddingBottom: style.position === 'bottom' ? px(style.margin_v ?? 300) : 0,
       }}
-      className="bg-black rounded-xl border border-dark-border flex justify-center overflow-hidden shrink-0 mx-auto select-none"
+      className="bg-black rounded-xl border border-[var(--vz-border)] flex justify-center overflow-hidden shrink-0 mx-auto select-none"
     >
       <div
         style={{

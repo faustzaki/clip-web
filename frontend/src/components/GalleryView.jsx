@@ -46,13 +46,13 @@ export default function GalleryView({ projectId }) {
   return (
     <div className="p-4 md:p-8 max-w-[1500px] mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-dark-border pb-4">
+      <div className="flex items-center justify-between border-b border-[var(--vz-border)] pb-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-extrabold text-white flex items-center gap-2">
-            <Film className="w-6 h-6 text-neon" />
+          <h1 className="text-xl md:text-2xl font-extrabold text-[var(--vz-text-strong)] flex items-center gap-2">
+            <Film className="w-6 h-6 text-[var(--vz-accent)]" />
             <span>Klip Siap Upload ({clips.length})</span>
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-[var(--vz-text-muted)] mt-1">
             Klip vertikal siap dibagikan ke TikTok, Reels, dan Shorts. Klip raw dan bersubtitle dapat diunduh langsung.
           </p>
         </div>
@@ -61,14 +61,14 @@ export default function GalleryView({ projectId }) {
 
       {/* Clips Grid */}
       {isLoading ? (
-        <div className="h-64 flex items-center justify-center text-gray-400 text-xs">
+        <div className="h-64 flex items-center justify-center text-[var(--vz-text-muted)] text-xs">
           Memuat daftar klip...
         </div>
       ) : clips.length === 0 ? (
-        <div className="h-72 flex flex-col items-center justify-center text-center text-gray-500 space-y-3 bg-dark-card border border-dark-border rounded-2xl p-6">
-          <Film className="w-12 h-12 text-gray-600" />
-          <p className="text-sm font-semibold text-gray-400">Belum ada klip untuk project ini.</p>
-          <p className="text-xs text-gray-600">
+        <div className="h-72 flex flex-col items-center justify-center text-center text-[var(--vz-text-muted)] space-y-3 bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl p-6">
+          <Film className="w-12 h-12 text-[var(--vz-text-faint)]" />
+          <p className="text-sm font-semibold text-[var(--vz-text-muted)]">Belum ada klip untuk project ini.</p>
+          <p className="text-xs text-[var(--vz-text-faint)]">
             Buka Studio Clipper project ini, pilih momen viral, lalu klik Render.
           </p>
         </div>
@@ -81,7 +81,7 @@ export default function GalleryView({ projectId }) {
             return (
               <div
                 key={c.name}
-                className="bg-dark-card border border-dark-border rounded-2xl overflow-hidden shadow-xl hover:border-neon/50 transition-all flex flex-col justify-between group"
+                className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl overflow-hidden shadow-xl hover:border-[var(--vz-accent)] transition-all flex flex-col justify-between group"
               >
                 {/* Video / Thumbnail Container */}
                 <div className="relative aspect-[9/16] bg-black overflow-hidden flex items-center justify-center">
@@ -94,12 +94,12 @@ export default function GalleryView({ projectId }) {
                   {/* Score & Subtitle badges */}
                   <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
                     {meta.score && (
-                      <div className="bg-emerald-950/90 border border-emerald-500/50 text-emerald-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
+                      <div className="bg-[var(--vz-success-bg)] border border-[var(--vz-success-fg)] text-[var(--vz-success-fg)] text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
                         ★ {meta.score}/10
                       </div>
                     )}
                     {!c.subtitled && (
-                      <div className="bg-yellow-950/80 border border-yellow-500/50 text-yellow-400 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
+                      <div className="bg-[var(--vz-warn-bg)] border border-[var(--vz-warn-fg)] text-[var(--vz-warn-fg)] text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow">
                         RAW
                       </div>
                     )}
@@ -108,19 +108,19 @@ export default function GalleryView({ projectId }) {
 
                 <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
                   <div>
-                    <h3 className="text-xs font-extrabold text-white line-clamp-2 uppercase tracking-wide">
+                    <h3 className="text-xs font-extrabold text-[var(--vz-text)] line-clamp-2 uppercase tracking-wide">
                       {title}
                     </h3>
 
                     {/* Stats pills */}
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400 font-mono">
+                    <div className="flex items-center gap-3 mt-2 text-[10px] text-[var(--vz-text-muted)] font-mono">
                       <span className="flex items-center gap-1">
-                        <HardDrive className="w-3 h-3 text-neon" />
+                        <HardDrive className="w-3 h-3 text-[var(--vz-accent)]" />
                         {c.size_mb} MB
                       </span>
                       {meta.start !== undefined && (
                         <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-cyber" />
+                          <Clock className="w-3 h-3 text-[var(--vz-accent)]" />
                           {(meta.end - meta.start).toFixed(1)}s
                         </span>
                       )}
@@ -132,7 +132,7 @@ export default function GalleryView({ projectId }) {
                         {meta.hashtags.slice(0, 3).map((tag) => (
                           <span
                             key={tag}
-                            className="text-[10px] text-gray-500 bg-dark-bg px-1.5 py-0.5 rounded border border-dark-border"
+                            className="text-[10px] text-[var(--vz-text-faint)] bg-[var(--vz-bg-alt)] px-1.5 py-0.5 rounded border border-[var(--vz-border)]"
                           >
                             {tag}
                           </span>
@@ -142,20 +142,20 @@ export default function GalleryView({ projectId }) {
                   </div>
 
                   {/* Actions */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dark-border/60">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--vz-border-strong)]">
                     <button
                       type="button"
                       onClick={() => copyMetadata(c, idx)}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-dark-surface border border-dark-border text-xs font-bold text-gray-300 hover:text-white hover:border-gray-500 transition-all"
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[var(--vz-surface)] border border-[var(--vz-border)] text-xs font-bold text-[var(--vz-text-soft)] hover:text-[var(--vz-text)] hover:border-[var(--vz-border-strong)] transition-all"
                     >
                       {copiedIdx === idx ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-neon" />
-                          <span className="text-neon text-[11px]">Disalin!</span>
+                          <Check className="w-3.5 h-3.5 text-[var(--vz-accent)]" />
+                          <span className="text-[var(--vz-accent)] text-[11px]">Disalin!</span>
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3.5 h-3.5 text-gray-400" />
+                          <Copy className="w-3.5 h-3.5 text-[var(--vz-text-muted)]" />
                           <span className="text-[11px]">Copy Teks</span>
                         </>
                       )}
@@ -164,7 +164,7 @@ export default function GalleryView({ projectId }) {
                     <a
                       href={c.url}
                       download={c.name}
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white text-xs font-extrabold hover:opacity-90 transition-all shadow-sm"
+                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[var(--vz-accent)] text-white text-xs font-extrabold hover:bg-[var(--vz-accent-hover)] transition-all shadow-sm"
                     >
                       <Download className="w-3.5 h-3.5 text-white" />
                       <span className="text-[11px]">Download</span>

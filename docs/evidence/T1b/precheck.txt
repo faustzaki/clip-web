@@ -1,0 +1,8 @@
+frontend/src\components\CropStudioModal.jsx
+frontend/src\components\GalleryView.jsx
+frontend/src\components\IconDropdown.jsx
+frontend/src\components\NewProjectView.jsx
+frontend/src\components\SettingsModal.jsx
+frontend/src\components\StudioView.jsx
+frontend/src\components\SubtitleApplyModal.jsx
+frontend/src\components\SubtitleStyleEditor.jsx

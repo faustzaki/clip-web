@@ -744,12 +744,12 @@ export default function StudioView({
           onClick={() => jumpToCandidate(i)}
           className={`p-2 rounded-xl border cursor-pointer relative flex flex-row items-center gap-2.5 shrink-0 w-[240px] h-full transition-colors ${
             isActive
-              ? 'bg-dark-surface border-neon shadow-[0_0_12px_rgba(193,30,56,0.25)] ring-1 ring-neon/40'
-              : 'bg-dark-bg/85 border-dark-border hover:border-gray-500'
+              ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] ring-1 ring-[var(--vz-accent-ring)]'
+              : 'bg-[var(--vz-surface)] border-[var(--vz-border)] hover:border-[var(--vz-border-strong)]'
           }`}
         >
           {/* Thumbnail Left */}
-          <div className="relative w-24 h-full rounded-lg overflow-hidden bg-black border border-dark-border shrink-0">
+          <div className="relative w-24 h-full rounded-lg overflow-hidden bg-black border border-[var(--vz-border)] shrink-0">
             <img
               src={thumbSrc}
               alt=""
@@ -762,11 +762,11 @@ export default function StudioView({
 
           {/* Details Right: Klip #N, Range, Title */}
           <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 py-0.5">
-            <div className="flex items-center justify-between text-[11px] font-mono text-gray-400">
-              <span className="font-bold text-white">#{i + 1}</span>
-              <span className="text-neon font-semibold">{mmss(c.start)}–{mmss(c.end)}</span>
+            <div className="flex items-center justify-between text-[11px] font-mono text-[var(--vz-text-muted)]">
+              <span className="font-bold text-[var(--vz-text-strong)]">#{i + 1}</span>
+              <span className="text-[var(--vz-accent)] font-semibold">{mmss(c.start)}–{mmss(c.end)}</span>
             </div>
-            <p className="text-xs font-bold text-yellow-300 line-clamp-2 leading-tight">
+            <p className="text-xs font-bold text-[var(--vz-text)] line-clamp-2 leading-tight">
               {c.hook || `Klip #${i + 1}`}
             </p>
           </div>
@@ -780,7 +780,7 @@ export default function StudioView({
             }}
             title="Edit Clip"
             aria-label="Edit Clip"
-            className="absolute top-1 right-1 z-10 p-1 rounded-lg bg-dark-card/90 border border-dark-border text-gray-300 hover:text-neon hover:border-neon transition-colors"
+            className="absolute top-1 right-1 z-10 p-1 rounded-lg bg-[var(--vz-surface)] border border-[var(--vz-border)] text-[var(--vz-text)] hover:text-[var(--vz-accent)] hover:border-[var(--vz-accent)] transition-colors"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
@@ -795,12 +795,12 @@ export default function StudioView({
         onClick={() => jumpToCandidate(i)}
         className={`p-2.5 rounded-xl border cursor-pointer relative flex flex-col gap-2 shrink-0 transition-colors ${
           isActive
-            ? 'bg-dark-surface border-neon shadow-[0_0_12px_rgba(193,30,56,0.25)] ring-1 ring-neon/40'
-            : 'bg-dark-bg/85 border-dark-border hover:border-gray-500'
+            ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] ring-1 ring-[var(--vz-accent-ring)]'
+            : 'bg-[var(--vz-surface)] border-[var(--vz-border)] hover:border-[var(--vz-border-strong)]'
         }`}
       >
         {/* Thumbnail Image */}
-        <div className="relative w-full h-28 rounded-lg overflow-hidden bg-black border border-dark-border">
+        <div className="relative w-full h-28 rounded-lg overflow-hidden bg-black border border-[var(--vz-border)]">
           <img
             src={thumbSrc}
             alt=""
@@ -812,12 +812,12 @@ export default function StudioView({
         </div>
 
         {/* Range and Title */}
-        <div className="flex items-center justify-between text-xs font-mono text-gray-400">
-          <span className="font-bold text-white">Klip #{i + 1}</span>
-          <span className="text-neon font-semibold">{mmss(c.start)} – {mmss(c.end)}</span>
+        <div className="flex items-center justify-between text-xs font-mono text-[var(--vz-text-muted)]">
+          <span className="font-bold text-[var(--vz-text-strong)]">Klip #{i + 1}</span>
+          <span className="text-[var(--vz-accent)] font-semibold">{mmss(c.start)} – {mmss(c.end)}</span>
         </div>
 
-        <p className="text-xs font-bold text-yellow-300 line-clamp-2 leading-snug">
+        <p className="text-xs font-bold text-[var(--vz-text)] line-clamp-2 leading-snug">
           {c.hook || `Klip #${i + 1}`}
         </p>
 
@@ -830,7 +830,7 @@ export default function StudioView({
           }}
           title="Edit Clip"
           aria-label="Edit Clip"
-          className="absolute top-1 right-1 z-10 p-1 rounded-lg bg-dark-card/90 border border-dark-border text-gray-300 hover:text-neon hover:border-neon transition-colors"
+          className="absolute top-1 right-1 z-10 p-1 rounded-lg bg-[var(--vz-surface)] border border-[var(--vz-border)] text-[var(--vz-text)] hover:text-[var(--vz-accent)] hover:border-[var(--vz-accent)] transition-colors"
         >
           <Pencil className="w-3.5 h-3.5" />
         </button>
@@ -855,45 +855,45 @@ export default function StudioView({
           {/* ROW 1: Settings + Center Player (+ Right Pipeline if active) */}
           <div className="flex flex-col lg:flex-row gap-2 flex-1 min-h-0 overflow-hidden">
             {/* Left Settings Panel */}
-            <aside
+            <aside data-region="sidebar"
               style={{ width: leftCollapsed ? 48 : leftW }}
               className="lg:shrink-0 min-w-0 h-full flex flex-col overflow-hidden"
             >
           {leftCollapsed ? (
             /* Collapsed Rail */
-            <div className="bg-dark-card border border-dark-border rounded-2xl p-2 flex flex-col items-center gap-4 h-full shadow-lg">
+            <div className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl p-2 flex flex-col items-center gap-4 h-full shadow-lg">
               <button
                 type="button"
                 onClick={() => setLeftCollapsed(false)}
-                className="p-1.5 rounded-lg bg-dark-bg border border-dark-border text-gray-400 hover:text-neon hover:border-neon transition-colors"
+                className="p-1.5 rounded-lg bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] text-[var(--vz-text-muted)] hover:text-[var(--vz-accent)] hover:border-[var(--vz-accent)] transition-colors"
                 title={`Buka ${panelTitle}`}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
               {editMode ? (
-                <Pencil className="w-4 h-4 text-neon" />
+                <Pencil className="w-4 h-4 text-[var(--vz-accent)]" />
               ) : (
-                <Sparkles className="w-4 h-4 text-neon" />
+                <Sparkles className="w-4 h-4 text-[var(--vz-accent)]" />
               )}
               <div
-                className="text-xs font-bold text-gray-400 uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 py-4 select-none"
+                className="text-xs font-bold text-[var(--vz-text-muted)] uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 py-4 select-none"
               >
                 {panelTitle}
               </div>
             </div>
           ) : (
             /* Expanded Full Settings Panel */
-            <div className="bg-dark-card border border-dark-border rounded-2xl shadow-xl flex-1 flex flex-col h-full min-h-0 overflow-hidden">
+            <div className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl shadow-xl flex-1 flex flex-col h-full min-h-0 overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-dark-border/60 p-3 shrink-0">
+              <div className="flex items-center justify-between border-b border-[var(--vz-border-strong)] p-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditMode((v) => !v)}
                   aria-expanded={editMode}
                   title={editMode ? 'Beralih ke Generate Clip' : 'Beralih ke Edit Clip'}
-                  className="text-sm font-extrabold uppercase tracking-wider text-white flex items-center gap-2 hover:text-neon transition-colors"
+                  className="text-sm font-extrabold uppercase tracking-wider text-[var(--vz-text-strong)] flex items-center gap-2 hover:text-[var(--vz-accent)] transition-colors"
                 >
-                  {editMode ? <Pencil className="w-4 h-4 text-neon" /> : <Sparkles className="w-4 h-4 text-neon" />}
+                  {editMode ? <Pencil className="w-4 h-4 text-[var(--vz-accent)]" /> : <Sparkles className="w-4 h-4 text-[var(--vz-accent)]" />}
                   <span>{panelTitle}</span>
                 </button>
                 <div className="flex items-center gap-1.5">
@@ -902,7 +902,7 @@ export default function StudioView({
                       type="button"
                       onClick={() => setEditMode(false)}
                       title="Kembali ke Generate Clip"
-                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-gray-400 hover:text-neon hover:bg-dark-hover transition-colors"
+                      className="px-2 py-1 rounded-lg text-[10px] font-bold text-[var(--vz-text-muted)] hover:text-[var(--vz-accent)] hover:bg-[var(--vz-surface-muted)] transition-colors"
                     >
                       Generate Clip
                     </button>
@@ -910,7 +910,7 @@ export default function StudioView({
                   <button
                     type="button"
                     onClick={() => setLeftCollapsed(true)}
-                    className="p-1 rounded text-gray-400 hover:text-white hover:bg-dark-hover transition-colors"
+                    className="p-1 rounded text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)] hover:bg-[var(--vz-surface-muted)] transition-colors"
                     title={`Minimize panel ${panelTitle}`}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -923,24 +923,24 @@ export default function StudioView({
                 {/* Ingest Status Banner */}
                 {state?.ingest && !['idle', 'done'].includes(state.ingest.status) && (
                   state.ingest.status === 'error' ? (
-                    <div className="p-3 rounded-xl border border-red-500/40 bg-red-950/40 text-red-400 text-xs shrink-0">
+                    <div className="p-3 rounded-xl border border-[var(--vz-danger-fg)] bg-[var(--vz-danger-bg)] text-[var(--vz-danger-fg)] text-xs shrink-0">
                       <p className="font-bold">Gagal memproses video</p>
                       <p className="text-[11px] mt-0.5">{state.ingest.error || state.ingest.message}</p>
                     </div>
                   ) : (
-                    <div className="p-3 rounded-xl border border-dark-border bg-dark-bg/80 space-y-2 shrink-0">
+                    <div className="p-3 rounded-xl border border-[var(--vz-border)] bg-[var(--vz-surface-muted)] space-y-2 shrink-0">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-300 font-medium flex items-center gap-1.5">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-neon" />
+                        <span className="text-[var(--vz-text)] font-medium flex items-center gap-1.5">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--vz-accent)]" />
                           {state.ingest.message || 'Memproses video...'}
                         </span>
-                        <span className="text-neon font-mono font-bold text-[11px]">
+                        <span className="text-[var(--vz-accent)] font-mono font-bold text-[11px]">
                           {Math.round(state.ingest.percent || 0)}%
                         </span>
                       </div>
-                      <div className="w-full bg-dark-card rounded-full h-1.5 overflow-hidden">
+                      <div className="w-full bg-[var(--vz-border)] rounded-full h-1.5 overflow-hidden">
                         <div
-                          className="bg-gradient-to-r from-[#c11e38] to-[#220b34] h-full transition-all duration-300"
+                          className="bg-[var(--vz-accent)] h-full transition-all duration-300"
                           style={{ width: `${state.ingest.percent || 0}%` }}
                         />
                       </div>
@@ -950,18 +950,18 @@ export default function StudioView({
 
                 {/* No-source Warning */}
                 {!state?.video ? (
-                  <div className="rounded-xl border border-dashed border-dark-border bg-dark-bg/60 p-4 text-center space-y-2 shrink-0">
-                    <FileVideo className="w-10 h-10 text-gray-600 mx-auto" />
+                  <div className="rounded-xl border border-dashed border-[var(--vz-border)] bg-[var(--vz-surface-muted)] p-4 text-center space-y-2 shrink-0">
+                    <FileVideo className="w-10 h-10 text-[var(--vz-text-faint)] mx-auto" />
                     {state?.ingest?.status === 'running' || state?.ingest?.status === 'starting' ? (
-                      <p className="text-xs text-gray-300">
+                      <p className="text-xs text-[var(--vz-text)]">
                         {state.ingest.message || 'Sedang menyiapkan video source...'}
                       </p>
                     ) : (
                       <>
-                        <p className="text-xs text-gray-400">Project ini belum punya video source.</p>
+                        <p className="text-xs text-[var(--vz-text-muted)]">Project ini belum punya video source.</p>
                         <button
                           onClick={onBackToProjects}
-                          className="mt-2 px-4 py-2 rounded-xl bg-dark-surface border border-dark-border text-xs font-bold text-gray-300 hover:text-neon hover:border-neon transition-all"
+                          className="mt-2 px-4 py-2 rounded-xl bg-[var(--vz-surface)] border border-[var(--vz-border)] text-xs font-bold text-[var(--vz-text)] hover:text-[var(--vz-accent)] hover:border-[var(--vz-accent)] transition-all"
                         >
                           Kembali ke Projects
                         </button>
@@ -974,11 +974,11 @@ export default function StudioView({
                       <>
                     {/* 1. Pilih Model AI untuk Generate */}
                     <div className="space-y-1.5 shrink-0">
-                      <label className="text-[11px] font-bold text-gray-300">Pilih Model AI untuk Generate</label>
+                      <label className="text-[11px] font-bold text-[var(--vz-text)]">Pilih Model AI untuk Generate</label>
                       <select
                         value={selectedModel}
                         onChange={(e) => setSelectedModel(e.target.value)}
-                        className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-neon transition-colors"
+                        className="w-full bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] rounded-xl px-3 py-2 text-xs text-[var(--vz-text)] focus:outline-none focus:border-[var(--vz-accent)] transition-colors"
                       >
                         {(options?.ai_models || [
                           { id: 'ag/gemini-3.8-flash', label: 'Gemini 3.8 Flash (9Router)' }
@@ -990,12 +990,12 @@ export default function StudioView({
 
                     {/* 2. Min & Max durasi */}
                     <div className="space-y-2 pt-1 shrink-0">
-                      <span className="text-[11px] font-bold text-gray-300">Min & Max Durasi</span>
+                      <span className="text-[11px] font-bold text-[var(--vz-text)]">Min & Max Durasi</span>
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1 bg-dark-bg/60 border border-dark-border p-2.5 rounded-xl">
-                          <div className="flex justify-between text-[11px] text-gray-400">
+                        <div className="space-y-1 bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] p-2.5 rounded-xl">
+                          <div className="flex justify-between text-[11px] text-[var(--vz-text-muted)]">
                             <span>Min:</span>
-                            <span className="text-neon font-bold font-mono">{minDur}s</span>
+                            <span className="text-[var(--vz-accent)] font-bold font-mono">{minDur}s</span>
                           </div>
                           <input
                             type="range"
@@ -1003,14 +1003,14 @@ export default function StudioView({
                             max="45"
                             value={minDur}
                             onChange={(e) => setMinDur(Number(e.target.value))}
-                            className="w-full accent-neon h-1.5 bg-dark-border rounded-lg appearance-none cursor-pointer"
+                            className="w-full accent-[var(--vz-accent)] h-1.5 bg-[var(--vz-border)] rounded-lg appearance-none cursor-pointer"
                           />
                         </div>
 
-                        <div className="space-y-1 bg-dark-bg/60 border border-dark-border p-2.5 rounded-xl">
-                          <div className="flex justify-between text-[11px] text-gray-400">
+                        <div className="space-y-1 bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] p-2.5 rounded-xl">
+                          <div className="flex justify-between text-[11px] text-[var(--vz-text-muted)]">
                             <span>Max:</span>
-                            <span className="text-neon font-bold font-mono">{maxDur}s</span>
+                            <span className="text-[var(--vz-accent)] font-bold font-mono">{maxDur}s</span>
                           </div>
                           <input
                             type="range"
@@ -1018,7 +1018,7 @@ export default function StudioView({
                             max="90"
                             value={maxDur}
                             onChange={(e) => setMaxDur(Number(e.target.value))}
-                            className="w-full accent-neon h-1.5 bg-dark-border rounded-lg appearance-none cursor-pointer"
+                            className="w-full accent-[var(--vz-accent)] h-1.5 bg-[var(--vz-border)] rounded-lg appearance-none cursor-pointer"
                           />
                         </div>
                       </div>
@@ -1026,11 +1026,11 @@ export default function StudioView({
 
                     {/* 3. Mode Framing & Crop (AI Logic) */}
                     <div className="space-y-2 pt-1 shrink-0">
-                      <label className="text-[11px] font-bold text-gray-300">Mode Framing & Crop</label>
+                      <label className="text-[11px] font-bold text-[var(--vz-text)]">Mode Framing & Crop</label>
                       <select
                         value={cropMode}
                         onChange={(e) => setCropMode(e.target.value)}
-                        className="w-full bg-dark-bg border border-dark-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-neon transition-colors"
+                        className="w-full bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] rounded-xl px-3 py-2 text-xs text-[var(--vz-text)] focus:outline-none focus:border-[var(--vz-accent)] transition-colors"
                       >
                         {FRAMING_OPTIONS.map((c) => (
                           <option key={c.id} value={c.id}>{c.label}</option>
@@ -1038,12 +1038,12 @@ export default function StudioView({
                       </select>
 
                       {selectedFraming && (
-                        <div className="p-2.5 rounded-xl bg-dark-bg/80 border border-dark-border text-[11px] text-gray-300 leading-relaxed">
+                        <div className="p-2.5 rounded-xl bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] text-[11px] text-[var(--vz-text)] leading-relaxed">
                           {selectedFraming.desc}
                         </div>
                       )}
 
-                      <p className="text-[10px] text-gray-500 leading-normal">
+                      <p className="text-[10px] text-[var(--vz-text-faint)] leading-normal">
                         AI akan mendeteksi dan memotong momen viral berdasarkan logic framing yang dipilih di atas (misal ekspresi seru atau topik dialog menarik).
                       </p>
                     </div>
@@ -1052,7 +1052,7 @@ export default function StudioView({
                     <button
                       onClick={handleFindMoments}
                       disabled={isScoring || !state?.video}
-                      className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] hover:from-[#d82544] hover:to-[#2e0f45] text-white font-extrabold text-sm tracking-wide shadow-[0_0_20px_rgba(193,30,56,0.3)] flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      className="w-full py-3.5 px-4 rounded-xl bg-[var(--vz-accent)] hover:bg-[var(--vz-accent-hover)] text-white font-extrabold text-sm tracking-wide flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                     >
                       {isScoring ? (
                         <>
@@ -1070,7 +1070,7 @@ export default function StudioView({
                     )}
 
                     {editMode && candidates.length === 0 && (
-                      <p className="text-xs text-gray-500 text-center py-2">Belum ada klip untuk diedit.</p>
+                      <p className="text-xs text-[var(--vz-text-faint)] text-center py-2">Belum ada klip untuk diedit.</p>
                     )}
 
                     {/* Edit Clip settings (shown when clips have been generated) */}
@@ -1078,41 +1078,41 @@ export default function StudioView({
                       <div className="space-y-3.5">
                         {/* Opsi Komponen Video */}
                         <div className="space-y-2">
-                          <label className="text-[11px] font-bold text-gray-300">
+                          <label className="text-[11px] font-bold text-[var(--vz-text)]">
                             Opsi Komponen Video
                           </label>
-                          <div className="space-y-2.5 bg-dark-bg/60 border border-dark-border p-3 rounded-xl">
+                          <div className="space-y-2.5 bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] p-3 rounded-xl">
                             {/* Subtitle Otomatis */}
                             <label className="flex items-center justify-between cursor-pointer">
-                              <span className="text-xs text-gray-300 font-medium">Subtitle Otomatis</span>
+                              <span className="text-xs text-[var(--vz-text)] font-medium">Subtitle Otomatis</span>
                               <input
                                 type="checkbox"
                                  checked={Boolean(prefs?.subtitles_enabled)}
                                 onChange={(e) => savePrefs({ ...(prefs || {}), subtitles_enabled: e.target.checked })}
-                                className="accent-neon w-4 h-4 rounded cursor-pointer"
+                                className="accent-[var(--vz-accent)] w-4 h-4 rounded cursor-pointer"
                               />
                             </label>
 
                             {/* Judul Clip (Hook Banner) */}
                             <label className="flex items-center justify-between cursor-pointer">
-                              <span className="text-xs text-gray-300 font-medium">Judul Clip (Hook Banner)</span>
+                              <span className="text-xs text-[var(--vz-text)] font-medium">Judul Clip (Hook Banner)</span>
                               <input
                                 type="checkbox"
                                 checked={Boolean(prefs?.title_enabled)}
                                 onChange={(e) => savePrefs({ ...(prefs || {}), title_enabled: e.target.checked })}
-                                className="accent-neon w-4 h-4 rounded cursor-pointer"
+                                className="accent-[var(--vz-accent)] w-4 h-4 rounded cursor-pointer"
                               />
                             </label>
 
                             {/* Watermark Handle */}
-                            <div className="space-y-2 pt-1 border-t border-dark-border/50">
+                            <div className="space-y-2 pt-1 border-t border-[var(--vz-border-strong)]">
                               <label className="flex items-center justify-between cursor-pointer">
-                                <span className="text-xs text-gray-300 font-medium">Watermark Handle</span>
+                                <span className="text-xs text-[var(--vz-text)] font-medium">Watermark Handle</span>
                                 <input
                                   type="checkbox"
                                   checked={Boolean(prefs?.watermark_enabled)}
                                   onChange={(e) => savePrefs({ ...(prefs || {}), watermark_enabled: e.target.checked })}
-                                  className="accent-neon w-4 h-4 rounded cursor-pointer"
+                                  className="accent-[var(--vz-accent)] w-4 h-4 rounded cursor-pointer"
                                 />
                               </label>
                               <input
@@ -1121,7 +1121,7 @@ export default function StudioView({
                                 onChange={(e) => savePrefs({ ...(prefs || {}), watermark: e.target.value })}
                                 placeholder="@username"
                                 disabled={!prefs?.watermark_enabled}
-                                className="w-full bg-dark-bg border border-dark-border rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-neon transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="w-full bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--vz-text)] placeholder-[var(--vz-text-faint)] focus:outline-none focus:border-[var(--vz-accent)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               />
                             </div>
                           </div>
@@ -1132,27 +1132,27 @@ export default function StudioView({
                           <button
                             type="button"
                             onClick={() => setSubtitleSectionOpen(!subtitleSectionOpen)}
-                            className="w-full flex items-center justify-between text-[11px] font-bold text-gray-300 hover:text-white transition-colors py-0.5"
+                            className="w-full flex items-center justify-between text-[11px] font-bold text-[var(--vz-text)] hover:text-[var(--vz-text-strong)] transition-colors py-0.5"
                           >
                             <span className="flex items-center gap-1.5">
                               <span>Gaya Subtitle (Per-Project)</span>
                               {Boolean(prefs?.subtitles_enabled) && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-neon/10 text-neon font-semibold">ON</span>
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-[var(--vz-accent-tint)] text-[var(--vz-accent)] font-semibold">ON</span>
                               )}
                             </span>
                             {subtitleSectionOpen ? (
-                              <ChevronUp className="w-4 h-4 text-gray-400" />
+                              <ChevronUp className="w-4 h-4 text-[var(--vz-text-muted)]" />
                             ) : (
-                              <ChevronDown className="w-4 h-4 text-gray-400" />
+                              <ChevronDown className="w-4 h-4 text-[var(--vz-text-muted)]" />
                             )}
                           </button>
 
                           {subtitleSectionOpen && (
-                            <div className="space-y-3 bg-dark-bg/60 border border-dark-border p-3 rounded-xl">
+                            <div className="space-y-3 bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] p-3 rounded-xl">
                               {/* Live Preview */}
                               <div className="flex flex-col items-center gap-1.5">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Preview Subtitle</span>
-                                <div className="bg-black/60 border border-dark-border rounded-xl p-2 w-full flex justify-center">
+                                <span className="text-[10px] font-bold text-[var(--vz-text-muted)] uppercase tracking-wider">Preview Subtitle</span>
+                                <div className="bg-black/60 border border-[var(--vz-border)] rounded-xl p-2 w-full flex justify-center">
                                   <SubtitlePreview
                                     style={prefs?.subtitle_style || {}}
                                     height={150}
@@ -1174,26 +1174,26 @@ export default function StudioView({
 
                         {/* Buang jeda hening / filler cuts */}
                         <div className="space-y-1.5 pt-1">
-                          <label className="flex items-center justify-between cursor-pointer bg-dark-bg/60 border border-dark-border p-3 rounded-xl hover:border-gray-600 transition-colors">
+                          <label className="flex items-center justify-between cursor-pointer bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] p-3 rounded-xl hover:border-[var(--vz-border-strong)] transition-colors">
                             <div>
-                              <span className="text-xs text-gray-300 font-medium block">Buang jeda hening / filler cuts</span>
-                              <span className="text-[10px] text-gray-500 block">Tighten audio & visual cuts otomatis saat render</span>
+                              <span className="text-xs text-[var(--vz-text)] font-medium block">Buang jeda hening / filler cuts</span>
+                              <span className="text-[10px] text-[var(--vz-text-faint)] block">Tighten audio & visual cuts otomatis saat render</span>
                             </div>
                             <input
                               type="checkbox"
                               checked={tightenCuts}
                               onChange={(e) => setTightenCuts(e.target.checked)}
-                              className="accent-neon w-4 h-4 rounded cursor-pointer shrink-0"
+                              className="accent-[var(--vz-accent)] w-4 h-4 rounded cursor-pointer shrink-0"
                             />
                           </label>
                         </div>
 
                         {/* Kualitas Render */}
                         <div className="space-y-1.5 pt-1">
-                          <label className="text-[11px] font-bold text-gray-300 block">
+                          <label className="text-[11px] font-bold text-[var(--vz-text)] block">
                             Kualitas Render
                           </label>
-                          <div className="flex items-center gap-1.5 bg-dark-bg p-1 rounded-xl border border-dark-border">
+                          <div className="flex items-center gap-1.5 bg-[var(--vz-surface-muted)] p-1 rounded-xl border border-[var(--vz-border)]">
                             {[
                               { id: 'proxy', label: 'Proxy 360p' },
                               { id: 'hd', label: '1080p' },
@@ -1205,8 +1205,8 @@ export default function StudioView({
                                 onClick={() => setRenderQuality(q.id)}
                                 className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center ${
                                   renderQuality === q.id
-                                    ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white shadow-sm'
-                                    : 'text-gray-400 hover:text-white'
+                                    ? 'bg-[var(--vz-accent)] text-white shadow-sm'
+                                    : 'text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)]'
                                 }`}
                               >
                                 {q.label}
@@ -1226,7 +1226,7 @@ export default function StudioView({
         {/* Resizer Handle: Left to Center */}
         <div
           onPointerDown={startLeftDrag}
-          className="hidden lg:block w-1.5 shrink-0 rounded-full bg-dark-border hover:bg-neon cursor-col-resize select-none transition-colors"
+          className="hidden lg:block w-1.5 shrink-0 rounded-full bg-[var(--vz-border)] hover:bg-[var(--vz-accent-hover)] cursor-col-resize select-none transition-colors"
           title={`Tarik untuk mengubah lebar panel ${panelTitle}`}
         />
 
@@ -1294,7 +1294,7 @@ export default function StudioView({
                 maxHeight: '100%',
                 maxWidth: '100%',
               }}
-              className="relative bg-black rounded-[24px] border-4 border-dark-border overflow-hidden shadow-2xl select-none"
+              className="relative bg-black rounded-[24px] border-4 border-[var(--vz-border)] overflow-hidden shadow-2xl select-none"
             >
               {/* Play/Pause Animated Click Indicator */}
               {playIndicator && (
@@ -1302,7 +1302,7 @@ export default function StudioView({
                   key={playIndicator.key}
                   className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-play-pulse"
                 >
-                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white shadow-2xl">
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black/60 backdrop-blur-sm border border-[var(--vz-border)] flex items-center justify-center text-white shadow-2xl">
                     {playIndicator.type === 'play' ? (
                       <Play className="w-8 h-8 md:w-10 md:h-10 fill-white translate-x-0.5" />
                     ) : (
@@ -1313,8 +1313,8 @@ export default function StudioView({
               )}
               {Boolean(prefs?.title_enabled) && (
                 <div className="absolute top-6 left-0 right-0 z-20 flex justify-center px-4">
-                  <div className="bg-black/90 backdrop-blur-sm border border-black/80 px-4 py-2 rounded-lg shadow-xl max-w-[90%] text-center">
-                    <span className="text-yellow-300 font-extrabold text-xs md:text-sm tracking-wide uppercase line-clamp-2">
+                  <div className="bg-black/90 backdrop-blur-sm border border-[var(--vz-text-strong)] px-4 py-2 rounded-lg shadow-xl max-w-[90%] text-center">
+                    <span className="text-white font-extrabold text-xs md:text-sm tracking-wide uppercase line-clamp-2">
                       {activeCandidate?.hook || 'HOOK TITLE PREVIEW'}
                     </span>
                   </div>
@@ -1333,30 +1333,30 @@ export default function StudioView({
                 <div
                   className={`absolute top-0 bottom-0 left-1/2 -translate-x-1/2 pointer-events-none z-30 transition-all ${
                     subDragInfo.isCenterSnapped
-                      ? 'w-1 bg-neon shadow-[0_0_14px_#00FFCC] opacity-100'
-                      : 'w-0.5 bg-neon/50 opacity-70'
+                      ? 'w-1 bg-[var(--vz-accent)] opacity-100'
+                      : 'w-0.5 bg-[var(--vz-accent)] opacity-70'
                   }`}
                 />
               )}
 
               {/* Horizontal Snap Guidelines */}
               {subDragInfo.isDragging && subDragInfo.snapZone === 'top' && (
-                <div className="absolute left-0 right-0 top-[6%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
-                  <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
+                <div className="absolute left-0 right-0 top-[6%] h-0.5 bg-[var(--vz-accent)] pointer-events-none z-30 flex items-center justify-center">
+                  <span className="bg-[var(--vz-surface)] text-[10px] text-[var(--vz-accent)] font-bold font-mono px-2 py-0.5 rounded-full border border-[var(--vz-accent)] uppercase shadow-md">
                     Atas (Top)
                   </span>
                 </div>
               )}
               {subDragInfo.isDragging && subDragInfo.snapZone === 'middle' && (
-                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
-                  <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
+                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-[var(--vz-accent)] pointer-events-none z-30 flex items-center justify-center">
+                  <span className="bg-[var(--vz-surface)] text-[10px] text-[var(--vz-accent)] font-bold font-mono px-2 py-0.5 rounded-full border border-[var(--vz-accent)] uppercase shadow-md">
                     Tengah (Middle)
                   </span>
                 </div>
               )}
               {subDragInfo.isDragging && subDragInfo.snapZone === 'bottom' && (
-                <div className="absolute left-0 right-0 bottom-[6%] h-0.5 bg-neon shadow-[0_0_10px_#00FFCC] pointer-events-none z-30 flex items-center justify-center">
-                  <span className="bg-black/90 text-[10px] text-neon font-bold font-mono px-2 py-0.5 rounded-full border border-neon/50 uppercase shadow-md">
+                <div className="absolute left-0 right-0 bottom-[6%] h-0.5 bg-[var(--vz-accent)] pointer-events-none z-30 flex items-center justify-center">
+                  <span className="bg-[var(--vz-surface)] text-[10px] text-[var(--vz-accent)] font-bold font-mono px-2 py-0.5 rounded-full border border-[var(--vz-accent)] uppercase shadow-md">
                     Bawah (Bottom)
                   </span>
                 </div>
@@ -1365,12 +1365,12 @@ export default function StudioView({
               {/* Freeform Video Frame Guides & Corner Handles */}
               {videoViewMode === 'freeform' && (
                 <>
-                  <div className="absolute inset-0 border border-neon/30 pointer-events-none rounded-[20px] z-10" />
+                  <div className="absolute inset-0 border border-[var(--vz-accent)] pointer-events-none rounded-[20px] z-10" />
                   {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map((c) => (
                     <div
                       key={c}
                       onPointerDown={startVideoCornerScale}
-                      className={`absolute z-30 w-3.5 h-3.5 bg-neon border border-black rounded-sm shadow hover:scale-125 transition-transform ${
+                      className={`absolute z-30 w-3.5 h-3.5 bg-[var(--vz-accent)] border border-[var(--vz-text-strong)] rounded-sm shadow hover:scale-125 transition-transform ${
                         c === 'top-left'
                           ? 'top-2 left-2 cursor-nwse-resize'
                           : c === 'top-right'
@@ -1405,7 +1405,7 @@ export default function StudioView({
                     onPointerDown={startSubtitleDrag}
                     title="Tarik untuk atur posisi subtitle"
                     className={`relative pointer-events-auto cursor-grab active:cursor-grabbing select-none max-w-[92%] transition-shadow ${
-                      isSubSelected ? 'ring-2 ring-neon/90 ring-dashed ring-offset-2 ring-offset-black/40 rounded-lg p-1' : ''
+                      isSubSelected ? 'ring-2 ring-[var(--vz-accent)] ring-dashed ring-offset-2 ring-offset-[var(--vz-bg)] rounded-lg p-1' : ''
                     }`}
                     style={{
                       fontFamily: st.font || 'Arial Black',
@@ -1440,7 +1440,7 @@ export default function StudioView({
 
                     {/* Floating Active Badge (angle / size) */}
                     {activeBadge && (
-                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-neon text-black font-mono font-black text-xs px-2.5 py-0.5 rounded-full shadow-lg pointer-events-none z-50 whitespace-nowrap animate-pulse">
+                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-[var(--vz-accent)] text-white font-mono font-black text-xs px-2.5 py-0.5 rounded-full shadow-lg pointer-events-none z-50 whitespace-nowrap animate-pulse">
                         {activeBadge.text}
                       </div>
                     )}
@@ -1452,23 +1452,23 @@ export default function StudioView({
                         <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-auto z-40">
                           <div
                             onPointerDown={startSubtitleRotate}
-                            className="w-5 h-5 rounded-full bg-neon text-black flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform shadow-md"
+                            className="w-5 h-5 rounded-full bg-[var(--vz-accent)] text-white flex items-center justify-center cursor-grab active:cursor-grabbing hover:scale-125 transition-transform shadow-md"
                             title="Putar subtitle (Drag to rotate)"
                           >
-                            <RotateCw className="w-3 h-3 text-black" />
+                            <RotateCw className="w-3 h-3 text-white" />
                           </div>
-                          <div className="w-0.5 h-2 bg-neon" />
+                          <div className="w-0.5 h-2 bg-[var(--vz-accent)]" />
                         </div>
 
                         {/* Corner Resize Handles */}
                         <div
                           onPointerDown={startSubtitleScale}
-                          className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-neon rounded-sm cursor-nwse-resize hover:scale-125 transition-transform shadow z-40 pointer-events-auto"
+                          className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-[var(--vz-surface)] border-2 border-[var(--vz-accent)] rounded-sm cursor-nwse-resize hover:scale-125 transition-transform shadow z-40 pointer-events-auto"
                           title="Tarik untuk ubah ukuran (Drag to resize)"
                         />
                         <div
                           onPointerDown={startSubtitleScale}
-                          className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-neon rounded-sm cursor-nesw-resize hover:scale-125 transition-transform shadow z-40 pointer-events-auto"
+                          className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-[var(--vz-surface)] border-2 border-[var(--vz-accent)] rounded-sm cursor-nesw-resize hover:scale-125 transition-transform shadow z-40 pointer-events-auto"
                           title="Tarik untuk ubah ukuran (Drag to resize)"
                         />
 
@@ -1478,11 +1478,11 @@ export default function StudioView({
                             st.position === 'bottom' && (st.margin_v ?? 300) < 180
                               ? '-top-14'
                               : '-bottom-9'
-                          } left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/90 backdrop-blur-md px-2 py-0.5 rounded-full border border-dark-border shadow-2xl pointer-events-auto text-[10px] whitespace-nowrap z-40`}
+                          } left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-[var(--vz-surface)] backdrop-blur-md px-2 py-0.5 rounded-full border border-[var(--vz-border)] shadow-2xl pointer-events-auto text-[10px] whitespace-nowrap z-40`}
                         >
-                          <span className="text-neon font-mono font-bold">{st.font_size || 43}px</span>
-                          <span className="text-gray-500">•</span>
-                          <span className="text-neon font-mono font-bold">{st.angle || 0}°</span>
+                          <span className="text-[var(--vz-accent)] font-mono font-bold">{st.font_size || 43}px</span>
+                          <span className="text-[var(--vz-text-faint)]">•</span>
+                          <span className="text-[var(--vz-accent)] font-mono font-bold">{st.angle || 0}°</span>
                           {(st.angle || 0) !== 0 && (
                             <button
                               type="button"
@@ -1490,7 +1490,7 @@ export default function StudioView({
                                 e.stopPropagation();
                                 savePrefs({ ...(prefs || {}), subtitle_style: { ...(prefs?.subtitle_style || {}), angle: 0 } });
                               }}
-                              className="ml-1 px-1.5 py-0.5 rounded bg-dark-bg hover:bg-neon hover:text-black text-gray-300 font-semibold border border-dark-border transition-colors"
+                              className="ml-1 px-1.5 py-0.5 rounded bg-[var(--vz-surface-muted)] hover:bg-[var(--vz-accent-hover)] hover:text-white text-[var(--vz-text)] font-semibold border border-[var(--vz-border)] transition-colors"
                               title="Reset rotasi ke 0°"
                             >
                               Reset 0°
@@ -1503,7 +1503,7 @@ export default function StudioView({
                                 e.stopPropagation();
                                 savePrefs({ ...(prefs || {}), subtitle_style: { ...(prefs?.subtitle_style || {}), font_size: 43 } });
                               }}
-                              className="px-1.5 py-0.5 rounded bg-dark-bg hover:bg-neon hover:text-black text-gray-300 font-semibold border border-dark-border transition-colors"
+                              className="px-1.5 py-0.5 rounded bg-[var(--vz-surface-muted)] hover:bg-[var(--vz-accent-hover)] hover:text-white text-[var(--vz-text)] font-semibold border border-[var(--vz-border)] transition-colors"
                               title="Reset ukuran font ke 43px"
                             >
                               Reset 43px
@@ -1547,10 +1547,10 @@ export default function StudioView({
                   loop={!activeCandidate}
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-gray-500 space-y-2">
-                  <FileVideo className="w-12 h-12 text-gray-600" />
+                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-[var(--vz-text-faint)] space-y-2">
+                  <FileVideo className="w-12 h-12 text-[var(--vz-text-faint)]" />
                   <p className="text-xs">Project ini belum punya video source.</p>
-                  <p className="text-[11px] text-gray-600">
+                  <p className="text-[11px] text-[var(--vz-text-faint)]">
                     Buat project baru dari link YouTube atau upload MP4, lalu kembali ke sini.
                   </p>
                 </div>
@@ -1560,17 +1560,17 @@ export default function StudioView({
 
           {/* Freeform Mini-Dock Toolbar */}
           {videoViewMode === 'freeform' && (
-            <div className="flex items-center gap-2 bg-dark-card/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-dark-border shadow-xl shrink-0 text-xs">
-              <div className="flex items-center gap-1 text-gray-400">
-                <Move className="w-3.5 h-3.5 text-neon" />
-                <span className="text-[11px] font-bold text-gray-300">Bebas Transform:</span>
+            <div className="flex items-center gap-2 bg-[var(--vz-surface)] backdrop-blur-md px-3 py-1.5 rounded-xl border border-[var(--vz-border)] shadow-xl shrink-0 text-xs">
+              <div className="flex items-center gap-1 text-[var(--vz-text-muted)]">
+                <Move className="w-3.5 h-3.5 text-[var(--vz-accent)]" />
+                <span className="text-[11px] font-bold text-[var(--vz-text)]">Bebas Transform:</span>
               </div>
 
               {/* Zoom Out Button */}
               <button
                 type="button"
                 onClick={() => setVideoScale((s) => Math.max(0.3, Math.round((s - 0.1) * 100) / 100))}
-                className="p-1 rounded-md bg-dark-bg hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                className="p-1 rounded-md bg-[var(--vz-surface-muted)] hover:bg-[var(--vz-bg)] text-[var(--vz-text)] hover:text-[var(--vz-text-strong)] transition-colors"
                 title="Zoom Out (-10%)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
@@ -1584,7 +1584,7 @@ export default function StudioView({
                 step="0.05"
                 value={videoScale}
                 onChange={(e) => setVideoScale(Number(e.target.value))}
-                className="w-20 accent-neon cursor-pointer h-1.5 bg-dark-bg rounded-lg appearance-none"
+                className="w-20 accent-[var(--vz-accent)] cursor-pointer h-1.5 bg-[var(--vz-surface-muted)] rounded-lg appearance-none"
                 title="Atur Zoom"
               />
 
@@ -1592,21 +1592,21 @@ export default function StudioView({
               <button
                 type="button"
                 onClick={() => setVideoScale((s) => Math.min(3.0, Math.round((s + 0.1) * 100) / 100))}
-                className="p-1 rounded-md bg-dark-bg hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                className="p-1 rounded-md bg-[var(--vz-surface-muted)] hover:bg-[var(--vz-bg)] text-[var(--vz-text)] hover:text-[var(--vz-text-strong)] transition-colors"
                 title="Zoom In (+10%)"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
 
               {/* Scale Badge */}
-              <span className="text-neon font-mono font-bold text-[11px] w-10 text-right">
+              <span className="text-[var(--vz-accent)] font-mono font-bold text-[11px] w-10 text-right">
                 {Math.round(videoScale * 100)}%
               </span>
 
-              <div className="w-px h-3 bg-dark-border" />
+              <div className="w-px h-3 bg-[var(--vz-border)]" />
 
               {/* Pan Offset Info */}
-              <span className="text-[10px] font-mono text-gray-400">
+              <span className="text-[10px] font-mono text-[var(--vz-text-muted)]">
                 X:{videoPos.x} Y:{videoPos.y}
               </span>
 
@@ -1617,7 +1617,7 @@ export default function StudioView({
                   setVideoPos({ x: 0, y: 0 });
                   setVideoScale(1);
                 }}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-neon/15 hover:bg-neon text-neon hover:text-black text-[11px] font-bold transition-all ml-1"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--vz-accent-tint)] hover:bg-[var(--vz-accent-hover)] text-[var(--vz-accent)] hover:text-white text-[11px] font-bold transition-all ml-1"
                 title="Reset posisi & zoom video ke tengah"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -1632,12 +1632,12 @@ export default function StudioView({
               <button
                 type="button"
                 onClick={togglePlay}
-                className="p-1 text-gray-300 hover:text-white transition-colors"
+                className="p-1 text-[var(--vz-text)] hover:text-[var(--vz-text-strong)] transition-colors"
                 title={isPlaying ? 'Jeda video' : 'Putar video'}
               >
                 {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
               </button>
-              <span className="text-[11px] font-mono text-gray-300 tabular-nums">{mmss(currentTime)}</span>
+              <span className="text-[11px] font-mono text-[var(--vz-text)] tabular-nums">{mmss(currentTime)}</span>
               <div
                 ref={trackRef}
                 onPointerDown={startSeek}
@@ -1645,8 +1645,8 @@ export default function StudioView({
                 title="Klik atau tarik untuk pindah posisi video"
               >
                 {/* Track background & current playback progress */}
-                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-dark-border overflow-hidden">
-                  <div className="absolute inset-y-0 left-0 bg-neon/60" style={{ width: `${pct}%` }} />
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full bg-[var(--vz-border)] overflow-hidden">
+                  <div className="absolute inset-y-0 left-0 bg-[var(--vz-accent)]" style={{ width: `${pct}%` }} />
                 </div>
 
                 {/* Red markers for all generated candidates */}
@@ -1665,8 +1665,8 @@ export default function StudioView({
                       }}
                       className={`group/marker absolute top-1/2 -translate-y-1/2 rounded-full cursor-pointer transition-all z-10 ${
                         isActive
-                          ? 'h-3 bg-[#e6193c] ring-2 ring-white shadow-[0_0_12px_rgba(230,25,60,0.9)] z-20'
-                          : 'h-2 bg-[#e6193c]/85 hover:h-2.5 hover:bg-[#ff2b54]'
+                          ? 'h-3 bg-[var(--vz-accent)] ring-2 ring-[var(--vz-accent-ring)] z-20'
+                          : 'h-2 bg-[var(--vz-accent)] hover:h-2.5 hover:bg-[var(--vz-accent-hover)]'
                       }`}
                       style={{
                         left: `${leftPct}%`,
@@ -1674,8 +1674,8 @@ export default function StudioView({
                       }}
                     >
                       {/* Floating tooltip */}
-                      <div className="opacity-0 group-hover/marker:opacity-100 pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-black/95 border border-[#e6193c]/60 text-[11px] font-bold text-white whitespace-nowrap shadow-xl transition-opacity z-30 flex items-center gap-1.5 backdrop-blur-sm">
-                        <span className="w-2 h-2 rounded-full bg-[#e6193c] animate-pulse" />
+                      <div className="opacity-0 group-hover/marker:opacity-100 pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 rounded-lg bg-[var(--vz-surface)] border border-[var(--vz-accent)] text-[11px] font-bold text-[var(--vz-text)] whitespace-nowrap shadow-xl transition-opacity z-30 flex items-center gap-1.5 backdrop-blur-sm">
+                        <span className="w-2 h-2 rounded-full bg-[var(--vz-accent)] animate-pulse" />
                         <span>Klip #{idx + 1} {mmss(c.start)}-{mmss(c.end)}</span>
                       </div>
                     </div>
@@ -1684,15 +1684,15 @@ export default function StudioView({
 
                 {/* Playhead thumb */}
                 <div
-                  className="absolute top-1/2 w-3 h-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-white border border-neon z-30 pointer-events-none group-hover/track:scale-125 transition-transform shadow"
+                  className="absolute top-1/2 w-3 h-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-[var(--vz-surface)] border border-[var(--vz-accent)] z-30 pointer-events-none group-hover/track:scale-125 transition-transform shadow"
                   style={{ left: `${pct}%` }}
                 />
               </div>
-              <span className="text-[11px] font-mono text-gray-400 tabular-nums">{mmss(duration)}</span>
+              <span className="text-[11px] font-mono text-[var(--vz-text-muted)] tabular-nums">{mmss(duration)}</span>
               <button
                 type="button"
                 onClick={toggleMute}
-                className="p-1 text-gray-400 hover:text-white"
+                className="p-1 text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)]"
                 title={isMuted ? 'Nyalakan suara' : 'Bisukan'}
               >
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -1711,7 +1711,7 @@ export default function StudioView({
                 <button
                   type="button"
                   onClick={() => onOpenCropStudio({ ...activeCandidate, idx: activeCandidateIdx })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-dark-card border border-dark-border text-xs font-bold text-gray-200 hover:border-neon hover:text-neon transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--vz-surface)] border border-[var(--vz-border)] text-xs font-bold text-[var(--vz-text)] hover:border-[var(--vz-accent)] hover:text-[var(--vz-accent)] transition-all shadow-sm"
                 >
                   <Crop className="w-3.5 h-3.5" />
                   <span>Crop Studio</span>
@@ -1724,8 +1724,8 @@ export default function StudioView({
                   disabled={isRendering}
                   className={`px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50 ${
                     activeExistingClip
-                      ? 'bg-dark-card border border-dark-border text-gray-300 hover:text-white hover:border-gray-400'
-                      : 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white hover:opacity-90'
+                      ? 'bg-[var(--vz-surface)] border border-[var(--vz-border)] text-[var(--vz-text)] hover:text-[var(--vz-text-strong)] hover:border-[var(--vz-border-strong)]'
+                      : 'bg-[var(--vz-accent)] text-white hover:bg-[var(--vz-accent-hover)]'
                   }`}
                 >
                   {isRendering ? (
@@ -1742,7 +1742,7 @@ export default function StudioView({
                     <button
                       type="button"
                       onClick={() => onOpenSubtitleApply?.({ clip: activeExistingClip, candidate: activeCandidate })}
-                      className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
+                      className="px-3 py-1.5 rounded-xl bg-[var(--vz-accent)] text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-[var(--vz-accent-hover)] shadow-sm"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>Terapkan Subtitle</span>
@@ -1750,7 +1750,7 @@ export default function StudioView({
                     <button
                       type="button"
                       onClick={() => handlePublish(activeExistingClip.slug)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-500 text-dark-bg font-extrabold text-xs flex items-center gap-1.5 hover:opacity-90 shadow-sm"
+                      className="px-3 py-1.5 rounded-xl bg-[var(--vz-accent)] text-white font-extrabold text-xs flex items-center gap-1.5 hover:bg-[var(--vz-accent-hover)] shadow-sm"
                     >
                       <Check className="w-3.5 h-3.5" />
                       <span>Jadikan Final</span>
@@ -1759,7 +1759,7 @@ export default function StudioView({
                     <a
                       href={activeExistingClip.raw_url || activeExistingClip.url}
                       download
-                      className="p-1.5 rounded-xl bg-dark-card border border-dark-border text-gray-300 hover:text-neon hover:border-neon transition-all"
+                      className="p-1.5 rounded-xl bg-[var(--vz-surface)] border border-[var(--vz-border)] text-[var(--vz-text)] hover:text-[var(--vz-accent)] hover:border-[var(--vz-accent)] transition-all"
                       title="Unduh klip"
                     >
                       <Download className="w-4 h-4" />
@@ -1777,50 +1777,50 @@ export default function StudioView({
             {/* Resizer Handle: Center to Right */}
             <div
               onPointerDown={startRightDrag}
-              className="hidden lg:block w-1.5 shrink-0 rounded-full bg-dark-border hover:bg-neon cursor-col-resize select-none transition-colors"
+              className="hidden lg:block w-1.5 shrink-0 rounded-full bg-[var(--vz-border)] hover:bg-[var(--vz-accent-hover)] cursor-col-resize select-none transition-colors"
               title="Tarik untuk mengubah lebar panel Clips"
             />
 
-            <aside
+            <aside data-region="clips-panel"
               style={{ width: rightCollapsed ? 48 : rightW }}
               className="lg:shrink-0 min-w-0 h-full flex flex-col overflow-hidden"
             >
               {rightCollapsed ? (
                 /* Collapsed Rail Right */
-                <div className="bg-dark-card border border-dark-border rounded-2xl p-2 flex flex-col items-center gap-4 h-full shadow-lg">
+                <div className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl p-2 flex flex-col items-center gap-4 h-full shadow-lg">
                   <button
                     type="button"
                     onClick={() => setRightCollapsed(false)}
-                    className="p-1.5 rounded-lg bg-dark-bg border border-dark-border text-gray-400 hover:text-neon hover:border-neon transition-colors"
+                    className="p-1.5 rounded-lg bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] text-[var(--vz-text-muted)] hover:text-[var(--vz-accent)] hover:border-[var(--vz-accent)] transition-colors"
                     title="Buka Clips"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <Flame className="w-4 h-4 text-neon" />
-                  <div className="text-xs font-bold text-gray-400 uppercase tracking-widest [writing-mode:vertical-rl] py-4 select-none">
+                  <Flame className="w-4 h-4 text-[var(--vz-accent)]" />
+                  <div className="text-xs font-bold text-[var(--vz-text-muted)] uppercase tracking-widest [writing-mode:vertical-rl] py-4 select-none">
                     Clips
                   </div>
                 </div>
               ) : (
                 /* Expanded Right Column Panel */
-                <section className="bg-dark-card border border-dark-border rounded-2xl shadow-xl flex-1 flex flex-col h-full min-h-0 overflow-hidden p-3">
+                <section className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl shadow-xl flex-1 flex flex-col h-full min-h-0 overflow-hidden p-3">
                   {/* Header */}
-                  <div className="flex items-center justify-between border-b border-dark-border/60 pb-2 mb-2 shrink-0">
+                  <div className="flex items-center justify-between border-b border-[var(--vz-border-strong)] pb-2 mb-2 shrink-0">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <Flame className="w-4 h-4 text-neon shrink-0" />
-                      <h2 className="text-xs font-extrabold uppercase tracking-wider text-white truncate">
+                      <Flame className="w-4 h-4 text-[var(--vz-accent)] shrink-0" />
+                      <h2 className="text-xs font-extrabold uppercase tracking-wider text-[var(--vz-text-strong)] truncate">
                         Clips ({candidates.length})
                       </h2>
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
                       {/* Toggle Position Buttons */}
-                      <div className="flex items-center gap-0.5 bg-dark-bg p-0.5 rounded-lg border border-dark-border mr-1">
+                      <div className="flex items-center gap-0.5 bg-[var(--vz-surface-muted)] p-0.5 rounded-lg border border-[var(--vz-border)] mr-1">
                         <button
                           type="button"
                           onClick={() => setPipelinePos('bottom')}
                           className={`p-1 rounded text-xs transition-colors ${
-                            pipelinePos === 'bottom' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                            pipelinePos === 'bottom' ? 'bg-[var(--vz-accent)] text-white font-bold shadow-sm' : 'text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)]'
                           }`}
                           title="Pindah ke Panel Bawah (Filmstrip)"
                         >
@@ -1830,7 +1830,7 @@ export default function StudioView({
                           type="button"
                           onClick={() => setPipelinePos('right')}
                           className={`p-1 rounded text-xs transition-colors ${
-                            pipelinePos === 'right' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                            pipelinePos === 'right' ? 'bg-[var(--vz-accent)] text-white font-bold shadow-sm' : 'text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)]'
                           }`}
                           title="Mode Kolom Kanan"
                         >
@@ -1841,7 +1841,7 @@ export default function StudioView({
                       <button
                         type="button"
                         onClick={() => setRightCollapsed(true)}
-                        className="p-1 rounded text-gray-400 hover:text-white hover:bg-dark-hover transition-colors"
+                        className="p-1 rounded text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)] hover:bg-[var(--vz-surface-muted)] transition-colors"
                         title="Minimize panel"
                       >
                         <ChevronRight className="w-4 h-4" />
@@ -1852,8 +1852,8 @@ export default function StudioView({
                   {/* Cards Vertical List: Thumbnail, Range, Title only */}
                   <div className="flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col gap-2.5">
                     {candidates.length === 0 ? (
-                      <div className="h-44 flex flex-col items-center justify-center text-center text-gray-500 space-y-2">
-                        <Layers className="w-8 h-8 text-gray-600" />
+                      <div className="h-44 flex flex-col items-center justify-center text-center text-[var(--vz-text-faint)] space-y-2">
+                        <Layers className="w-8 h-8 text-[var(--vz-text-faint)]" />
                         <p className="text-xs">Belum ada klip yang terdeteksi.</p>
                       </div>
                     ) : (
@@ -1873,31 +1873,31 @@ export default function StudioView({
           {/* Resizer Handle: Top to Bottom */}
           <div
             onPointerDown={startBottomDrag}
-            className="h-1.5 rounded-full bg-dark-border hover:bg-neon cursor-row-resize select-none transition-colors shrink-0"
+            className="h-1.5 rounded-full bg-[var(--vz-border)] hover:bg-[var(--vz-accent-hover)] cursor-row-resize select-none transition-colors shrink-0"
             title="Tarik untuk mengubah tinggi panel Clips"
           />
 
           {/* BOTTOM SECTION: Horizontal Filmstrip Reel */}
           <section
             style={{ height: bottomCollapsed ? 'auto' : bottomH }}
-            className="bg-dark-card border border-dark-border rounded-2xl p-2.5 shadow-xl flex flex-col min-h-0 overflow-hidden shrink-0"
+            className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl p-2.5 shadow-xl flex flex-col min-h-0 overflow-hidden shrink-0"
           >
             {/* Section Header */}
-            <div className="flex items-center justify-between border-b border-dark-border/60 pb-1.5 mb-1.5 shrink-0">
+            <div className="flex items-center justify-between border-b border-[var(--vz-border-strong)] pb-1.5 mb-1.5 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
-                <Flame className="w-4 h-4 text-neon shrink-0" />
-                <h2 className="text-xs font-extrabold uppercase tracking-wider text-white truncate">
+                <Flame className="w-4 h-4 text-[var(--vz-accent)] shrink-0" />
+                <h2 className="text-xs font-extrabold uppercase tracking-wider text-[var(--vz-text-strong)] truncate">
                   Clips ({candidates.length})
                 </h2>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {/* Toggle Position Buttons */}
-                <div className="flex items-center gap-0.5 bg-dark-bg p-0.5 rounded-lg border border-dark-border mr-1">
+                <div className="flex items-center gap-0.5 bg-[var(--vz-surface-muted)] p-0.5 rounded-lg border border-[var(--vz-border)] mr-1">
                   <button
                     type="button"
                     onClick={() => setPipelinePos('bottom')}
                     className={`p-1 rounded text-xs transition-colors ${
-                      pipelinePos === 'bottom' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                      pipelinePos === 'bottom' ? 'bg-[var(--vz-accent)] text-white font-bold shadow-sm' : 'text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)]'
                     }`}
                     title="Mode Panel Bawah (Filmstrip)"
                   >
@@ -1907,7 +1907,7 @@ export default function StudioView({
                     type="button"
                     onClick={() => setPipelinePos('right')}
                     className={`p-1 rounded text-xs transition-colors ${
-                      pipelinePos === 'right' ? 'bg-gradient-to-r from-[#c11e38] to-[#220b34] text-white font-bold shadow-sm' : 'text-gray-400 hover:text-white'
+                      pipelinePos === 'right' ? 'bg-[var(--vz-accent)] text-white font-bold shadow-sm' : 'text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)]'
                     }`}
                     title="Pindah ke Kolom Kanan (Video Full Height)"
                   >
@@ -1918,17 +1918,17 @@ export default function StudioView({
                 <button
                   type="button"
                   onClick={() => setBottomCollapsed((v) => !v)}
-                  className="p-1 rounded text-gray-400 hover:text-white hover:bg-dark-hover transition-colors flex items-center gap-1 text-xs"
+                  className="p-1 rounded text-[var(--vz-text-muted)] hover:text-[var(--vz-text-strong)] hover:bg-[var(--vz-surface-muted)] transition-colors flex items-center gap-1 text-xs"
                   title={bottomCollapsed ? 'Buka panel' : 'Minimize panel'}
                 >
                   {bottomCollapsed ? (
                     <>
-                      <span className="text-[10px] text-gray-400">Buka Panel</span>
+                      <span className="text-[10px] text-[var(--vz-text-muted)]">Buka Panel</span>
                       <ChevronUp className="w-3.5 h-3.5" />
                     </>
                   ) : (
                     <>
-                      <span className="text-[10px] text-gray-400">Minimize</span>
+                      <span className="text-[10px] text-[var(--vz-text-muted)]">Minimize</span>
                       <ChevronDown className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -1940,7 +1940,7 @@ export default function StudioView({
             {!bottomCollapsed && (
               <div ref={bottomScrollRef} className="flex flex-row overflow-x-auto gap-2.5 flex-1 min-h-0 py-0.5 pr-1 items-stretch">
                 {candidates.length === 0 ? (
-                  <div className="flex-1 flex items-center justify-center text-center text-gray-500 py-3">
+                  <div className="flex-1 flex items-center justify-center text-center text-[var(--vz-text-faint)] py-3">
                     <p className="text-xs">Belum ada klip yang terdeteksi. Klik "Temukan Momen Viral" di panel Pengaturan.</p>
                   </div>
                 ) : (

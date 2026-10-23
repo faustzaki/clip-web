@@ -35,6 +35,16 @@ Branch: `t2-transcript` · Butuh `server.py` (endpoint baru, sudah dispesifikasi
 3. Pasang di slot sidebar 360px; resizable 320–520 (drag handle 4px).
 4. State: `loading` (3 skeleton baris) · `empty` (`Transkrip belum siap. Jalankan analisis dulu.`) · `loaded`.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T2/precheck.txt)
+```bash
+curl -s localhost:8000/api/health; grep -n 'transcript' server.py | head; python -c "import json,pathlib;print([p.name for p in pathlib.Path('data').glob('*')][:5])"
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau transkrip belum tersimpan di DB (masih di file JSON project) → endpoint membaca dari JSON itu dulu, tulis DB belakangan. Jangan minta re-transcribe.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T2/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Klik kata → video seek ke timestamp itu (buktikan dengan screenshot playhead + teks aktif).
 - Seleksi 3 kata → klik Potong → `POST /cut` terpanggil (buktikan dari log network) dan durasi total berkurang.

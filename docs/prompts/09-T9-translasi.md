@@ -31,6 +31,16 @@ Branch: `t9-translasi`. Tergantung T7 (butuh kata yang bersih).
 5. UI panel Subtitles: pilih bahasa target (Indonesia, Inggris, Mandarin, Jepang, Arab, Spanyol), toggle `Dua bahasa` (baris 2 lebih kecil, 80% ukuran).
 6. Export: parameter `subtitle_lang` (kode bahasa atau `dual:id+en`).
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T9/precheck.txt)
+```bash
+curl -s $NINE_ROUTER_URL/models -H "Authorization: Bearer $NINE_ROUTER_API_KEY" | head -c 120; ls data/glossary.txt 2>/dev/null
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau 9Router mati → panel translasi tampil `9Router tidak merespons`, tombol disabled. Kalau glossary kosong → tetap jalan tanpa istilah khusus.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T9/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - 20 baris Indonesia → Inggris: tidak ada timing bergeser 1ms pun (bandingkan `start_ms` sebelum/sesudah).
 - Tidak ada baris > 2 baris tampil di render (screenshot).

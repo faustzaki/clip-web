@@ -27,6 +27,16 @@ Branch: `t13-posting`. **Bisa BLOCKED** kalau kredensial OAuth platform belum ad
    refresh otomatis, unggah video + caption saat jadwal tiba (worker thread 60 detik).
 4. Analitik: tarik views/likes/comments per post (endpoint platform), tampilkan 3 angka + grafik 7 hari terakhir. Jika API tidak mengizinkan, tampilkan `Belum tersedia`.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/13/precheck.txt)
+```bash
+env | grep -ci 'tiktok_client\|ig_client\|yt_client'; grep -n 'publish' server.py | head -3
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau OAuth absen → **semua bagian queue lokal tetap dikerjakan**; tab Analitik tampil `Belum tersedia`; tidak ada request jaringan ke platform.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/13/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Queue tersimpan, tampil di kalender, bisa dibatalkan.
 - Tombol salin caption menghasilkan teks < 2200 karakter dengan hashtag.

@@ -30,6 +30,16 @@ Branch: `t4-export`
 3. Polling `GET /api/export/{job_id}` tiap 2s, berhenti saat `done`/`failed` (maks 5 menit).
 4. Tombol `Unduh` di `ClipStrip` membuka modal ini.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T4/precheck.txt)
+```bash
+ffmpeg -version | head -1; ffmpeg -encoders | grep -c libx264; curl -s localhost:8000/api/health
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau `/api/render` sudah ada dan jalan → **pakai itu**, tambahkan tabel job di atasnya. Jangan bikin pipeline render kedua.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T4/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Export 720p dan 1080p menghasilkan dua file berbeda — buktikan `ffprobe` (resolusi tercetak).
 - Burn caption off/on menghasilkan file berbeda — buktikan sha256 beda + screenshot frame.

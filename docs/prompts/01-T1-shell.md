@@ -35,6 +35,16 @@ Branch: `t1-shell`
 7. `StudioView.jsx`: pasang grid shell (header 56 / kiri 360 / stage flex / rail 72 / timeline 240 / strip 96). Isi lama tetap dirender di dalam stage untuk sementara — jangan hapus logika.
 8. `App.jsx`: hapus kelas gelap global; wrapper jadi `bg-vz-bg text-vz-text font-sans`.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T1/precheck.txt)
+```bash
+grep -c 'dark:' frontend/src/index.css; ls frontend/tailwind.config.js; grep -c Inter frontend/index.html
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau `tailwind.config.js` tidak ada → pakai `tailwind.config.cjs` atau tambah `@theme` di CSS. Jangan install Tailwind baru.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T1/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Tidak ada `dark:`, `bg-black`, `bg-dark`, `neon`, `gradient` di `frontend/src` (kecuali di file yang belum disentuh — catat mana).
 - Di DevTools: header = 56px, rail = 72px, strip = 96px, sidebar = 360px.

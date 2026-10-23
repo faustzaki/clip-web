@@ -26,6 +26,16 @@ Branch: `t11-brandkit`.
 3. Terapkan ke export: logo overlay (posisi sudut, margin 24px), warna caption mengikuti `color_primary`, intro/outro di-concat kalau ada.
 4. Preview: logo tampil di stage (bukan hanya di hasil render).
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/11/precheck.txt)
+```bash
+ls data/brand.json 2>/dev/null || echo NO_BRAND; ffmpeg -filters | grep -c overlay
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau `brand.json` tidak ada → buat default (tanpa logo), UI tetap tampil, export jalan seperti biasa.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/11/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Export dengan brand kit vs tanpa → sha256 berbeda + screenshot 2 frame (logo terlihat di sudut yang dipilih).
 - Intro/outro ter-concat: durasi total = intro + klip + outro (bukti `ffprobe`).

@@ -32,6 +32,16 @@ Branch: `t7-akurasi`. Ini prasyarat T8/T9 — diarisasi & translasi jelek kalau 
 4. Edit kata inline: klik kata → input → Enter → simpan teks baru; timing **tidak** dihitung ulang lewat ASR, tapi dibagi proporsional di rentang kata itu (`start..end` dibagi rata per karakter).
 5. Halaman kecil `Akurasi`: tampilkan WER terhadap `data/wer_sample.json` (60 detik transkrip manual) — hitung Levenshtein, tampilkan sebelum/sesudah.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T7/precheck.txt)
+```bash
+python -c "import faster_whisper,sys;print(faster_whisper.__version__)"; ls data/glossary.txt 2>/dev/null || echo NO_GLOSSARY
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau `glossary.txt` tidak ada → buat file kosong + UI editor; jangan ubah prompt ASR tanpa glosarium.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T7/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - WER sampel 60 detik **turun** dibanding sebelum (tulis angka sebelum & sesudah di laporan).
 - Kata ragu tampil dengan underline kuning dan bisa difilter.

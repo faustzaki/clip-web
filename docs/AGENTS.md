@@ -9,7 +9,8 @@ Baca berurutan. Jangan lompat. Kalau ada konflik antar dokumen, urutan menang: *
 4. `DATA-MODEL.md` — skema & kontrak API
 5. `IMPLEMENTATION-STRATEGY.md` — fase, urutan, gate
 6. `MODELS.md` — model mana untuk tugas mana
-7. `prompts/<tugas>.md` — satu tugas per sesi
+7. `TESTING.md` — cek per tugas, template skrip, matriks prasyarat
+8. `prompts/<tugas>.md` — satu tugas per sesi
 
 ## Aturan keras (melanggar = kerjaan ditolak)
 1. **Light theme saja.** Tidak ada `dark:`, `bg-black`, `bg-dark-*`, `neon`, gradien, atau glow di kode baru. Satu aksen: `--vz-accent`.
@@ -21,7 +22,10 @@ Baca berurutan. Jangan lompat. Kalau ada konflik antar dokumen, urutan menang: *
 7. **Tidak boleh ada TODO, stub, `console.log`, atau data dummy** di akhir tugas. Kalau belum bisa, tulis di bagian "BLOCKED" laporan.
 8. **Jangan menambah dependency baru** kecuali disebut di tugas. Sudah ada: React 18, Vite, Tailwind, Playwright.
 9. **Setiap tugas wajib meninggalkan bukti**: screenshot `before/`+`after/` di `docs/evidence/<tugas>/`, plus output perintah verifikasi.
-10. Bahasa UI: **Indonesia**, konsisten. Istilah teknis yang sudah lazim tetap Inggris (transcript, export, clip, timeline).
+10. Bahasa UI: **Indonesia**, konsisten.
+11. **PRECHECK wajib**: jalankan perintah deteksi di prompt, tempel output ke `docs/evidence/<T>/precheck.txt`, baru ngoding.
+12. **Tes wajib per tugas**: `scripts/check_<t>.py` harus ada dan exit 0. Tanpa itu tugas belum selesai. Detail: `TESTING.md`.
+13. **Placeholder wajib kalau prasyarat absen**: endpoint balas `{ok:false,reason,hint}` (200), UI tampilkan alasan Indonesia, tulis `BLOCKED.md`. Dilarang crash, dilarang menyembunyikan fitur tanpa alasan. Istilah teknis yang sudah lazim tetap Inggris (transcript, export, clip, timeline).
 
 ## Baseline kode (jangan di-scaffold ulang)
 | File | Baris |

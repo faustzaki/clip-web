@@ -28,6 +28,16 @@ Branch: `t12-background`.
 3. Render: `scale` + `boxblur` untuk latar, overlay video utama, `crop` sesuai ratio.
 4. Drag vertikal di preview → simpan `offset_y` (-30%..30%) → `crop=...:y='...'`.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/12/precheck.txt)
+```bash
+ffmpeg -filters | grep -c boxblur; grep -n 'ratio' server.py | head -3
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau `boxblur` tidak ada → opsi `Blur` disabled, sisa opsi `Warna`/`Hitam` tetap jalan.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/12/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Source 16:9 → export 9:16 tidak ada black bar (screenshot).
 - Tiga susunan menghasilkan tiga file berbeda (sha256).

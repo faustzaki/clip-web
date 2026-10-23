@@ -31,6 +31,16 @@ Branch: `t5-filler-caption`
    Grid 2 kolom, tiap kartu = preview mini (teks contoh) + nama. Pilihan disimpan per project.
 3. Preview di stage mengikuti preset terpilih (bukan hanya saat export).
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T5/precheck.txt)
+```bash
+ls chopify/tighten.py; grep -n 'Fontsize\|BorderStyle\|Alignment' chopify/subtitle_burn.py | head
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau preset belum ada → bikin `CAPTION_PRESETS` dict di `subtitle_burn.py` (5 entri), jangan file baru.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T5/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Terapkan tighten pada project uji → durasi turun, jumlah kata `deleted` bertambah (query DB).
 - Ganti preset → preview stage berubah, dan export berikutnya memakai preset itu.

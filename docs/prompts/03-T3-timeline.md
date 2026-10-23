@@ -32,6 +32,16 @@ Branch: `t3-timeline`
 3. Integrasi ke `StudioView`: `current` dipakai bersama transcript + preview; `onSeek` satu sumber.
 4. `StudioView.jsx` setelah tugas ini wajib ≤ 400 baris — pindahkan sisa logika ke komponen/hook `useEditorState.js`.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T3/precheck.txt)
+```bash
+curl -s localhost:8000/api/projects | head -c 300; grep -n 'clip' server.py | head -5
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau tidak ada durasi per klip → hitung dari `end_ms-start_ms` transcript; kalau kosong, timeline tampil state `empty` dengan CTA.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T3/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Playhead mengikuti playback dan bisa digeser; seek dari transcript menggerakkan playhead (dua arah).
 - Zoom mengubah lebar blok, durasi total tetap.

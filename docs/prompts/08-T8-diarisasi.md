@@ -37,6 +37,16 @@ UI (dua jalur sama):
 8. Filter `Semua / Speaker 1 / …` di panel transcript menyaring kata yang tampil.
 9. Toggle `Tampilkan nama di caption` — kalau aktif, `subtitle_burn` menambahkan prefix `Nama: `.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T8/precheck.txt)
+```bash
+python -c "import torch;print(torch.__version__)" 2>&1 | head -1; python -c "import pyannote.audio" 2>&1 | head -1; test -n "$HF_TOKEN" && echo HF_OK || echo NO_HF
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau torch/pyannote/HF_TOKEN absen → **jalur B wajib jalan** (VAD jeda >500ms + pitch), semua label `(perkiraan)`, tombol `Diarisasi (model)` disabled dengan alasan. Jangan menambah dependency tanpa izin.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T8/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Uji dengan audio 2 speaker (bikin dengan TTS dua suara, 40 detik) → minimal **80%** kata mendapat speaker benar.
 - Kalau jalur B aktif, label `(perkiraan)` muncul dan tidak ada exception di log.

@@ -28,6 +28,16 @@ Branch: `t6-safezone-zoom`
 3. Auto zoom: deteksi wajah (`yunet.onnx` yang sudah ada) → hitung crop box per detik → tulis `zoom_keyframes` ke payload timeline item. Render lewat `ffmpeg zoompan` di `chopify`.
 4. Panel Layout: toggle `Auto zoom`, `Zoom manual` slider 100–160%.
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/T6/precheck.txt)
+```bash
+ffmpeg -filters | grep -c zoompan; ls chopify/*.py | head; grep -rn 'yunet\|onnx' chopify/ | head -3
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau model yunet tidak ada → zoom tengah (center crop) + slider manual; toggle `Auto zoom` disabled dengan alasan `Model deteksi wajah belum ada`.
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/T6/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - Ganti ratio → preview dan export mengikuti (bukti: `ffprobe` dua file, resolusi beda sesuai ratio).
 - Safe zone tampil/hilang tanpa menggeser layout (koposisi preview tetap).

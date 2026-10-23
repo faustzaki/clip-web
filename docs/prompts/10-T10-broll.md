@@ -29,6 +29,16 @@ Branch: `t10-broll`.
 5. Render: `chopify/render_clips.py` menambahkan overlay — scale+crop ke ratio target, `enable='between(t,start,end)'`.
 6. Hapus/pindah item dengan tombol di kartu timeline (bukan drag).
 
+## PRECHECK (jalankan dulu, tempel output ke docs/evidence/10/precheck.txt)
+```bash
+ls data/broll 2>/dev/null | head -3 || echo NO_BROLL_DIR
+```
+Baca hasilnya sebelum menulis kode. Hasil deteksi menentukan jalur yang dipakai.
+
+## PLACEHOLDER (kalau prasyarat tidak ada — jangan berhenti, jangan crash)
+Kalau folder tidak ada → buat `data/broll/` + empty state `Folder b-roll masih kosong. Taruh video di data/broll/.`
+Aturan placeholder (detail di `docs/TESTING.md` §4): endpoint tetap balas 200 dengan `{ok:false,reason,hint}`, UI menampilkan alasan dalam Bahasa Indonesia, tulis `docs/evidence/10/BLOCKED.md`.
+
 ## KRITERIA TERIMA
 - 3 b-roll tersisip dan muncul di hasil render (screenshot 3 frame berbeda).
 - Tidak ada frame hitam di transisi; audio asli tidak terputus.

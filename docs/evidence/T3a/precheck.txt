@@ -1,0 +1,36 @@
+== git status ==
+ M server.py
+?? docs/evidence/T3a/
+?? docs/prompts/03b-T3b-timeline-komponen.md
+?? scripts/check_t3a.py
+
+== curl health ==
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+== grep timeline server.py ==
+814:# Timeline project (T3a) — turunan read-only kalau timeline.json belum ada
+873:def _derive_timeline(pid: str) -> dict:
+890:def _read_timeline_file(pid: str) -> Optional[dict]:
+891:    p = project_dir(pid) / 'timeline.json'
+900:def _timeline_bad(reason: str) -> JSONResponse:
+903:@app.get("/api/projects/{project_id}/timeline")
+904:def get_timeline(project_id: str):
+907:    return _read_timeline_file(project_id) or _derive_timeline(project_id)
+909:@app.post("/api/projects/{project_id}/timeline")
+910:def post_timeline(project_id: str, payload: dict):
+915:        return _timeline_bad("Field 'items' harus list")
+917:    saved = _read_timeline_file(project_id)
+926:            return _timeline_bad(f"Item {i} bukan objek")
+929:            return _timeline_bad(f"Item {i}: track {track!r} tidak valid (1|2|3)")
+933:            return _timeline_bad(f"Item {i}: start_ms/end_ms harus angka")
+935:            return _timeline_bad(f"Item {i}: rentang tidak valid ({start}..{end})")
+937:            return _timeline_bad(
+941:            return _timeline_bad(f"Item {i}: payload harus objek")
+951:    path = project_dir(project_id) / 'timeline.json'
+952:    bak = path.with_name('timeline.json.bak')
+959:    tmp = path.with_name('timeline.json.tmp')
+
+== ls work/07f840b0ad ==
+cover.jpg
+project.json
+source.mp4
+transcript.json

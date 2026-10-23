@@ -810,6 +810,157 @@ def cut_transcript(project_id: str, payload: CutRequest):
         "deleted": payload.to_idx - payload.from_idx + 1,
     }
 
+# --------------------------------------------------------------------------
+# Timeline project (T3a) — turunan read-only kalau timeline.json belum ada
+# --------------------------------------------------------------------------
+TIMELINE_TRACKS = (1, 2, 3)
+TIMELINE_KINDS = {1: 'video', 2: 'caption', 3: 'audio'}
+CAPTION_MAX_WORDS = 12
+
+def _video_duration_ms(pid: str) -> int:
+    src = get_source_video_path(pid)
+    if not src:
+        return 0
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(src)],
+            capture_output=True, text=True, timeout=30, check=True).stdout.strip()
+        return max(0, int(round(float(out.splitlines()[0]) * 1000)))
+    except Exception:
+        return 0
+
+def _project_duration_ms(pid: str) -> int:
+    tr = load_transcript_file(pid)
+    if tr:
+        ms = _transcript_duration_ms(tr)
+        if ms > 0:
+            return ms
+    return _video_duration_ms(pid)
+
+def _caption_items(words: List[dict], duration_ms: int) -> List[dict]:
+    """Satu item per kalimat dari kata: pecah di . ? ! atau tiap 12 kata."""
+    items, buf, start = [], [], None
+
+    def flush(end_ms: int):
+        nonlocal buf, start
+        if buf:
+            end = min(end_ms, duration_ms) if duration_ms else end_ms
+            items.append({
+                "id": f"d2-{len(items)}",
+                "kind": "caption",
+                "start_ms": start or 0,
+                "end_ms": max(end, (start or 0) + 1),
+                "payload": {"text": " ".join(buf)},
+            })
+        buf, start = [], None
+
+    for w in words:
+        if w.get('deleted'):
+            continue
+        text = (w.get('word') or '').strip()
+        if not text:
+            continue
+        if start is None:
+            start = _word_ms(w, 'start')
+        buf.append(text)
+        if len(buf) >= CAPTION_MAX_WORDS or text[-1] in '.?!':
+            flush(_word_ms(w, 'end'))
+    if buf:
+        flush(_word_ms(words[-1], 'end'))
+    return items
+
+def _derive_timeline(pid: str) -> dict:
+    duration_ms = _project_duration_ms(pid)
+    words = (load_transcript_file(pid) or {}).get('words') or []
+
+    def full(track: int) -> dict:
+        return {"id": f"d{track}-0", "kind": TIMELINE_KINDS[track],
+                "start_ms": 0, "end_ms": duration_ms, "payload": {}}
+
+    return {
+        "duration_ms": duration_ms,
+        "tracks": [
+            {"track": 1, "items": [full(1)]},
+            {"track": 2, "items": _caption_items(words, duration_ms)},
+            {"track": 3, "items": [full(3)]},
+        ],
+    }
+
+def _read_timeline_file(pid: str) -> Optional[dict]:
+    p = project_dir(pid) / 'timeline.json'
+    if not p.exists():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding='utf-8-sig'))
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+def _timeline_bad(reason: str) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"ok": False, "reason": reason})
+
+@app.get("/api/projects/{project_id}/timeline")
+def get_timeline(project_id: str):
+    _validate_pid(project_id)
+    read_project_meta(project_id)
+    return _read_timeline_file(project_id) or _derive_timeline(project_id)
+
+@app.post("/api/projects/{project_id}/timeline")
+def post_timeline(project_id: str, payload: dict):
+    _validate_pid(project_id)
+    read_project_meta(project_id)
+    items = payload.get('items') if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return _timeline_bad("Field 'items' harus list")
+
+    saved = _read_timeline_file(project_id)
+    duration_ms = int(saved.get('duration_ms') or 0) if saved else 0
+    if not duration_ms:
+        duration_ms = _project_duration_ms(project_id)
+    limit = duration_ms + 1000
+
+    tracks: dict[int, list] = {}
+    for i, it in enumerate(items):
+        if not isinstance(it, dict):
+            return _timeline_bad(f"Item {i} bukan objek")
+        track = it.get('track')
+        if track not in TIMELINE_KINDS:
+            return _timeline_bad(f"Item {i}: track {track!r} tidak valid (1|2|3)")
+        try:
+            start, end = int(it.get('start_ms')), int(it.get('end_ms'))
+        except (TypeError, ValueError):
+            return _timeline_bad(f"Item {i}: start_ms/end_ms harus angka")
+        if not 0 <= start < end:
+            return _timeline_bad(f"Item {i}: rentang tidak valid ({start}..{end})")
+        if end > limit:
+            return _timeline_bad(
+                f"Item {i}: end_ms {end} melebihi durasi {duration_ms} ms")
+        item_payload = it.get('payload')
+        if item_payload is not None and not isinstance(item_payload, dict):
+            return _timeline_bad(f"Item {i}: payload harus objek")
+        bucket = tracks.setdefault(track, [])
+        bucket.append({
+            "id": str(it.get('id') or f"t{track}-{len(bucket)}"),
+            "kind": str(it.get('kind') or TIMELINE_KINDS[track]),
+            "start_ms": start,
+            "end_ms": end,
+            "payload": item_payload or {},
+        })
+
+    path = project_dir(project_id) / 'timeline.json'
+    bak = path.with_name('timeline.json.bak')
+    if path.exists() and not bak.exists():
+        shutil.copy2(path, bak)
+    data = {
+        "duration_ms": duration_ms,
+        "tracks": [{"track": t, "items": tracks.get(t, [])} for t in TIMELINE_TRACKS],
+    }
+    tmp = path.with_name('timeline.json.tmp')
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+    os.replace(tmp, path)
+    return {"ok": True, "items": sum(len(tracks.get(t, [])) for t in TIMELINE_TRACKS)}
+
 def _ingest_cancelled(pid: str) -> bool:
     with INGEST_LOCK:
         return INGEST_JOBS.get(pid, {}).get('cancel', False)

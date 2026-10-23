@@ -1,0 +1,17 @@
+PASS GET /api/projects 200 — 5 project
+PASS GET transcript 200 — 200
+PASS GET timeline 200 + duration_ms>0 — 200 duration_ms=679297
+PASS 3 track (1,2,3) — [1, 2, 3]
+PASS item punya field lengkap + rentang valid — 501 item
+PASS caption turunan ada + <=12 kata/item — 499 caption, max=12
+PASS GET turunan tidak menulis timeline.json — C:\Users\faust\orca\clip-web\work\261e5b42f5\timeline.json
+PASS POST end_ms<start_ms → 400 ok:false — 400 {"ok":false,"reason":"Item 0: rentang tidak valid (5000..1000)"}
+PASS POST track 9 → 400 ok:false — 400 {"ok":false,"reason":"Item 0: track 9 tidak valid (1|2|3)"}
+PASS POST end_ms > durasi+1000 → 400 — 400 {"ok":false,"reason":"Item 0: end_ms 739297 melebihi durasi 679297 ms"
+PASS POST invalid tidak menulis file
+PASS POST valid ok:true items=3 — 200 {"ok": true, "items": 3}
+PASS timeline.json tertulis + JSON valid
+PASS GET ulang mengembalikan item sama — {"duration_ms": 679297, "tracks": [{"track": 1, "items": [{"id": "t1-0", "kind": "video", "start_ms": 0, "end_ms": 679297, "payload": {"label": "utama"}}]}, {"track": 2, "items": [{"id": "t2-0", "kind
+PASS timeline.json uji dibersihkan — C:\Users\faust\orca\clip-web\work\261e5b42f5\timeline.json
+
+0 gagal

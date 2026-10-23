@@ -1,0 +1,61 @@
+### GET /api/projects/$PID/timeline (turunan, timeline.json belum ada)
+duration_ms= 679297
+tracks= [(1, 1), (2, 499), (3, 1)]
+caption0= {"id": "d2-0", "kind": "caption", "start_ms": 0, "end_ms": 2680, "payload": {"text": "Berarti pembayaran cash, Kak?"}}
+
+### POST invalid (track 9)
+{"ok":false,"reason":"Item 0: track 9 tidak valid (1|2|3)"} [HTTP 400]
+
+### POST invalid (end_ms<start_ms)
+{"ok":false,"reason":"Item 0: rentang tidak valid (5000..1000)"} [HTTP 400]
+
+### POST valid (3 item)
+{"ok":true,"items":3} [HTTP 200]
+
+### GET ulang (isi timeline.json)
+{
+ "duration_ms": 679297,
+ "tracks": [
+  {
+   "track": 1,
+   "items": [
+    {
+     "id": "t1-0",
+     "kind": "video",
+     "start_ms": 0,
+     "end_ms": 600000,
+     "payload": {}
+    }
+   ]
+  },
+  {
+   "track": 2,
+   "items": [
+    {
+     "id": "t2-0",
+     "kind": "caption",
+     "start_ms": 0,
+     "end_ms": 1500,
+     "payload": {
+      "text": "tes timeline"
+     }
+    }
+   ]
+  },
+  {
+   "track": 3,
+   "items": [
+    {
+     "id": "t3-0",
+     "kind": "audio",
+     "start_ms": 0,
+     "end_ms": 600000,
+     "payload": {}
+    }
+   ]
+  }
+ ]
+}
+
+### file di work/$PID
+-rwxrwxrwx 1 somebody somegroup      745 Oct 24 03:41 timeline.json

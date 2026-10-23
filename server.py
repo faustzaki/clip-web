@@ -336,6 +336,13 @@ class RenderRequest(BaseModel):
 class CreateProjectRequest(BaseModel):
     title: Optional[str] = None
 
+class ExportRequest(BaseModel):
+    clip_id: str
+    resolution: Optional[str] = "1080p"
+    fps: Optional[int] = 30
+    burn_caption: Optional[bool] = True
+    name: Optional[str] = None
+
 class RenameProjectRequest(BaseModel):
     title: str
 
@@ -1702,6 +1709,139 @@ def list_clips(project_id: str, response: Response):
     read_project_meta(project_id)
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return {"clips": _list_project_clips(project_id)}
+
+# --------------------------------------------------------------------------
+# Export jobs (T4a) — re-render klip yang sudah ada ke resolusi/fps pilihan
+# --------------------------------------------------------------------------
+EXPORT_RES = {"1080p": 1.0, "720p": 720 / 1080}
+EXPORT_FPS = (30, 24)
+EXPORT_LOCK = threading.Lock()
+
+def _exports_path(pid: str) -> Path:
+    return project_dir(pid) / 'exports.json'
+
+def _load_exports(pid: str) -> dict:
+    p = _exports_path(pid)
+    if p.exists():
+        try:
+            data = json.loads(p.read_text(encoding='utf-8'))
+            if isinstance(data, dict): return data
+        except Exception:
+            pass
+    return {}
+
+def _save_exports(pid: str, jobs: dict) -> None:
+    project_dir(pid).mkdir(parents=True, exist_ok=True)
+    _exports_path(pid).write_text(json.dumps(jobs, ensure_ascii=False, indent=2), encoding='utf-8')
+
+def _find_clip_owner(clip_id: str) -> Optional[tuple[str, Path]]:
+    """Cari project yang punya klip bernama <clip_id>.mp4 (raw atau final)."""
+    if not SLUG_RE.match(clip_id):
+        return None
+    for cdir in sorted(CLIPS_DIR.iterdir()):
+        if not (cdir.is_dir() and PID_RE.match(cdir.name)):
+            continue
+        for cand in (cdir / f'{clip_id}.mp4', cdir / 'raw' / f'{clip_id}.mp4'):
+            if cand.exists():
+                return cdir.name, cand
+    return None
+
+def _run_export(pid: str, job_id: str) -> None:
+    def upd(**kw) -> None:
+        with EXPORT_LOCK:
+            jobs = _load_exports(pid)
+            if job_id in jobs:
+                jobs[job_id].update(kw)
+                _save_exports(pid, jobs)
+
+    try:
+        job = _load_exports(pid).get(job_id) or {}
+        upd(status="running", progress=5)
+        meta = read_project_meta(pid)
+        prefs = dict(DEFAULT_RENDER_PREFS, **(meta.get("render_prefs") or {}))
+        idx = job.get("candidate_index")
+        segments = load_segments_file(pid)
+        transcript = load_transcript_file(pid) or {}
+        src = get_source_video_path(pid)
+        if not src:
+            raise RuntimeError("Video sumber tidak ditemukan")
+        if idx is None or not (0 <= int(idx) < len(segments)):
+            raise RuntimeError("Klip ini tidak punya data segmen — render ulang klipnya dulu")
+        if not transcript.get("words"):
+            raise RuntimeError("Transcript kata tidak ditemukan")
+
+        seg = segments[int(idx)]
+        cdir = project_clips_dir(pid)
+        cdir.mkdir(parents=True, exist_ok=True)
+        W, H = render_clips.ffprobe_dims(src)
+        upd(progress=15)
+        render_clips.render(
+            seg=seg, words=transcript["words"], source=src, W=W, H=H,
+            workdir=project_dir(pid), aspect=prefs.get("aspect") or "9:16",
+            out_dir=cdir, raw_subdir="", do_tighten=False, crop_mode="auto",
+            hook_title=seg.get("hook") if prefs.get("title_enabled") else None,
+            watermark=((prefs.get("watermark") or "").strip() or None)
+            if prefs.get("watermark_enabled") else None,
+            crop_rect=(meta.get("crops") or {}).get(str(idx)),
+            subtitle_style=prefs.get("subtitle_style"),
+            candidate_index=int(idx),
+            res_scale=EXPORT_RES[job["resolution"]], fps=int(job["fps"]),
+            burn_caption=bool(job.get("burn_caption")),
+            out_name=Path(job["path"]).name,
+        )
+        upd(status="done", progress=100, finished_at=time.time())
+    except Exception as e:
+        upd(status="failed", error=_format_error_message(e), finished_at=time.time())
+
+@app.post("/api/export")
+def start_export(payload: ExportRequest):
+    if payload.resolution not in EXPORT_RES:
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "Resolusi tidak dikenal: pakai 1080p|720p"})
+    if payload.fps is None or int(payload.fps) not in EXPORT_FPS:
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "fps tidak dikenal: pakai 30|24"})
+    found = _find_clip_owner(payload.clip_id)
+    if not found:
+        return JSONResponse(status_code=404, content={
+            "ok": False, "reason": f"Klip '{payload.clip_id}' tidak ditemukan"})
+    pid, clip_path = found
+
+    clip_meta = {}
+    meta_file = clip_path.with_suffix('.meta.json')
+    if meta_file.exists():
+        try: clip_meta = json.loads(meta_file.read_text(encoding='utf-8'))
+        except Exception: clip_meta = {}
+
+    job_id = secrets.token_hex(8)
+    job = {
+        "id": job_id, "project_id": pid, "clip_id": payload.clip_id,
+        "status": "queued", "resolution": payload.resolution, "fps": int(payload.fps),
+        "burn_caption": bool(payload.burn_caption),
+        "name": (payload.name or "").strip() or payload.clip_id,
+        "path": f"/clips/{pid}/{payload.clip_id}_{payload.resolution}.mp4",
+        "error": None, "progress": 0,
+        "candidate_index": clip_meta.get("candidate_index"),
+        "created_at": time.time(), "finished_at": None,
+    }
+    with EXPORT_LOCK:
+        jobs = _load_exports(pid)
+        jobs[job_id] = job
+        _save_exports(pid, jobs)
+    threading.Thread(target=_run_export, args=(pid, job_id), daemon=True).start()
+    return {"ok": True, "job_id": job_id}
+
+@app.get("/api/export/{job_id}")
+def get_export(job_id: str):
+    for p in sorted(WORKDIR.glob('*/exports.json')):
+        job = _load_exports(p.parent.name).get(job_id)
+        if job:
+            return {
+                "ok": True, "job_id": job_id, "status": job.get("status"),
+                "path": job.get("path"), "error": job.get("error"),
+                "progress": job.get("progress", 0),
+            }
+    raise HTTPException(404, f"Job export {job_id} tidak ditemukan")
 
 
 @app.delete("/api/projects/{project_id}/reset")

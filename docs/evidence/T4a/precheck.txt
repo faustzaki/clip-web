@@ -1,0 +1,26 @@
+PRECHECK T4a — dijalankan SEBELUM patch (sesi ini, 2026-10-24)
+
+$ grep -n "render" server.py | head
+42:import render_clips
+60:def default_render_dir() -> str:
+74:    "render_dir": default_render_dir()
+87:        Path(cfg["render_dir"]).mkdir(parents=True, exist_ok=True)
+153:# Copy yunet.onnx into work/ so render_clips._make_detector finds it
+222:        'render_prefs': dict(DEFAULT_RENDER_PREFS, **(meta.get('render_prefs') or {})),
+306:    render_prefs: dict
+347:    render_dir: Optional[str] = None
+414:    render_p = Path(cfg.get("render_dir", default_render_dir()))
+420:            "render_dir": get_dir_disk_usage(render_p),
+436:    if payload.render_dir is not None:
+437:        p_str = payload.render_dir.strip()
+
+$ grep -rn "def render" chopify/*.py | head
+chopify/render_clips.py:234:def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
+
+$ curl -s localhost:8000/api/health
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+
+Catatan prasyarat:
+- Route render yang ada: POST /api/projects/{project_id}/render (server.py:1267) — dipakai ulang oleh job export, bukan pipeline baru.
+- render_clips.render() menerima words tapi belum pernah membakarnya (caption dibakar terpisah oleh subtitle_burn.apply_to_clip) dan ukuran hanya dari tabel ASPECTS (1080-base) — perlu parameter res_scale/fps/burn_caption.
+- Belum ada route /api/export*: grep "api/export" server.py = 0 hasil.

@@ -234,7 +234,10 @@ def write_meta(seg, out_path, candidate_index=None, subtitled=False):
 def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
            do_tighten=False, loudnorm=False, preview=False, crop_mode="auto",
            hook_title=None, watermark=None, crop_rect=None,
-           subtitle_style=None, candidate_index=None, raw_subdir="raw"):
+           subtitle_style=None, candidate_index=None, raw_subdir="raw",
+           res_scale=1.0, fps=None, burn_caption=False, out_name=None):
+    """Render one clip. res_scale/fps size and pace the output, burn_caption adds
+    the word-level captions from `words`, out_name overrides the file name."""
     base_out = Path(out_dir) if out_dir else default_out()
     out_dir = base_out / raw_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -247,7 +250,8 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         font_size = max(12, round(font_size * scale))
         margin_v = max(10, round(margin_v * scale))
     else:
-        tw, th = full_w, full_h
+        tw = int(round(full_w * res_scale)) & ~1
+        th = int(round(full_h * res_scale)) & ~1
     start = float(seg["start"])
     end = float(seg["end"])
     dur = end - start
@@ -271,6 +275,26 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         hook_title=actual_hook, watermark=watermark,
     )
 
+    cap = ""
+    if burn_caption:
+        # `words` carry absolute source times; shift them onto the clip timeline
+        burn_words = []
+        for w in cap_words or []:
+            try:
+                s = float(w["start"]) - start
+                e = float(w["end"]) - start
+            except (KeyError, TypeError, ValueError):
+                continue
+            s, e = max(0.0, s), min(dur, e)
+            if e - s < 0.05:
+                continue
+            burn_words.append({"word": w.get("word", ""), "start": s, "end": e})
+        subtitle_burn.build_caption_ass(
+            burn_words, dur, out_dir / "_captions.ass", tw, th,
+            subtitle_style or subtitle_burn.DEFAULT_STYLE,
+        )
+        cap = ",ass=_captions.ass"
+
     is_complex = False
     filter_expr = ""
 
@@ -281,7 +305,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         cy = max(0, min(int(round(float(crop_rect["y"]) * H)), H - ch))
         filter_expr = (f"crop={cw}:{ch}:{cx}:{cy},"
                        f"scale={tw}:{th}:force_original_aspect_ratio=increase,"
-                       f"crop={tw}:{th},ass=_overlay.ass")
+                       f"crop={tw}:{th},ass=_overlay.ass{cap}")
         mode = "manual-crop"
     elif crop_mode == "blur" and aspect == "9:16":
         # Blurred background padding
@@ -290,7 +314,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
             f"[0:v]split[bg][fg];"
             f"[bg]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:10,scale={tw}:{th}[bgb];"
             f"[fg]scale={tw}:-1[fgv];"
-            f"[bgb][fgv]overlay=(W-w)/2:(H-h)/2,ass=_overlay.ass[v]"
+            f"[bgb][fgv]overlay=(W-w)/2:(H-h)/2,ass=_overlay.ass{cap}[v]"
         )
         mode = "blur-background"
     elif crop_mode == "split" and aspect == "9:16":
@@ -301,7 +325,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         filter_expr = (
             f"[0:v]crop={int(W*0.6)}:{int(H*0.6)}:{int(W*0.2)}:0,scale={tw}:{top_h}[top];"
             f"[0:v]crop={W}:{int(H*0.7)}:0:{int(H*0.3)},scale={tw}:{bot_h}[bot];"
-            f"[top][bot]vstack,ass=_overlay.ass[v]"
+            f"[top][bot]vstack,ass=_overlay.ass{cap}[v]"
         )
         mode = "split-gaming"
     elif crop_mode == "speaker-tracked" or (crop_mode == "auto" and cw < W * 0.95):
@@ -309,20 +333,22 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         build_sendcmd(track, cw, out_dir / "_crop.cmd")
         init_x = max(0, min(int(round(track[0][1] - cw / 2.0)), W - cw))
         filter_expr = (f"sendcmd=f=_crop.cmd,crop={cw}:{ch}:{init_x}:{y0},"
-                       f"scale={tw}:{th},ass=_overlay.ass")
+                       f"scale={tw}:{th},ass=_overlay.ass{cap}")
         mode = "speaker-tracked"
     else:
-        filter_expr = f"crop={cw}:{ch}:{x0}:{y0},scale={tw}:{th},ass=_overlay.ass"
+        filter_expr = f"crop={cw}:{ch}:{x0}:{y0},scale={tw}:{th},ass=_overlay.ass{cap}"
         mode = "center-crop"
 
     suffix = ".preview" if preview else ""
-    out = out_dir / (sanitize(seg.get("hook", "clip")) + suffix + ".mp4")
-    
+    out = out_dir / (out_name or sanitize(seg.get("hook", "clip")) + suffix + ".mp4")
+
     cmd = ["ffmpeg", "-y", "-ss", f"{start:.3f}", "-i", str(render_src), "-t", f"{dur:.3f}"]
     if is_complex:
         cmd += ["-filter_complex", filter_expr, "-map", "[v]", "-map", "0:a?"]
     else:
         cmd += ["-vf", filter_expr]
+    if fps:
+        cmd += ["-r", str(int(fps))]
 
     cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out)]
@@ -333,7 +359,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
     print(">", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True, cwd=str(out_dir))
 
-    for tmpf in (out_dir / "_overlay.ass", out_dir / "_crop.cmd"):
+    for tmpf in (out_dir / "_overlay.ass", out_dir / "_captions.ass", out_dir / "_crop.cmd"):
         try:
             tmpf.unlink()
         except OSError:
@@ -345,8 +371,8 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         except OSError:
             pass
 
-    if preview:
-        # drafts skip the poster and metadata - they exist to be eyeballed fast
+    if preview or out_name:
+        # drafts and exports skip the poster and metadata
         print(f"SAVED {out}  ({aspect} {tw}x{th} preview, {mode})", flush=True)
         return out
 

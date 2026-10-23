@@ -1,0 +1,49 @@
+== health ==
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+== grep transcript server.py ==
+185:def load_transcript_file(pid: str) -> Optional[dict]:
+186:    p = project_dir(pid) / 'transcript.json'
+203:    tr = load_transcript_file(pid)
+218:        'has_source': src is not None, 'has_transcript': tr is not None,
+688:    transcript = load_transcript_file(project_id)
+721:    transcript_info = None
+722:    if transcript:
+723:        transcript_info = {
+724:            "language": transcript.get("language"),
+725:            "duration": transcript.get("duration"),
+726:            "words_count": len(transcript.get("words", [])),
+727:            "model": transcript.get("model")
+733:        "transcript": transcript_info,
+807:        has_yt_transcript = False
+833:            # Step 2: YouTube transcript
+834:            _ingest_write(pid, stage='transcript', percent=4, message='Menyalin subtitle YouTube...')
+836:                tr = core_engine.youtube_transcript(url, language)
+837:                core_engine.write_transcript(pdir, tr)
+838:                has_yt_transcript = True
+849:            span = 80 if has_yt_transcript else 73
+850:            max_pct = 92 if has_yt_transcript else 85
+868:        # Step 4: Whisper if transcript does not exist
+869:        transcript_file = pdir / 'transcript.json'
+870:        if not transcript_file.exists():
+871:            _ingest_write(pid, stage='transcript', percent=92, message='Transkripsi audio (Whisper)...')
+875:            core_engine.get_transcript(video_path=video_path, workdir=pdir, yt_url=None, model_size=model_size, language=language)
+886:            tr_file = pdir / 'transcript.json'
+978:    transcript = load_transcript_file(project_id)
+979:    if not transcript or not transcript.get("words"):
+980:        raise HTTPException(status_code=400, detail="No transcript found. Ingest video first.")
+987:                    data=transcript,
+1000:                    data=transcript,
+1008:                data=transcript,
+1015:        if not cands and transcript.get("words"):
+1017:            words_ref = transcript["words"]
+1028:        words = transcript.get("words", [])
+1054:    transcript = load_transcript_file(project_id)
+1055:    if not transcript or not transcript.get("words"):
+1056:        raise HTTPException(status_code=400, detail="No transcript words found")
+1092:            seg=seg, words=transcript["words"], source=src,
+== data dir ==
+NO data/ dir
+== ffmpeg ==
+ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+== sqlite tables ==
+no db

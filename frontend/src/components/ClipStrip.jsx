@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Download, MoreHorizontal } from 'lucide-react';
+import React from 'react';
+import { Download } from 'lucide-react';
 
 const mmss = (s) => {
   const sec = Math.max(0, Math.round(Number(s) || 0));
@@ -15,28 +15,8 @@ const clipDuration = (clip) => {
 };
 
 export default function ClipStrip({ clips = [], selected, onSelect, onDownload }) {
-  const [menuSlug, setMenuSlug] = useState(null);
-  const stripRef = useRef(null);
-
-  useEffect(() => {
-    if (!menuSlug) return;
-    const close = (e) => {
-      if (!stripRef.current?.contains(e.target)) setMenuSlug(null);
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') setMenuSlug(null);
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuSlug]);
-
   return (
     <section
-      ref={stripRef}
       aria-label="Klip"
       data-region="strip"
       className="h-[96px] shrink-0 border-t border-vz-border bg-vz-surface px-3 py-2 flex items-center gap-3 overflow-x-auto"
@@ -87,32 +67,14 @@ export default function ClipStrip({ clips = [], selected, onSelect, onDownload }
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMenuSlug((v) => (v === clip.slug ? null : clip.slug));
+                  onDownload?.(clip, e.currentTarget);
                 }}
-                aria-label={`Opsi klip ${title}`}
-                aria-expanded={menuSlug === clip.slug}
-                title="Opsi klip"
-                className="absolute top-1 right-1 p-1 rounded-vz-sm bg-vz-surface/90 text-vz-dim hover:text-vz-accent transition-colors"
+                aria-label={`Unduh klip ${title}`}
+                title="Unduh klip"
+                className="absolute top-1 right-1 p-1.5 rounded-vz-sm border border-vz-border bg-vz-surface/90 text-vz-dim hover:text-vz-accent hover:border-vz-accent transition-colors"
               >
-                <MoreHorizontal className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5" />
               </button>
-
-              {menuSlug === clip.slug && (
-                <div className="absolute right-1 top-8 w-32 rounded-vz-md border border-vz-border bg-vz-surface shadow-vz-md overflow-hidden z-20">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuSlug(null);
-                      onDownload?.(clip);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-medium text-vz-soft hover:bg-vz-muted transition-colors"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Unduh</span>
-                  </button>
-                </div>
-              )}
             </div>
           );
         })

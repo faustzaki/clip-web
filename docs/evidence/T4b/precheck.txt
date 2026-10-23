@@ -1,0 +1,28 @@
+PRECHECK T4b — Export modal + polling
+=====================================
+
+$ curl -s localhost:8000/api/projects | head -c 200
+{"projects":[{"id":"261e5b42f5","title":"BELANJA KE KOPDES","source_type":"youtube","source_url":"https://youtu.be/sIfvJZUszlw","created_at":1792740883.1271267,...}]}
+
+  → backend hidup, ada project nyata (5 project, 1 project punya klip ter-render).
+
+$ curl -s localhost:8000/api/health
+{"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+
+$ grep -n "ExportModal\|unduh\|download" frontend/src/components/*.jsx | head
+frontend/src/components/ClipStrip.jsx:69:  onDownload?.(clip);            ← satu-satunya tombol unduh klip di strip
+frontend/src/components/ClipStrip.jsx:76:  <span>Unduh</span>
+frontend/src/components/PreviewStage.jsx:952:  download                        ← anchor unduh langsung (di luar cakupan T4b)
+frontend/src/components/StudioView.jsx:53:  const handleClipDownload = (clip) => { … a.download = `${clip.slug}.mp4` … }
+frontend/src/components/GalleryView.jsx:166: download={c.name}
+frontend/src/components/NewProjectView.jsx:16: const [downloadQuality, setDownloadQuality] = useState('proxy');
+frontend/src/components/SettingsModal.jsx:168: window.confirm('Bersihkan file temporary audio, … download proxy?')
+
+Kesimpulan prasyarat
+--------------------
+1. Endpoint export T4a ADA: POST /api/export (clip_id, resolution, fps, burn_caption, name) → {ok, job_id}
+   dan GET /api/export/{job_id} → {ok, job_id, status: queued|running|done|failed, path, error, progress}.
+   Static mount /clips tersedia (server.py:274) → job.path bisa di-fetch.
+2. Tombol unduh yang sudah ada: ClipStrip (menu ⋯ → item "Unduh") via prop onDownload → StudioView.handleClipDownload.
+   ClipsPanel tidak punya tombol unduh. Jadi pemicu modal dipasang di ClipStrip (satu tempat).
+3. Tidak ada ExportModal sebelumnya; file modal baru diperlukan (frontend/src/components/ExportModal.jsx).

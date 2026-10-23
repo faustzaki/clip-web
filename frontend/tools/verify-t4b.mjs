@@ -14,7 +14,9 @@ await page.goto(BASE, { waitUntil: "networkidle" });
 
 // pilih project yang PUNYA klip (kartu menampilkan "N klip")
 const texts = await page.locator(".vz-card").allInnerTexts();
-let idx = texts.findIndex(x => /\d+\s*klip/i.test(x));
+let idx = -1, best = -1;
+for (let i = 0; i < texts.length; i++) { const m = texts[i].match(/(\d+)\s*klip/i); if (m && Number(m[1]) > best) { best = Number(m[1]); idx = i; } }
+if (idx < 0) idx = texts.findIndex(x => /\d+\s*klip/i.test(x));
 if (idx < 0) idx = 0;
 await page.locator(".vz-card").nth(idx).click({ force: true }).catch(() => {});
 await page.waitForTimeout(2500);
@@ -40,19 +42,20 @@ ck("lebar modal ~480px", box && Math.abs(box.width - 480) < 40, `${Math.round(bo
 const p720 = modal.locator('button:has-text("720p"), label:has-text("720p"), input[value="720p"]').first();
 if (await p720.count()) await p720.click({ force: true }).catch(() => {});
 const nameInput = modal.locator('input[type="text"]').first();
-if (await nameInput.count()) await nameInput.fill("pm-verify-720p").catch(() => {});
+const defaultName = await nameInput.inputValue().catch(() => "");
+ck("nama file default tidak ber-suffix resolusi", !/_\d+p\.mp4$/.test(defaultName), `"${defaultName}"`);
 
 const startBtn = modal.locator('button:has-text("Export")').last();
 await startBtn.click({ force: true }).catch(() => {});
 
 // tunggu status done: link Unduh muncul
 let href = null;
-for (let i = 0; i < 45; i++) {
+for (let i = 0; i < 75; i++) {
   await page.waitForTimeout(2000);
   const link = modal.locator('a[href*="/clips/"]').first();
   if (await link.count()) { href = await link.getAttribute("href"); break; }
   const failedTxt = await modal.innerText().catch(() => "");
-  if (/gagal|failed/i.test(failedTxt) && i > 3) { console.log("modal:", failedTxt.slice(0, 120)); break; }
+  if (/gagal|failed|Terlalu lama/i.test(failedTxt) && i > 3) { console.log("MODAL_ERR:", failedTxt.replace(/\s+/g," ").slice(0, 200)); break; }
 }
 ck("job selesai + link unduh muncul", !!href, href || "tidak muncul dalam 90s");
 

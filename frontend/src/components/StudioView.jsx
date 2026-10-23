@@ -7,6 +7,7 @@ import GeneratePanel from './GeneratePanel';
 import PreviewStage from './PreviewStage';
 import EditorHeader from './EditorHeader';
 import ToolRail from './ToolRail';
+import ToolPanel from './ToolPanel';
 import ClipStrip from './ClipStrip';
 import ExportModal from './ExportModal';
 import Timeline from './Timeline';
@@ -316,6 +317,19 @@ export default function StudioView({
         />
       )}
         </div>
+
+        {activeTool && (
+          <ToolPanel
+            tool={activeTool}
+            onClose={() => setActiveTool(null)}
+            projectId={projectId}
+            options={options}
+            prefs={prefs}
+            savePrefs={savePrefs}
+            transcript={transcript}
+            loadTranscript={loadTranscript}
+          />
+        )}
 
         <ToolRail active={activeTool} onSelect={setActiveTool} />
       </div>

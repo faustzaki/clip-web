@@ -12,7 +12,9 @@ import subprocess
 from pathlib import Path
 
 FILLER_TOKENS = {"um", "uh", "uhh", "umm", "erm", "er", "hmm", "mmm", "mm", "ah", "eh"}
-FILLER_SEQS = {("you", "know"), ("i", "mean"), ("kind", "of"), ("sort", "of")}
+FILLER_TOKENS_ID = {"eee", "ee", "eem", "emm", "emmm", "anu", "gitu", "gituu", "kayak", "kaya"}
+FILLER_SEQS = {("you", "know"), ("i", "mean"), ("kind", "of"), ("sort", "of"),
+               ("apa", "ya"), ("gitu", "ya"), ("gimana", "ya")}
 DEFAULT_GAP = 0.6          # silence longer than this (s) gets cut
 GUARD = 0.15               # always keep this much at the very start/end (s)
 MIN_KEEP = 0.30            # never create a keep-range shorter than this (s)
@@ -34,7 +36,7 @@ def plan_cuts(words, clip_start, clip_end, gap=DEFAULT_GAP,
     if fillers:
         toks = [re.sub(r"[^\w']", "", w["word"].lower()) for w in sub]
         for i, w in enumerate(sub):
-            if toks[i] in FILLER_TOKENS:
+            if toks[i] in FILLER_TOKENS or toks[i] in FILLER_TOKENS_ID:
                 drop.append((w["start"], w["end"]))
             elif i + 1 < len(sub) and (toks[i], toks[i + 1]) in FILLER_SEQS:
                 drop.append((w["start"], sub[i + 1]["end"]))

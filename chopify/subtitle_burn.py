@@ -30,6 +30,42 @@ DEFAULT_STYLE: dict[str, Any] = {
     "angle": 0,
 }
 
+# Registry preset caption: satu sumber untuk preview UI, export, dan burn subtitle.
+# `karaoke-highlight` = DEFAULT_STYLE apa adanya (preset bawaan).
+CAPTION_PRESETS: dict[str, dict[str, Any]] = {
+    "clean-white": {
+        "label": "Bersih Putih",
+        "style": {"primary_color": "#FFFFFF", "highlight_color": "#FFFFFF",
+                  "outline_color": "#000000", "outline_width": 4, "shadow": 0,
+                  "box": False, "bold": True, "uppercase": True},
+    },
+    "bold-yellow": {
+        "label": "Kuning Tebal",
+        "style": {"primary_color": "#FFE100", "highlight_color": "#FFFFFF",
+                  "outline_color": "#000000", "outline_width": 7, "shadow": 0,
+                  "box": False, "bold": True, "uppercase": True},
+    },
+    "boxed-dark": {
+        "label": "Kotak Gelap",
+        "style": {"primary_color": "#FFFFFF", "highlight_color": "#FFE100",
+                  "outline_color": "#000000", "outline_width": 0, "shadow": 0,
+                  "box": True, "box_color": "#000000", "bold": True, "uppercase": False},
+    },
+    "karaoke-highlight": {"label": "Karaoke Sorot", "style": {}},
+    "minimal-outline": {
+        "label": "Garis Tipis",
+        "style": {"primary_color": "#FFFFFF", "highlight_color": "#FFFFFF",
+                  "outline_color": "#000000", "outline_width": 2, "shadow": 0,
+                  "box": False, "bold": False, "uppercase": False},
+    },
+}
+DEFAULT_CAPTION_PRESET = "karaoke-highlight"
+
+def preset_style(name: str | None) -> dict[str, Any]:
+    """Gaya penuh untuk satu preset; nama tak dikenal -> gaya bawaan."""
+    entry = CAPTION_PRESETS.get(str(name or "")) or {}
+    return dict(DEFAULT_STYLE, **(entry.get("style") or {}))
+
 
 def ass_color(hex_rgb: str, alpha: str | None = None) -> str:
     h = hex_rgb.strip().lstrip("#")

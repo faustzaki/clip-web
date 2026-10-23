@@ -8,6 +8,7 @@ import json
 import mimetypes
 import os
 import shutil
+import sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -15,6 +16,26 @@ from urllib.parse import urlparse
 DIST = Path(__file__).resolve().parent / "frontend" / "dist"
 ASSETS = Path(__file__).resolve().parent / "work" / "assets"
 MEDIA = Path(__file__).resolve().parent / "_mockmedia"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "chopify"))
+import subtitle_burn  # noqa: E402  — registry preset asli, bukan salinan mock
+
+CAPTION_PRESETS = [
+    {"id": name, "label": preset.get("label") or name, "style": subtitle_burn.preset_style(name)}
+    for name, preset in subtitle_burn.CAPTION_PRESETS.items()
+]
+PREFS = {
+    "subtitles_enabled": True,
+    "caption_preset": subtitle_burn.DEFAULT_CAPTION_PRESET,
+    "subtitle_style": subtitle_burn.preset_style(subtitle_burn.DEFAULT_CAPTION_PRESET),
+}
+WORDS = [
+    ("Halo", 0.4, 0.9), ("eee", 1.0, 1.3), ("semua", 1.4, 1.9),
+    ("apa", 2.0, 2.3), ("ya", 2.3, 2.6), ("hari", 4.2, 4.7),
+    ("ini", 4.8, 5.1), ("gitu", 5.2, 5.5), ("kita", 5.6, 6.0),
+    ("bahas", 6.1, 6.5), ("captions", 6.6, 7.2), ("biar", 8.9, 9.3),
+    ("rapi", 9.4, 9.9),
+]
 MEDIA.mkdir(exist_ok=True)
 for src, dst in ((ASSETS / "snapshot.jpg", "cover.jpg"), (Path(r"C:/Users/faust/Downloads/clipper_re/work/exported720.mp4"), "clip.mp4")):
     if src.exists() and not (MEDIA / dst).exists():
@@ -24,11 +45,11 @@ PROJECTS = [
     {"id": "a1b2c3d4e5", "title": "Podcast Bisnis — Episode 42", "source_type": "youtube",
      "source_url": "https://youtube.com/watch?v=xxxx", "created_at": 1792760000, "updated_at": 1792770000,
      "has_source": True, "has_transcript": True, "duration": 1840.5, "candidate_count": 14,
-     "clip_count": 3, "cover_url": "/mock/cover.jpg", "render_prefs": {}, "crops": {}},
+     "clip_count": 3, "cover_url": "/mock/cover.jpg", "render_prefs": PREFS, "crops": {}},
     {"id": "f6g7h8i9j0", "title": "Webinar Marketing Q4", "source_type": "file",
      "source_url": None, "created_at": 1792650000, "updated_at": 1792700000,
      "has_source": True, "has_transcript": True, "duration": 900.0, "candidate_count": 8,
-     "clip_count": 2, "cover_url": "/mock/cover.jpg", "render_prefs": {}, "crops": {}},
+     "clip_count": 2, "cover_url": "/mock/cover.jpg", "render_prefs": PREFS, "crops": {}},
 ]
 
 CLIPS = [
@@ -67,7 +88,8 @@ class H(SimpleHTTPRequestHandler):
         if p == "/api/options":
             return self._json({"languages": [{"code": "id", "label": "Indonesia"}, {"code": "en", "label": "English"}],
                                "models": ["ocf/deepseek-v4.1-flash-free", "nara/glm-5.3", "cbai/kimi-k2.7"],
-                               "clip_lengths": [30, 45, 60, 90]})
+                               "clip_lengths": [30, 45, 60, 90],
+                               "caption_presets": CAPTION_PRESETS})
         if p == "/api/settings":
             return self._json({"base_url": "http://127.0.0.1:20128/v1", "model": "ocf/deepseek-v4.1-flash-free",
                                "api_key_set": True, "whisper_model": "small", "render_dir": "clips"})
@@ -83,6 +105,11 @@ class H(SimpleHTTPRequestHandler):
                                "clips": CLIPS})
         if p.startswith("/api/projects/") and "/clips" in p:
             return self._json({"clips": CLIPS})
+        if p.startswith("/api/projects/") and p.endswith("/transcript"):
+            return self._json({"words": [
+                {"idx": i, "word": w, "start_ms": int(s * 1000), "end_ms": int(e * 1000), "deleted": 0}
+                for i, (w, s, e) in enumerate(WORDS)
+            ], "language": "id", "duration_ms": 12_000})
         if p.startswith("/api/projects/") and p.endswith("/timeline"):
             dur, caps = 82_200, []
             for i in range(14):
@@ -108,6 +135,29 @@ class H(SimpleHTTPRequestHandler):
                 return
             return self._json({"error": "not found"}, 404)
         return super().do_GET()
+
+    def _body(self):
+        n = int(self.headers.get("Content-Length") or 0)
+        try:
+            return json.loads(self.rfile.read(n) or b"{}") if n else {}
+        except Exception:
+            return {}
+
+    def do_POST(self):
+        p = urlparse(self.path).path
+        body = self._body()
+        if p.endswith("/tighten"):
+            return self._json({"ok": True, "saved_ms": 3200, "deleted": 3, "new_duration_ms": 8800,
+                               "silence_ms": body.get("silence_ms", 400), "filler": bool(body.get("filler", True))})
+        return self._json({"error": "not found"}, 404)
+
+    def do_PUT(self):
+        p = urlparse(self.path).path
+        body = self._body()
+        if p.endswith("/prefs"):
+            PREFS.update(body.get("render_prefs") or {})
+            return self._json({"status": "ok", "render_prefs": PREFS})
+        return self._json({"error": "not found"}, 404)
 
     def translate_path(self, path):
         p = urlparse(path).path

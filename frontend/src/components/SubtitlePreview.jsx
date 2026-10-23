@@ -1,9 +1,9 @@
 import React from 'react';
 
-export default function SubtitlePreview({ style, height = 260, words }) {
+export default function SubtitlePreview({ style, height = 260, words, fontScale = 1 }) {
   if (!style) return null;
   const sampleWords = Array.isArray(words) && words.length > 0 ? words : "CONTOH TEKS SUBTITLE KARAOKE".split(' ');
-  const px = (v) => Math.max(2, Math.round((Number(v) || 0) * height / 1920));
+  const px = (v) => Math.max(2, Math.round((Number(v) || 0) * fontScale * height / 1920));
   const align = style.position === 'top' ? 'flex-start' : style.position === 'middle' ? 'center' : 'flex-end';
   const width = Math.round(height * 9 / 16);
 

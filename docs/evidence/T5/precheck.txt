@@ -1,0 +1,18 @@
+$ ls chopify/tighten.py
+-rwxrwxrwx 1 somebody somegroup 5098 Oct 17 02:49 chopify/tighten.py
+
+$ grep -n 'Fontsize|BorderStyle|Alignment' chopify/subtitle_burn.py | head
+136:        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+137:        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+138:        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+217:        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+218:        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
+219:        "Alignment, MarginL, MarginR, MarginV, Encoding\n"
+
+$ grep -rn 'CAPTION_PRESETS' chopify/subtitle_burn.py
+(exit 1)
+
+$ grep -n 'tighten' server.py
+328:    do_tighten: Optional[bool] = True
+1327:            do_tighten=payload.do_tighten if payload.do_tighten is not None else True,
+1781:            out_dir=cdir, raw_subdir="", do_tighten=False, crop_mode="auto",

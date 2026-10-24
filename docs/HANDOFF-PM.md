@@ -34,7 +34,18 @@ node tools/verify-t6.mjs    # 0 gagal
 py -3.13 scripts/check_t5.py
 ```
 
-## 3. Yang belum selesai
+## 3. Status terkini (diperbarui 24 Okt, 22:5x)
+**SEMUA 13 TUGAS SELESAI** (P0 T1–T6 · P1 T7–T9 · P2 T10–T13).
+
+| Fase | Tugas | Commit puncak |
+|---|---|---|
+| P0 | T1, T1b, T2a/T2b, T3a/T3b/T3c, T4a/T4b, T5, T6 | `ea23d7a` |
+| P1 | T7 akurasi ASR, T8 diarisasi, T9 translasi | `9231372`, `802d2eb` |
+| P2 | T10 b-roll, T11 brand kit, T12 background, T13 posting | `f7a1a19`, `164ea10`, `614e010`, `ddd8749` |
+
+Yang masih terbuka: `docs/PUNCHLIST.md` (utang visual/teknis) dan **T9 belum diuji dengan model nyata** (9Router mati). T13 hanya BLOCKED untuk OAuth (queue lokal + UI jalan penuh).
+
+## 3b. Catatan lama
 - **P0 SELESAI SEMUA (T1–T6)** — T6 merged di `ea23d7a`. Gate P0 lolos: check_t6 0 gagal, verify-t6 0 gagal, regresi t2b 6/6 · t3b 6/6 · t4b 10/10 · t5 0 gagal.
 - **Berikutnya P1**: T7 akurasi ASR (`docs/prompts/07-T7-akurasi-transkripsi.md`), lalu T8 diarisasi & T9 translasi
 - P2: T10 b-roll, T11 brand kit, T12 background/layout, T13 posting+analitik
@@ -43,7 +54,8 @@ py -3.13 scripts/check_t5.py
 ```bash
 cd C:\Users\faust\orca\clip-web
 git checkout main && git pull
-git branch --show-current          # main (P0 selesai)
+run_backend.bat          # backend :8000 dengan --reload (hot reload, ala next dev)
+git branch --show-current          # main — semua tugas selesai
 # nyalakan backend asli (WAJIB untuk verifikasi, bukan mock)
 py -3.13 -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```

@@ -1,0 +1,24 @@
+# T11 precheck — 2026-10-24T14:10Z
+$ ls data/brand.json 2>/dev/null || echo NO_BRAND; ffmpeg -filters | grep -c overlay
+NO_BRAND
+6
+
+$ ffmpeg -filters | grep overlay
+ TS overlay           VV->V      Overlay a video source on top of the input.
+ .. overlay_opencl    VV->V      Overlay one video on top of another
+ .. overlay_qsv       VV->V      Quick Sync Video overlay.
+ .. overlay_vaapi     VV->V      Overlay one video on top of another
+ .. overlay_vulkan    VV->V      Overlay a source on top of another
+ T. overlay_cuda      VV->V      Overlay one video on top of another using CUDA
+
+$ ls data/ ; ls data/brand/ 2>/dev/null
+brand
+broll
+glossary.txt
+wer_sample.json
+
+$ ffmpeg -version | head -1
+ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+
+$ py -3.13 -c 'import server; print(server.brand_fonts(), server.overlay_supported())'
+['Arial Black', 'Impact', 'Verdana'] True C:\Users\faust\orca\clip-web\data\brand.json

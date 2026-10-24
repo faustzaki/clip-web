@@ -35,6 +35,7 @@ ASPECTS = {
     "4:5":  (1080, 1350, 88, 210),
 }
 DEFAULT_ASPECT = "16:9"
+LOGO_MARGIN = 24        # T11: jarak logo brand dari tepi frame (px pada 1080x1920)
 
 # --preview drafts: small, fast, no poster/meta. Caption font/margins scale down
 # proportionally from the full-size ASPECTS values (height is the anchor).
@@ -91,6 +92,50 @@ def ffprobe_fps(path):
         return fps if 1.0 <= fps <= 240.0 else 30.0
     except Exception:
         return 30.0
+
+def ffprobe_duration(path):
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, check=True).stdout.strip()
+        return max(0.0, float(out))
+    except Exception:
+        return 0.0
+
+def _has_audio(path) -> bool:
+    out = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries",
+         "stream=index", "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True).stdout.strip()
+    return bool(out)
+
+def concat_brand_ends(main, intro, outro, tw, th, fps, out):
+    """intro + klip + outro (T11): semua segmen dinormalkan (ukuran, sar, fps, audio)
+    supaya hasil concat tidak pecah walau intro/outro beda resolusi atau tanpa audio."""
+    segs = [Path(p) for p in (intro, main, outro) if p]
+    chains, labels = [], []
+    for i, seg in enumerate(segs):
+        chains.append(
+            f"[{i}:v]scale={tw}:{th}:force_original_aspect_ratio=decrease,"
+            f"pad={tw}:{th}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}[v{i}]")
+        if _has_audio(seg):
+            chains.append(f"[{i}:a]aresample=48000,aformat=sample_fmts=fltp:"
+                          f"channel_layouts=stereo[a{i}]")
+        else:
+            chains.append(f"anullsrc=channel_layout=stereo:sample_rate=48000:"
+                          f"d={ffprobe_duration(seg):.3f}[a{i}]")
+        labels.append(f"[v{i}][a{i}]")
+    chains.append("".join(labels) + f"concat=n={len(segs)}:v=1:a=1[v][a]")
+    cmd = ["ffmpeg", "-y"]
+    for seg in segs:
+        cmd += ["-i", str(seg)]
+    cmd += ["-filter_complex", ";".join(chains), "-map", "[v]", "-map", "[a]",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out)]
+    print(">", " ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True, capture_output=True)
+    return Path(out)
 
 def crop_for(W, H, tw, th):
     """Largest centred crop of the WxH source matching the target aspect."""
@@ -375,13 +420,19 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
            subtitle_style=None, candidate_index=None, raw_subdir="raw",
            res_scale=1.0, fps=None, burn_caption=False, out_name=None,
            zoom_auto=False, zoom_manual=None, zoom_keyframes=None, dual_lines=None,
-           brolls=None):
+           brolls=None, brand=None):
     """Render one clip. res_scale/fps size and pace the output, burn_caption adds
     the word-level captions from `words`, out_name overrides the file name.
     zoom_auto/zoom_manual (100–160) mengaktifkan punch-in `zoompan`; `zoom_keyframes`
     (kotak crop per detik dari compute_zoom_keyframes()) dipakai kalau sudah dihitung pemanggil.
     `dual_lines` = baris terjemahan (T9), sejajar dengan potongan caption `words_per_line`.
-    `brolls` = [{"path","start","end"}] detik relatif klip; di-overlay penuh frame (T10)."""
+    `brolls` = [{"path","start","end"}] detik relatif klip; di-overlay penuh frame (T10).
+    `brand` (T11) = {"logo","intro","outro","corner","size_pct"} dari brand kit global;
+    logo ditempel di sudut pilihan, intro/outro di-concat di depan/belakang klip."""
+    brand = brand or {}
+    brand_logo = Path(brand["logo"]) if brand.get("logo") else None
+    brand_intro = Path(brand["intro"]) if brand.get("intro") else None
+    brand_outro = Path(brand["outro"]) if brand.get("outro") else None
     base_out = Path(out_dir) if out_dir else default_out()
     out_dir = base_out / raw_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -511,7 +562,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         mode = "center-crop"
 
     # overlay b-roll (T10) menempel setelah crop, sebelum caption dibakar
-    if broll_spans:
+    if broll_spans or brand_logo:
         parts = [video_chain if is_complex else f"[0:v]{video_chain}[vbase]"]
         cur = "vbase"
         for i, br in enumerate(broll_spans):
@@ -522,6 +573,19 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
                 f"[{cur}][b{i}]overlay=0:0:eof_action=repeat:"
                 f"enable='between(t,{float(br['start']):.3f},{float(br['end']):.3f})'[o{i}]")
             cur = f"o{i}"
+        if brand_logo:
+            # logo brand (T11): tinggi = size_pct% tinggi frame, margin 24 px pada 1080x1920
+            logo_idx = 1 + len(broll_spans)
+            logo_h = max(8, int(round(th * int(brand.get("size_pct") or 8) / 100.0)))
+            margin = max(4, int(round(LOGO_MARGIN * th / 1920.0)))
+            logo_x, logo_y = {
+                "tl": (f"{margin}", f"{margin}"),
+                "tr": (f"W-w-{margin}", f"{margin}"),
+                "bl": (f"{margin}", f"H-h-{margin}"),
+            }.get(str(brand.get("corner") or "br").lower(), (f"W-w-{margin}", f"H-h-{margin}"))
+            parts.append(f"[{logo_idx}:v]scale=-1:{logo_h}:flags=lanczos[logo]")
+            parts.append(f"[{cur}][logo]overlay={logo_x}:{logo_y}:format=auto[ob]")
+            cur = "ob"
         parts.append(f"[{cur}]ass=_overlay.ass{cap}[v]")
         filter_expr = ";".join(parts)
         is_complex = True
@@ -539,6 +603,8 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
             # gambar diam perlu loop; `-t` dipindah ke opsi output supaya durasi klip tetap
             cmd += (["-loop", "1", "-framerate", "25"] if br.get("image") else []) + ["-i", br["path"]]
     cmd += ["-t", f"{dur:.3f}"]
+    if brand_logo:
+        cmd += ["-i", str(brand_logo)]
     if is_complex:
         cmd += ["-filter_complex", filter_expr, "-map", "[v]", "-map", "0:a?"]
     else:
@@ -568,6 +634,15 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         except OSError:
             pass
 
+    brand_extra = bool(brand_intro or brand_outro) and not preview
+    if brand_extra:
+        # intro/outro brand (T11) menempel di luar klip; export ikut kena, draft preview tidak
+        concat_path = out.with_name(out.stem + ".brand.mp4")
+        concat_brand_ends(out, brand_intro, brand_outro, tw, th,
+                          int(fps) if fps else round(ffprobe_fps(out)), concat_path)
+        concat_path.replace(out)
+        print(f"  brand: intro/outro ter-concat → {ffprobe_duration(out):.2f}s", flush=True)
+
     if preview or out_name:
         # drafts and exports skip the poster and metadata
         print(f"SAVED {out}  ({aspect} {tw}x{th} preview, {mode})", flush=True)
@@ -575,7 +650,8 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
 
     # poster: a representative still saved next to the clip (<clip>.png)
     poster = out.with_suffix(".png")
-    subprocess.run(["ffmpeg", "-y", "-ss", f"{dur * 0.4:.2f}", "-i", str(out),
+    poster_t = dur * 0.4 + (ffprobe_duration(brand_intro) if brand_extra and brand_intro else 0.0)
+    subprocess.run(["ffmpeg", "-y", "-ss", f"{poster_t:.2f}", "-i", str(out),
                     "-frames:v", "1", "-q:v", "2", str(poster)],
                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     meta_path = write_meta(seg, out, candidate_index=candidate_index, subtitled=False)

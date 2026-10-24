@@ -69,6 +69,148 @@ CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_FILE = ROOT_DIR / "config.json"
 
+# --- T11: Brand kit global (data/brand.json + unggahan logo/intro/outro) ---
+DATA_DIR = ROOT_DIR / "data"
+BRAND_FILE = DATA_DIR / "brand.json"
+BRAND_DIR = DATA_DIR / "brand"
+BRAND_DIR.mkdir(parents=True, exist_ok=True)
+BRAND_FONT_FILES = {"Arial Black": "ariblk.ttf", "Impact": "impact.ttf", "Verdana": "verdana.ttf"}
+BRAND_CORNERS = ("tl", "tr", "bl", "br")
+LOGO_MARGIN_PX = 24          # jarak logo dari tepi frame (referensi 1080x1920)
+HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
+DEFAULT_BRAND = {
+    "logo_path": "",
+    "color_primary": "#FFFFFF",     # warna caption utama
+    "color_secondary": "#4822A5",   # warna kata yang sedang diucapkan (aksen)
+    "font": "Arial Black",
+    "logo_corner": "br",
+    "logo_size_pct": 8,
+    "intro_path": "",
+    "outro_path": "",
+}
+
+def brand_fonts() -> List[str]:
+    """Font brand yang benar-benar terpasang (libass tidak punya fallback yang jujur)."""
+    fonts_dir = Path(os.environ.get("WINDIR") or "C:/Windows") / "Fonts"
+    found = [n for n, f in BRAND_FONT_FILES.items() if (fonts_dir / f).exists()]
+    return found or ["Arial Black"]
+
+_OVERLAY_OK: Optional[bool] = None
+
+def overlay_supported() -> bool:
+    """Filter `overlay` ffmpeg = prasyarat logo brand. Hasil di-cache sekali."""
+    global _OVERLAY_OK
+    if _OVERLAY_OK is None:
+        try:
+            out = subprocess.run(["ffmpeg", "-hide_banner", "-filters"],
+                                 capture_output=True, text=True, timeout=15).stdout
+            _OVERLAY_OK = any(len(t) > 1 and t[1] == "overlay" for t in
+                              (line.split() for line in out.splitlines()))
+        except Exception:
+            _OVERLAY_OK = False
+    return _OVERLAY_OK
+
+def _brand_asset(name: Optional[str]) -> Optional[Path]:
+    """Berkas unggahan brand; nama diambil basename-nya supaya tidak bisa keluar folder."""
+    raw = str(name or "").strip()
+    if not raw:
+        return None
+    p = BRAND_DIR / Path(raw).name
+    return p if p.is_file() else None
+
+def load_brand() -> dict:
+    brand = dict(DEFAULT_BRAND)
+    if BRAND_FILE.exists():
+        try:
+            stored = json.loads(BRAND_FILE.read_text(encoding="utf-8"))
+            if isinstance(stored, dict):
+                brand.update({k: v for k, v in stored.items() if k in DEFAULT_BRAND})
+        except Exception:
+            pass
+    return brand
+
+def brand_public() -> dict:
+    """Brand untuk UI: nilai tersimpan + URL aset yang benar-benar ada."""
+    brand = load_brand()
+    out = dict(brand)
+    for key, url_key in (("logo_path", "logo_url"), ("intro_path", "intro_url"),
+                         ("outro_path", "outro_url")):
+        asset = _brand_asset(brand.get(key))
+        out[url_key] = f"/brand/{asset.name}" if asset else None
+    return out
+
+def save_brand(patch: dict) -> dict:
+    """Simpan sebagian field brand; nilai tidak valid -> ValueError (dipetakan ke 400)."""
+    brand = load_brand()
+    fonts = brand_fonts()
+    for key in ("logo_path", "intro_path", "outro_path"):
+        if key in patch:
+            name = str(patch[key] or "").strip()
+            if name and not _brand_asset(name):
+                raise ValueError(f"Berkas brand tidak ditemukan: {name}")
+            brand[key] = Path(name).name if name else ""
+    for key in ("color_primary", "color_secondary"):
+        if key in patch:
+            val = str(patch[key] or "").strip()
+            if not HEX_COLOR_RE.match(val):
+                raise ValueError(f"Warna {key} tidak valid: pakai #RRGGBB")
+            brand[key] = val
+    if "font" in patch:
+        font = str(patch["font"] or "").strip()
+        if font not in fonts:
+            raise ValueError(f"Font brand tidak tersedia: {font or '(kosong)'}")
+        brand["font"] = font
+    if "logo_corner" in patch:
+        corner = str(patch["logo_corner"] or "").strip().lower()
+        if corner not in BRAND_CORNERS:
+            raise ValueError("Posisi logo tidak valid: pakai tl|tr|bl|br")
+        brand["logo_corner"] = corner
+    if "logo_size_pct" in patch:
+        try:
+            size = int(patch["logo_size_pct"])
+        except (TypeError, ValueError):
+            raise ValueError("Ukuran logo tidak valid: pakai angka 4-15")
+        if not (4 <= size <= 15):
+            raise ValueError("Ukuran logo tidak valid: pakai 4-15 persen")
+        brand["logo_size_pct"] = size
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    BRAND_FILE.write_text(json.dumps(brand, indent=2, ensure_ascii=False), encoding="utf-8")
+    return brand
+
+def brand_for_render() -> dict:
+    """Payung brand untuk render: hanya aktif kalau data/brand.json sudah ada."""
+    if not BRAND_FILE.exists():
+        return {"active": False}
+    brand = load_brand()
+    logo = _brand_asset(brand.get("logo_path"))
+    intro = _brand_asset(brand.get("intro_path"))
+    outro = _brand_asset(brand.get("outro_path"))
+    return {
+        "active": True,
+        "logo": str(logo) if logo else None,
+        "intro": str(intro) if intro else None,
+        "outro": str(outro) if outro else None,
+        "corner": brand["logo_corner"],
+        "size_pct": int(brand["logo_size_pct"]),
+    }
+
+def brand_style(style: Optional[dict]) -> dict:
+    """Gaya caption: warna & font brand menang kalau brand kit sudah tersimpan."""
+    out = dict(style or {})
+    if BRAND_FILE.exists():
+        brand = load_brand()
+        out["primary_color"] = brand["color_primary"]
+        out["highlight_color"] = brand["color_secondary"]
+        out["font"] = brand["font"]
+    return out
+
+def brand_unavailable() -> Optional[dict]:
+    """Placeholder jujur kalau prasyarat (filter overlay) tidak ada."""
+    if overlay_supported():
+        return None
+    return {"ok": False, "reason": "ffmpeg tanpa filter overlay — logo brand tidak bisa ditempel",
+            "hint": "Pasang ffmpeg lengkap (build dengan filter overlay) lalu muat ulang halaman."}
+
 def default_render_dir() -> str:
     return str(Path.home() / "Videos" / "Clips")
 
@@ -288,6 +430,8 @@ app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
 app.mount("/work", StaticFiles(directory=str(WORKDIR)), name="work")
 # T10: berkas b-roll + thumbnail .thumbs dipakai panel B-roll (URL /broll/<rel>)
 app.mount("/broll", StaticFiles(directory=str(broll_index.BROLL_DIR)), name="broll")
+# T11: logo/intro/outro brand kit (URL /brand/<berkas>)
+app.mount("/brand", StaticFiles(directory=str(BRAND_DIR)), name="brand")
 
 
 # --------------------------------------------------------------------------
@@ -399,6 +543,16 @@ class UpdateSettingsRequest(BaseModel):
     render_dir: Optional[str] = None
     whisper_model: Optional[str] = None
     translate_model: Optional[str] = None   # T9: model penterjemah subtitle
+
+class BrandRequest(BaseModel):
+    logo_path: Optional[str] = None
+    color_primary: Optional[str] = None
+    color_secondary: Optional[str] = None
+    font: Optional[str] = None
+    logo_corner: Optional[str] = None
+    logo_size_pct: Optional[int] = None
+    intro_path: Optional[str] = None
+    outro_path: Optional[str] = None
 
 class TestConnectionRequest(BaseModel):
     endpoint: str
@@ -727,6 +881,79 @@ def open_render_dir_endpoint():
 def _validate_pid(project_id: str):
     if not PID_RE.match(project_id):
         raise HTTPException(404, "Project not found")
+
+# --------------------------------------------------------------------------
+# Brand kit global (T11) — data/brand.json + unggahan di data/brand/
+# --------------------------------------------------------------------------
+def _brand_payload(brand: dict) -> dict:
+    return {"ok": True, "configured": BRAND_FILE.exists(), "brand": brand,
+            "fonts": brand_fonts(), "corners": list(BRAND_CORNERS)}
+
+@app.get("/api/brand")
+def get_brand():
+    blocked = brand_unavailable()
+    if blocked:
+        return blocked
+    payload = _brand_payload(brand_public())
+    payload["hint"] = ("Unggah logo transparan (PNG) atau simpan warna, lalu render ulang klip. "
+                       "Tanpa brand kit, export tetap jalan seperti biasa.")
+    return payload
+
+@app.post("/api/brand")
+def update_brand(payload: BrandRequest):
+    blocked = brand_unavailable()
+    if blocked:
+        return blocked
+    patch = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not patch:
+        raise HTTPException(400, "Tidak ada perubahan brand yang dikirim")
+    try:
+        save_brand(patch)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return _brand_payload(brand_public())
+
+BRAND_UPLOAD_EXT = {
+    "logo": (".png", ".webp", ".jpg", ".jpeg"),
+    "intro": (".mp4", ".mov", ".mkv", ".webm"),
+    "outro": (".mp4", ".mov", ".mkv", ".webm"),
+}
+
+@app.post("/api/brand/upload")
+async def upload_brand_asset(kind: str = Form(...), file: UploadFile = File(...)):
+    blocked = brand_unavailable()
+    if blocked:
+        return blocked
+    kind = (kind or "").strip().lower()
+    if kind not in BRAND_UPLOAD_EXT:
+        raise HTTPException(400, "Jenis berkas brand tidak dikenal: pakai logo|intro|outro")
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in BRAND_UPLOAD_EXT[kind]:
+        allowed = ", ".join(BRAND_UPLOAD_EXT[kind])
+        raise HTTPException(400, f"Format {kind} tidak didukung: pakai {allowed}")
+
+    brand = load_brand()
+    old = _brand_asset(brand.get(f"{kind}_path"))
+    dest = BRAND_DIR / f"{kind}-{secrets.token_hex(4)}{suffix}"
+    try:
+        with dest.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        try:
+            save_brand({f"{kind}_path": dest.name})
+        except ValueError:
+            dest.unlink(missing_ok=True)
+            raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(500, f"Unggah berkas brand gagal: {e}")
+    if old and old.name != dest.name:
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    return _brand_payload(brand_public())
 
 # --------------------------------------------------------------------------
 # Glosarium ASR (T7) — data/glossary.txt, 1 istilah per baris → initial_prompt Whisper
@@ -1938,7 +2165,8 @@ def render_clip(project_id: str, payload: RenderRequest):
             zoom_manual=int(prefs.get("zoom_manual") or 100),
             zoom_keyframes=zoom_kfs,
             brolls=_stored_broll_spans(project_id, seg),
-            subtitle_style=prefs.get("subtitle_style"),
+            subtitle_style=brand_style(prefs.get("subtitle_style")),
+            brand=brand_for_render(),
             candidate_index=payload.candidate_index,
             raw_subdir="raw",
         )
@@ -1980,8 +2208,6 @@ def render_clip(project_id: str, payload: RenderRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Render failed: {str(e)}")
 
-
-HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 @app.put("/api/projects/{project_id}/prefs")
 def update_prefs(project_id: str, payload: PrefsRequest):
@@ -2493,7 +2719,8 @@ def _run_export(pid: str, job_id: str) -> None:
             zoom_manual=int(prefs.get("zoom_manual") or 100),
             zoom_keyframes=_stored_zoom_keyframes(pid, int(idx)),
             brolls=_stored_broll_spans(pid, seg),
-            subtitle_style=prefs.get("subtitle_style"),
+            subtitle_style=brand_style(prefs.get("subtitle_style")),
+            brand=brand_for_render(),
             candidate_index=int(idx),
             res_scale=EXPORT_RES[job["resolution"]], fps=int(job["fps"]),
             burn_caption=bool(job.get("burn_caption")),

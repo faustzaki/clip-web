@@ -52,3 +52,8 @@ __pycache__/
 # B-roll lokal (T10): media user, bukan kode
 data/broll/*
 !data/broll/.gitkeep
+
+# Brand kit (T11): kit milik user, bukan kode
+data/brand.json
+data/brand/*
+!data/brand/.gitkeep

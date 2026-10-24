@@ -1,0 +1,355 @@
+C:\Users\faust\AppData\Roaming\Python\Python313\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+PASS GET /api/brand 200 + default lengkap + 3 font + 4 sudut (prasyarat overlay ada) — status=200 configured=False fonts=['Arial Black', 'Impact', 'Verdana']
+PASS POST /api/brand: nilai ngawur 400, nilai valid tersimpan — bad=400 ok=200 stored={'logo_path': '', 'color_primary': '#FF00FF', 'color_secondary': '#4822A5', 'font': 'Impact', 'logo_corner': 'br', 'logo_size_pct': 8, 'intro_path': '', 'outro_path': ''}
+PASS unggah logo/intro/outro: 3 berkas tersimpan + URL terisi + mount /brand melayani berkas — berkas=['logo-158a195c.png', 'intro-d5aa12fd.mp4', 'outro-262bd056.mp4'] mount=200
+> ffmpeg -y -ss 0.000 -i C:\Users\faust\orca\clip-web\work\abcdef1101\source.mp4 -t 6.000 -vf crop=202:360:219:0,scale=1080:1920,ass=_overlay.ass -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\uji-brand.mp4
+ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 16.1.0 (Rev2, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-cairo --enable-fontconfig --enable-iconv --enable-gnutls --enable-lcms2 --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-libsnappy --enable-zlib --enable-librist --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-libbluray --enable-libcaca --enable-libdvdnav --enable-libdvdread --enable-sdl2 --enable-libaribb24 --enable-libaribcaption --enable-libdav1d --enable-libdavs2 --enable-libopenjpeg --enable-libquirc --enable-libuavs3d --enable-libxevd --enable-libzvbi --enable-liboapv --enable-libqrencode --enable-librav1e --enable-libsvtav1 --enable-libvvenc --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxeve --enable-libxvid --enable-libaom --enable-libjxl --enable-libsvtjpegxs --enable-libvpx --enable-mediafoundation --enable-libass --enable-frei0r --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-liblensfun --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-vulkan --enable-libplacebo --enable-opencl --enable-libcdio --enable-openal --enable-libgme --enable-libmodplug --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libshine --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libcodec2 --enable-libilbc --enable-libgsm --enable-liblc3 --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-ladspa --enable-libbs2b --enable-libflite --enable-libmysofa --enable-librubberband --enable-libsoxr --enable-chromaprint --enable-whisper
+  libavutil      61.  1.100 / 61.  1.100
+  libavcodec     63.  1.100 / 63.  1.100
+  libavformat    63.  1.100 / 63.  1.100
+  libavdevice    63.  1.100 / 63.  1.100
+  libavfilter    12.  1.100 / 12.  1.100
+  libswscale     10.  1.100 / 10.  1.100
+  libswresample   7.  1.100 /  7.  1.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:\Users\faust\orca\clip-web\work\abcdef1101\source.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Duration: 00:00:06.00, start: 0.000000, bitrate: 512 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 432 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.100 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+[Parsed_ass_2 @ 000002a8d098af40] libass API version: 0x1705000
+[Parsed_ass_2 @ 000002a8d098af40] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_2 @ 000002a8d098af40] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_2 @ 000002a8d098af40] Using font provider directwrite (with GDI)
+[Parsed_ass_2 @ 000002a8d098af40] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> h264 (libx264))
+  Stream #0:1 -> #0:1 (aac (native) -> aac (native))
+Press [q] to stop, [?] for help
+[Parsed_ass_2 @ 000002a8d098af40] libass API version: 0x1705000
+[Parsed_ass_2 @ 000002a8d098af40] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_2 @ 000002a8d098af40] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_2 @ 000002a8d098af40] Using font provider directwrite (with GDI)
+[Parsed_ass_2 @ 000002a8d098af40] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+[libx264 @ 000002a8d0a3ebc0] using SAR=404/405
+[libx264 @ 000002a8d0a3ebc0] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 000002a8d0a3ebc0] profile High, level 4.0, 4:2:0, 8-bit
+[libx264 @ 000002a8d0a3ebc0] 264 - core 165 r3223 0480cb0 - H.264/MPEG-4 AVC codec - Copyleft 2003-2025 - http://www.videolan.org/x264.html - options: cabac=1 ref=1 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=2 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=0 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=0 threads=18 lookahead_threads=6 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=1 keyint=250 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=10 rc=crf mbtree=1 crf=20.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+Output #0, mp4, to 'C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\uji-brand.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Stream #0:0(und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, progressive), 1080x1920 [SAR 404:405 DAR 101:180], q=2-31, 30 fps, 15360 tbn (default)
+    Metadata:
+      encoder         : Lavc63.1.100 libx264
+      handler_name    : VideoHandler
+    Side data:
+      CPB properties: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+  Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 160 kb/s (default)
+    Metadata:
+      encoder         : Lavc63.1.100 aac
+      handler_name    : SoundHandler
+frame=   53 fps=0.0 q=26.0 size=     256KiB time=00:00:01.92 bitrate=1088.4kbits/s speed=3.74x elapsed=0:00:00.51    frame=  132 fps=127 q=26.0 size=     768KiB time=00:00:04.52 bitrate=1389.6kbits/s speed=4.35x elapsed=0:00:01.03    [mp4 @ 000002a8d0a2cb40] Starting second pass: moving the moov atom to the beginning of the file
+[out#0/mp4 @ 000002a8d09ab080] video:1191KiB audio:75KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.607264%
+frame=  180 fps=144 q=-1.0 Lsize=    1273KiB time=00:00:06.00 bitrate=1738.2kbits/s speed=4.81x elapsed=0:00:01.24    
+[libx264 @ 000002a8d0a3ebc0] frame I:1     Avg QP: 9.76  size: 12689
+[libx264 @ 000002a8d0a3ebc0] frame P:54    Avg QP:14.28  size: 10072
+[libx264 @ 000002a8d0a3ebc0] frame B:125   Avg QP:18.26  size:  5295
+[libx264 @ 000002a8d0a3ebc0] consecutive B-frames:  3.9%  5.6% 15.0% 75.6%
+[libx264 @ 000002a8d0a3ebc0] mb I  I16..4: 93.4%  4.1%  2.5%
+[libx264 @ 000002a8d0a3ebc0] mb P  I16..4: 13.3%  3.1%  1.5%  P16..4:  2.1%  0.5%  0.2%  0.0%  0.0%    skip:79.4%
+[libx264 @ 000002a8d0a3ebc0] mb B  I16..4:  0.7%  0.8%  0.4%  B16..8:  3.5%  0.8%  0.3%  direct: 4.2%  skip:89.4%  L0:47.3% L1:46.2% BI: 6.5%
+[libx264 @ 000002a8d0a3ebc0] 8x8 transform intra:20.5% inter:33.4%
+[libx264 @ 000002a8d0a3ebc0] coded y,uvDC,uvAC intra: 21.6% 51.0% 38.8% inter: 0.8% 5.6% 1.2%
+[libx264 @ 000002a8d0a3ebc0] i16 v,h,dc,p: 87%  9%  3%  2%
+[libx264 @ 000002a8d0a3ebc0] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 21% 39% 20%  3%  4%  3%  4%  3%  4%
+[libx264 @ 000002a8d0a3ebc0] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 19% 29% 12%  5%  8%  7%  7%  7%  7%
+[libx264 @ 000002a8d0a3ebc0] i8c dc,h,v,p: 54% 22% 17%  7%
+[libx264 @ 000002a8d0a3ebc0] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 000002a8d0a3ebc0] kb/s:1624.57
+[aac @ 000002a8d2d7be40] Qavg: 63515.922
+SAVED C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\uji-brand.mp4  (9:16 1080x1920, center-crop)  + poster uji-brand.png + uji-brand.meta.json
+> ffmpeg -y -ss 0.000 -i C:\Users\faust\orca\clip-web\work\abcdef1101\source.mp4 -t 6.000 -i C:\Users\faust\AppData\Local\Temp\t11brand_zoyr2wjf\logo-158a195c.png -filter_complex [0:v]crop=202:360:219:0,scale=1080:1920[vbase];[1:v]scale=-1:154:flags=lanczos[logo];[vbase][logo]overlay=W-w-24:H-h-24:format=auto[ob];[ob]ass=_overlay.ass[v] -map [v] -map 0:a? -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\brand.mp4
+ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 16.1.0 (Rev2, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-cairo --enable-fontconfig --enable-iconv --enable-gnutls --enable-lcms2 --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-libsnappy --enable-zlib --enable-librist --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-libbluray --enable-libcaca --enable-libdvdnav --enable-libdvdread --enable-sdl2 --enable-libaribb24 --enable-libaribcaption --enable-libdav1d --enable-libdavs2 --enable-libopenjpeg --enable-libquirc --enable-libuavs3d --enable-libxevd --enable-libzvbi --enable-liboapv --enable-libqrencode --enable-librav1e --enable-libsvtav1 --enable-libvvenc --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxeve --enable-libxvid --enable-libaom --enable-libjxl --enable-libsvtjpegxs --enable-libvpx --enable-mediafoundation --enable-libass --enable-frei0r --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-liblensfun --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-vulkan --enable-libplacebo --enable-opencl --enable-libcdio --enable-openal --enable-libgme --enable-libmodplug --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libshine --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libcodec2 --enable-libilbc --enable-libgsm --enable-liblc3 --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-ladspa --enable-libbs2b --enable-libflite --enable-libmysofa --enable-librubberband --enable-libsoxr --enable-chromaprint --enable-whisper
+  libavutil      61.  1.100 / 61.  1.100
+  libavcodec     63.  1.100 / 63.  1.100
+  libavformat    63.  1.100 / 63.  1.100
+  libavdevice    63.  1.100 / 63.  1.100
+  libavfilter    12.  1.100 / 12.  1.100
+  libswscale     10.  1.100 / 10.  1.100
+  libswresample   7.  1.100 /  7.  1.100
+[Parsed_ass_4 @ 00000219ea998440] libass API version: 0x1705000
+[Parsed_ass_4 @ 00000219ea998440] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_4 @ 00000219ea998440] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_4 @ 00000219ea998440] Using font provider directwrite (with GDI)
+[Parsed_ass_4 @ 00000219ea998440] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:\Users\faust\orca\clip-web\work\abcdef1101\source.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Duration: 00:00:06.00, start: 0.000000, bitrate: 512 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 432 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.100 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+Input #1, png_pipe, from 'C:\Users\faust\AppData\Local\Temp\t11brand_zoyr2wjf\logo-158a195c.png':
+  Duration: N/A, bitrate: N/A
+  Stream #1:0: Video: png, rgba(pc, gbr/unknown/unknown), 160x160 [SAR 1:1 DAR 1:1], 25 fps, 25 tbr, 25 tbn
+Stream mapping:
+  Stream #0:0 (h264) -> crop:default
+  Stream #1:0 (png) -> scale:default
+  ass:default -> Stream #0:0 (libx264)
+  Stream #0:1 -> #0:1 (aac (native) -> aac (native))
+Press [q] to stop, [?] for help
+[Parsed_ass_4 @ 00000219ecd011c0] libass API version: 0x1705000
+[Parsed_ass_4 @ 00000219ecd011c0] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_4 @ 00000219ecd011c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_4 @ 00000219ecd011c0] Using font provider directwrite (with GDI)
+[Parsed_ass_4 @ 00000219ecd011c0] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+[libx264 @ 00000219ea9d0380] using SAR=404/405
+[libx264 @ 00000219ea9d0380] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 00000219ea9d0380] profile High 4:4:4 Predictive, level 4.0, 4:4:4, 8-bit
+[libx264 @ 00000219ea9d0380] 264 - core 165 r3223 0480cb0 - H.264/MPEG-4 AVC codec - Copyleft 2003-2025 - http://www.videolan.org/x264.html - options: cabac=1 ref=1 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=2 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=0 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=6 threads=18 lookahead_threads=6 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=1 keyint=250 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=10 rc=crf mbtree=1 crf=20.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+Output #0, mp4, to 'C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\brand.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Stream #0:0: Video: h264 (avc1 / 0x31637661), yuv444p(tv, progressive), 1080x1920 [SAR 404:405 DAR 101:180], q=2-31, 30 fps, 15360 tbn
+    Metadata:
+      encoder         : Lavc63.1.100 libx264
+    Side data:
+      CPB properties: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+  Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 160 kb/s (default)
+    Metadata:
+      encoder         : Lavc63.1.100 aac
+      handler_name    : SoundHandler
+frame=   11 fps=0.0 q=26.0 size=       0KiB time=00:00:00.48 bitrate=   0.8kbits/s speed=0.962x elapsed=0:00:00.50    frame=   54 fps= 53 q=26.0 size=     256KiB time=00:00:01.95 bitrate=1075.4kbits/s speed= 1.9x elapsed=0:00:01.02    frame=   99 fps= 64 q=26.0 size=     512KiB time=00:00:03.39 bitrate=1237.3kbits/s speed=2.21x elapsed=0:00:01.53    frame=  143 fps= 70 q=26.0 size=     768KiB time=00:00:04.87 bitrate=1290.3kbits/s speed=2.38x elapsed=0:00:02.05    [mp4 @ 00000219ec920880] Starting second pass: moving the moov atom to the beginning of the file
+[out#0/mp4 @ 00000219ea9198c0] video:1025KiB audio:75KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.699308%
+frame=  180 fps= 81 q=-1.0 Lsize=    1108KiB time=00:00:06.00 bitrate=1512.6kbits/s speed=2.71x elapsed=0:00:02.21    
+[libx264 @ 00000219ea9d0380] frame I:1     Avg QP:12.74  size: 12830
+[libx264 @ 00000219ea9d0380] frame P:51    Avg QP:16.59  size:  9102
+[libx264 @ 00000219ea9d0380] frame B:128   Avg QP:21.17  size:  4470
+[libx264 @ 00000219ea9d0380] consecutive B-frames:  1.1%  6.7% 16.7% 75.6%
+[libx264 @ 00000219ea9d0380] mb I  I16..4: 89.8%  7.9%  2.2%
+[libx264 @ 00000219ea9d0380] mb P  I16..4:  8.1%  4.6%  1.3%  P16..4:  1.4%  0.5%  0.2%  0.0%  0.0%    skip:84.0%
+[libx264 @ 00000219ea9d0380] mb B  I16..4:  1.0%  0.9%  0.4%  B16..8:  3.1%  0.8%  0.2%  direct: 0.9%  skip:92.7%  L0:48.6% L1:45.2% BI: 6.2%
+[libx264 @ 00000219ea9d0380] 8x8 transform intra:32.8% inter:27.8%
+[libx264 @ 00000219ea9d0380] coded y,u,v intra: 26.2% 23.8% 21.1% inter: 0.7% 0.9% 0.5%
+[libx264 @ 00000219ea9d0380] i16 v,h,dc,p: 56% 36%  5%  3%
+[libx264 @ 00000219ea9d0380] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 17% 35% 31%  3%  3%  2%  3%  2%  4%
+[libx264 @ 00000219ea9d0380] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 19% 27% 12%  6%  9%  7%  7%  7%  7%
+[libx264 @ 00000219ea9d0380] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 00000219ea9d0380] kb/s:1398.88
+[aac @ 00000219ecb36900] Qavg: 63515.922
+> ffmpeg -y -i C:\Users\faust\AppData\Local\Temp\t11brand_zoyr2wjf\intro-d5aa12fd.mp4 -i C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\brand.mp4 -i C:\Users\faust\AppData\Local\Temp\t11brand_zoyr2wjf\outro-262bd056.mp4 -filter_complex [0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v0];[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a0];[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v1];[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a1];[2:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v2];anullsrc=channel_layout=stereo:sample_rate=48000:d=1.520[a2];[v0][a0][v1][a1][v2][a2]concat=n=3:v=1:a=1[v][a] -map [v] -map [a] -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 160k -movflags +faststart C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\brand.brand.mp4
+  brand: intro/outro ter-concat → 9.53s
+SAVED C:\Users\faust\orca\clip-web\clips\abcdef1101\raw\brand.mp4  (9:16 1080x1920, center-crop)  + poster brand.png + brand.meta.json
+PASS render tanpa brand vs dengan brand: sha256 berbeda — a=0ad1593c0410 b=38f3cfeca4e7
+PASS logo tampil di sudut br (hijau) & area transparan tidak jadi kotak hitam — logo=(0, 223, 0) tembus=(0, 0, 255) dasar=(0, 0, 255)
+> ffmpeg -y -ss 0.000 -i C:\Users\faust\orca\clip-web\work\_t11check\source.mp4 -t 6.000 -vf crop=202:360:219:0,scale=480:854,ass=_overlay.ass,ass=_captions.ass -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart C:\Users\faust\orca\clip-web\work\_t11check\cap_brand.mp4
+ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 16.1.0 (Rev2, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-cairo --enable-fontconfig --enable-iconv --enable-gnutls --enable-lcms2 --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-libsnappy --enable-zlib --enable-librist --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-libbluray --enable-libcaca --enable-libdvdnav --enable-libdvdread --enable-sdl2 --enable-libaribb24 --enable-libaribcaption --enable-libdav1d --enable-libdavs2 --enable-libopenjpeg --enable-libquirc --enable-libuavs3d --enable-libxevd --enable-libzvbi --enable-liboapv --enable-libqrencode --enable-librav1e --enable-libsvtav1 --enable-libvvenc --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxeve --enable-libxvid --enable-libaom --enable-libjxl --enable-libsvtjpegxs --enable-libvpx --enable-mediafoundation --enable-libass --enable-frei0r --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-liblensfun --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-vulkan --enable-libplacebo --enable-opencl --enable-libcdio --enable-openal --enable-libgme --enable-libmodplug --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libshine --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libcodec2 --enable-libilbc --enable-libgsm --enable-liblc3 --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-ladspa --enable-libbs2b --enable-libflite --enable-libmysofa --enable-librubberband --enable-libsoxr --enable-chromaprint --enable-whisper
+  libavutil      61.  1.100 / 61.  1.100
+  libavcodec     63.  1.100 / 63.  1.100
+  libavformat    63.  1.100 / 63.  1.100
+  libavdevice    63.  1.100 / 63.  1.100
+  libavfilter    12.  1.100 / 12.  1.100
+  libswscale     10.  1.100 / 10.  1.100
+  libswresample   7.  1.100 /  7.  1.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:\Users\faust\orca\clip-web\work\_t11check\source.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Duration: 00:00:06.00, start: 0.000000, bitrate: 512 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 432 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.100 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+[Parsed_ass_2 @ 0000021887245540] libass API version: 0x1705000
+[Parsed_ass_2 @ 0000021887245540] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_2 @ 0000021887245540] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_2 @ 0000021887245540] Using font provider directwrite (with GDI)
+[Parsed_ass_2 @ 0000021887245540] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+[Parsed_ass_3 @ 0000021887243e40] libass API version: 0x1705000
+[Parsed_ass_3 @ 0000021887243e40] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_3 @ 0000021887243e40] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_3 @ 0000021887243e40] Using font provider directwrite (with GDI)
+[Parsed_ass_3 @ 0000021887243e40] Added subtitle file: '_captions.ass' (2 styles, 4 events)
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> h264 (libx264))
+  Stream #0:1 -> #0:1 (aac (native) -> aac (native))
+Press [q] to stop, [?] for help
+[Parsed_ass_2 @ 0000021887245040] libass API version: 0x1705000
+[Parsed_ass_2 @ 0000021887245040] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_2 @ 0000021887245040] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_2 @ 0000021887245040] Using font provider directwrite (with GDI)
+[Parsed_ass_2 @ 0000021887245040] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+[Parsed_ass_3 @ 0000021887244240] libass API version: 0x1705000
+[Parsed_ass_3 @ 0000021887244240] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_3 @ 0000021887244240] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_3 @ 0000021887244240] Using font provider directwrite (with GDI)
+[Parsed_ass_3 @ 0000021887244240] Added subtitle file: '_captions.ass' (2 styles, 4 events)
+[libx264 @ 00000218872e22c0] using SAR=2954/2959
+[libx264 @ 00000218872e22c0] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 00000218872e22c0] profile High, level 3.1, 4:2:0, 8-bit
+[libx264 @ 00000218872e22c0] 264 - core 165 r3223 0480cb0 - H.264/MPEG-4 AVC codec - Copyleft 2003-2025 - http://www.videolan.org/x264.html - options: cabac=1 ref=1 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=2 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=0 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=0 threads=18 lookahead_threads=6 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=1 keyint=250 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=10 rc=crf mbtree=1 crf=20.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+Output #0, mp4, to 'C:\Users\faust\orca\clip-web\work\_t11check\cap_brand.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Stream #0:0(und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, progressive), 480x854 [SAR 43127:43200 DAR 101:180], q=2-31, 30 fps, 15360 tbn (default)
+    Metadata:
+      encoder         : Lavc63.1.100 libx264
+      handler_name    : VideoHandler
+    Side data:
+      CPB properties: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+  Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 160 kb/s (default)
+    Metadata:
+      encoder         : Lavc63.1.100 aac
+      handler_name    : SoundHandler
+[Parsed_ass_3 @ 0000021887244240] fontselect: (Impact, 700, 0) -> Impact, 0, Impact
+frame=  176 fps=0.0 q=-1.0 size=     256KiB time=N/A bitrate=N/A speed=N/A elapsed=0:00:00.50    [mp4 @ 00000218872e13c0] Starting second pass: moving the moov atom to the beginning of the file
+[out#0/mp4 @ 0000021887259cc0] video:423KiB audio:75KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 1.518186%
+frame=  180 fps=0.0 q=-1.0 Lsize=     506KiB time=00:00:06.00 bitrate= 690.8kbits/s speed=11.5x elapsed=0:00:00.52    
+[libx264 @ 00000218872e22c0] frame I:1     Avg QP: 9.73  size:  5626
+[libx264 @ 00000218872e22c0] frame P:58    Avg QP:15.62  size:  3986
+[libx264 @ 00000218872e22c0] frame B:121   Avg QP:20.66  size:  1621
+[libx264 @ 00000218872e22c0] consecutive B-frames:  2.8%  8.9% 41.7% 46.7%
+[libx264 @ 00000218872e22c0] mb I  I16..4: 90.6%  3.2%  6.2%
+[libx264 @ 00000218872e22c0] mb P  I16..4: 13.1%  1.8%  2.6%  P16..4:  3.5%  1.3%  0.7%  0.0%  0.0%    skip:77.0%
+[libx264 @ 00000218872e22c0] mb B  I16..4:  0.4%  0.2%  0.1%  B16..8:  5.4%  1.6%  0.6%  direct: 3.3%  skip:88.4%  L0:43.9% L1:44.6% BI:11.5%
+[libx264 @ 00000218872e22c0] 8x8 transform intra:10.9% inter:18.1%
+[libx264 @ 00000218872e22c0] coded y,uvDC,uvAC intra: 20.6% 46.2% 40.4% inter: 1.6% 6.8% 3.3%
+[libx264 @ 00000218872e22c0] i16 v,h,dc,p: 89%  7%  3%  1%
+[libx264 @ 00000218872e22c0] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 28% 23% 25%  3%  3%  4%  3%  4%  7%
+[libx264 @ 00000218872e22c0] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 23% 30% 21%  4%  5%  4%  4%  4%  5%
+[libx264 @ 00000218872e22c0] i8c dc,h,v,p: 58% 19% 19%  4%
+[libx264 @ 00000218872e22c0] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 00000218872e22c0] kb/s:577.29
+[aac @ 00000218897e5cc0] Qavg: 63515.922
+SAVED C:\Users\faust\orca\clip-web\work\_t11check\cap_brand.mp4  (9:16 480x854 preview, center-crop)
+> ffmpeg -y -ss 0.000 -i C:\Users\faust\orca\clip-web\work\_t11check\source.mp4 -t 6.000 -vf crop=202:360:219:0,scale=480:854,ass=_overlay.ass,ass=_captions.ass -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart C:\Users\faust\orca\clip-web\work\_t11check\cap_plain.mp4
+ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+  built with gcc 16.1.0 (Rev2, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-cairo --enable-fontconfig --enable-iconv --enable-gnutls --enable-lcms2 --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-libsnappy --enable-zlib --enable-librist --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-libbluray --enable-libcaca --enable-libdvdnav --enable-libdvdread --enable-sdl2 --enable-libaribb24 --enable-libaribcaption --enable-libdav1d --enable-libdavs2 --enable-libopenjpeg --enable-libquirc --enable-libuavs3d --enable-libxevd --enable-libzvbi --enable-liboapv --enable-libqrencode --enable-librav1e --enable-libsvtav1 --enable-libvvenc --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxeve --enable-libxvid --enable-libaom --enable-libjxl --enable-libsvtjpegxs --enable-libvpx --enable-mediafoundation --enable-libass --enable-frei0r --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-liblensfun --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-vulkan --enable-libplacebo --enable-opencl --enable-libcdio --enable-openal --enable-libgme --enable-libmodplug --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libshine --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libcodec2 --enable-libilbc --enable-libgsm --enable-liblc3 --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-ladspa --enable-libbs2b --enable-libflite --enable-libmysofa --enable-librubberband --enable-libsoxr --enable-chromaprint --enable-whisper
+  libavutil      61.  1.100 / 61.  1.100
+  libavcodec     63.  1.100 / 63.  1.100
+  libavformat    63.  1.100 / 63.  1.100
+  libavdevice    63.  1.100 / 63.  1.100
+  libavfilter    12.  1.100 / 12.  1.100
+  libswscale     10.  1.100 / 10.  1.100
+  libswresample   7.  1.100 /  7.  1.100
+Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'C:\Users\faust\orca\clip-web\work\_t11check\source.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Duration: 00:00:06.00, start: 0.000000, bitrate: 512 kb/s
+  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 432 kb/s, 30 fps, 30 tbr, 15360 tbn (default)
+    Metadata:
+      handler_name    : VideoHandler
+      encoder         : Lavc63.1.100 libx264
+  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 69 kb/s (default)
+    Metadata:
+      handler_name    : SoundHandler
+[Parsed_ass_2 @ 00000261ffc1c180] libass API version: 0x1705000
+[Parsed_ass_2 @ 00000261ffc1c180] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_2 @ 00000261ffc1c180] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_2 @ 00000261ffc1c180] Using font provider directwrite (with GDI)
+[Parsed_ass_2 @ 00000261ffc1c180] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+[Parsed_ass_3 @ 00000261ffc1c3c0] libass API version: 0x1705000
+[Parsed_ass_3 @ 00000261ffc1c3c0] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_3 @ 00000261ffc1c3c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_3 @ 00000261ffc1c3c0] Using font provider directwrite (with GDI)
+[Parsed_ass_3 @ 00000261ffc1c3c0] Added subtitle file: '_captions.ass' (2 styles, 4 events)
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> h264 (libx264))
+  Stream #0:1 -> #0:1 (aac (native) -> aac (native))
+Press [q] to stop, [?] for help
+[Parsed_ass_2 @ 00000261822f84c0] libass API version: 0x1705000
+[Parsed_ass_2 @ 00000261822f84c0] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_2 @ 00000261822f84c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_2 @ 00000261822f84c0] Using font provider directwrite (with GDI)
+[Parsed_ass_2 @ 00000261822f84c0] Added subtitle file: '_overlay.ass' (3 styles, 0 events)
+[Parsed_ass_3 @ 00000261822f71c0] libass API version: 0x1705000
+[Parsed_ass_3 @ 00000261822f71c0] libass source: commit: 0.17.5-2-gf9fd3d20dff1cd84b7c74c8ae7f79711ad7736fa
+[Parsed_ass_3 @ 00000261822f71c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 14.3.0 (COMPLEX)
+[Parsed_ass_3 @ 00000261822f71c0] Using font provider directwrite (with GDI)
+[Parsed_ass_3 @ 00000261822f71c0] Added subtitle file: '_captions.ass' (2 styles, 4 events)
+[libx264 @ 00000261ffc1fb00] using SAR=2954/2959
+[libx264 @ 00000261ffc1fb00] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 00000261ffc1fb00] profile High, level 3.1, 4:2:0, 8-bit
+[libx264 @ 00000261ffc1fb00] 264 - core 165 r3223 0480cb0 - H.264/MPEG-4 AVC codec - Copyleft 2003-2025 - http://www.videolan.org/x264.html - options: cabac=1 ref=1 deblock=1:0:0 analyse=0x3:0x113 me=hex subme=2 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=0 8x8dct=1 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=0 threads=18 lookahead_threads=6 sliced_threads=0 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=3 b_pyramid=2 b_adapt=1 b_bias=0 direct=1 weightb=1 open_gop=0 weightp=1 keyint=250 keyint_min=25 scenecut=40 intra_refresh=0 rc_lookahead=10 rc=crf mbtree=1 crf=20.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=1:1.00
+Output #0, mp4, to 'C:\Users\faust\orca\clip-web\work\_t11check\cap_plain.mp4':
+  Metadata:
+    major_brand     : isom
+    minor_version   : 512
+    compatible_brands: isomiso2avc1mp41
+    encoder         : Lavf63.1.100
+  Stream #0:0(und): Video: h264 (avc1 / 0x31637661), yuv420p(tv, progressive), 480x854 [SAR 43127:43200 DAR 101:180], q=2-31, 30 fps, 15360 tbn (default)
+    Metadata:
+      encoder         : Lavc63.1.100 libx264
+      handler_name    : VideoHandler
+    Side data:
+      CPB properties: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+  Stream #0:1(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, mono, fltp, 160 kb/s (default)
+    Metadata:
+      encoder         : Lavc63.1.100 aac
+      handler_name    : SoundHandler
+[Parsed_ass_3 @ 00000261822f71c0] fontselect: (Arial Black, 700, 0) -> Arial-Black, 0, Arial-Black
+frame=  148 fps=0.0 q=26.0 size=     256KiB time=00:00:05.68 bitrate= 368.7kbits/s speed=10.8x elapsed=0:00:00.52    [mp4 @ 00000261ffc1ecc0] Starting second pass: moving the moov atom to the beginning of the file
+[out#0/mp4 @ 00000261ffb962c0] video:423KiB audio:75KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 1.519532%
+frame=  180 fps=0.0 q=-1.0 Lsize=     506KiB time=00:00:06.00 bitrate= 690.2kbits/s speed=10.8x elapsed=0:00:00.55    
+[libx264 @ 00000261ffc1fb00] frame I:1     Avg QP: 9.73  size:  5626
+[libx264 @ 00000261ffc1fb00] frame P:58    Avg QP:15.54  size:  3976
+[libx264 @ 00000261ffc1fb00] frame B:121   Avg QP:20.63  size:  1622
+[libx264 @ 00000261ffc1fb00] consecutive B-frames:  2.8%  8.9% 41.7% 46.7%
+[libx264 @ 00000261ffc1fb00] mb I  I16..4: 90.6%  3.2%  6.2%
+[libx264 @ 00000261ffc1fb00] mb P  I16..4: 13.2%  1.8%  2.6%  P16..4:  3.5%  1.3%  0.7%  0.0%  0.0%    skip:77.0%
+[libx264 @ 00000261ffc1fb00] mb B  I16..4:  0.4%  0.2%  0.1%  B16..8:  5.4%  1.6%  0.6%  direct: 3.3%  skip:88.3%  L0:43.7% L1:44.8% BI:11.5%
+[libx264 @ 00000261ffc1fb00] 8x8 transform intra:11.0% inter:18.1%
+[libx264 @ 00000261ffc1fb00] coded y,uvDC,uvAC intra: 20.4% 46.0% 40.1% inter: 1.6% 6.8% 3.3%
+[libx264 @ 00000261ffc1fb00] i16 v,h,dc,p: 89%  7%  3%  1%
+[libx264 @ 00000261ffc1fb00] i8 v,h,dc,ddl,ddr,vr,hd,vl,hu: 28% 24% 25%  3%  3%  4%  3%  4%  7%
+[libx264 @ 00000261ffc1fb00] i4 v,h,dc,ddl,ddr,vr,hd,vl,hu: 23% 30% 21%  4%  5%  4%  4%  4%  5%
+[libx264 @ 00000261ffc1fb00] i8c dc,h,v,p: 58% 19% 19%  4%
+[libx264 @ 00000261ffc1fb00] Weighted P-Frames: Y:0.0% UV:0.0%
+[libx264 @ 00000261ffc1fb00] kb/s:576.68
+[aac @ 0000026181d03fc0] Qavg: 63515.922
+SAVED C:\Users\faust\orca\clip-web\work\_t11check\cap_plain.mp4  (9:16 480x854 preview, center-crop)
+PASS warna caption ikut color_primary (#FF00FF) hanya saat brand kit aktif — magenta_with_brand=584 tanpa_brand=0
+PASS intro/outro ter-concat: durasi ≈ intro+klip+outro & audio tetap ada — durasi=9.533s audio=True
+PASS tanpa TODO/console.log/dark theme di berkas yang disentuh
+
+0 gagal

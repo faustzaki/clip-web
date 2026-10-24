@@ -276,7 +276,7 @@ export default function ClipsPanel({
 
       {/* BOTTOM SECTION: Horizontal Filmstrip Reel */}
       <section
-        style={{ height: bottomCollapsed ? 'auto' : bottomH }}
+        style={{ height: bottomCollapsed ? 40 : bottomH }}
         className="bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-vz-xl p-2.5 shadow-xl flex flex-col min-h-0 overflow-hidden shrink-0"
       >
         {/* Section Header */}

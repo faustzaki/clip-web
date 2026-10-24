@@ -340,7 +340,7 @@ export default function StudioView({
       </div>
 
     {/* BOTTOM PANEL MODE: If pipelinePos === 'bottom' (default kuncup kalau belum ada klip) */}
-    {pipelinePos === 'bottom' && (
+    {pipelinePos === 'bottom' && !bottomCollapsed && (
     <ClipsPanel
         variant="bottom"
         pipelinePos={pipelinePos}
@@ -377,12 +377,15 @@ export default function StudioView({
         error={timelineError}
       />
 
-      <ClipStrip
-        clips={clips}
-        selected={selectedClip?.slug}
-        onSelect={(clip) => setActiveCandidateIdx(clip.candidate_index ?? 0)}
-        onDownload={handleOpenExport}
-      />
+      {/* Strip klip hanya muncul kalau ada klip — 0 klip = 96px terbuang */}
+      {clips.length > 0 && (
+        <ClipStrip
+          clips={clips}
+          selected={selectedClip?.slug}
+          onSelect={(clip) => setActiveCandidateIdx(clip.candidate_index ?? 0)}
+          onDownload={handleOpenExport}
+        />
+      )}
 
       <ExportModal
         open={Boolean(exportClip)}

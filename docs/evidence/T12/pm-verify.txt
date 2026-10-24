@@ -1,0 +1,16 @@
+# pm_verify_t12.py dijalankan apa adanya (tanpa ubah port) terhadap server repo ini di :8000.
+# Catatan: sebelum ini :8000 dipegang proses uvicorn lama (PID 18608) yang menjalankan kode SEBELUM T12
+# (GET /api/options-nya belum punya key capabilities), sehingga PUT render_prefs-nya dibuang oleh
+# validasi kode lama dan 4 cek gagal. Proses itu dihentikan, server dijalankan ulang dari kode sekarang.
+
+PASS PUT prefs 200 — 200
+PASS offset_y bertahan setelah dibaca ulang — 18
+PASS layout bertahan — center
+PASS bg_fill bertahan — blur
+PASS bg_color bertahan — #FF00FF
+PASS render 200 — 200
+PASS file hasil ada — clip.mp4
+PASS hasil 1080x1920 — 1080x1920
+project uji dibersihkan: 7a1c1678bd
+
+8 lulus, 0 gagal

@@ -32,6 +32,10 @@ PREFS = {
     "speaker_names_in_caption": True,   # T8: contoh toggle aktif supaya terlihat di screenshot
     "subtitle_lang": "",                # T9: bahasa target terjemahan
     "subtitle_dual": False,             # T9: baris 2 = terjemahan
+    "layout": "center",                 # T12: contoh susunan aktif supaya terlihat di screenshot
+    "bg_fill": "blur",                  # T12: blur | color | black
+    "bg_color": "#4822A5",              # T12: dipakai saat bg_fill="color"
+    "offset_y": 0,                      # T12: -30..30 (% tinggi frame)
 }
 WORDS = [
     ("Halo", 0.4, 0.9), ("eee", 1.0, 1.3), ("semua", 1.4, 1.9),
@@ -257,6 +261,8 @@ class H(SimpleHTTPRequestHandler):
                                "models": ["ocf/deepseek-v4.1-flash-free", "nara/glm-5.3", "cbai/kimi-k2.7"],
                                "clip_lengths": [30, 45, 60, 90],
                                "aspect_ratios": ["9:16", "1:1", "4:5", "16:9"],
+                               "capabilities": {"overlay": True,
+                                                "blur": os.environ.get("MOCK_NO_BLUR") != "1"},
                                "asr_models": [
                                    {"id": "medium", "label": "Medium — default, akurat & hemat waktu"},
                                    {"id": "large-v3", "label": "Large v3 — paling akurat, ~2-4x lebih lama di CPU"},

@@ -61,7 +61,15 @@ DEFAULT_RENDER_PREFS = {
     "speaker_names_in_caption": False,   # T8: prefix "Nama: " di caption kalau diarisasi aktif
     "subtitle_lang": "",                 # T9: kode bahasa target terjemahan ("" = tanpa terjemahan)
     "subtitle_dual": False,              # T9: tampilkan baris 2 (terjemahan, 80% ukuran)
+    # T12: latar + susunan ulang (reframe). layout "off" = perilaku lama (crop_mode yang menentukan).
+    "layout": "off",                     # off | center | stack | box
+    "bg_fill": "blur",                   # blur | color | black
+    "bg_color": "#4822A5",               # dipakai saat bg_fill="color"
+    "offset_y": 0,                       # -30..30 (% tinggi frame), geser subjek naik/turun
 }
+# T12: nilai yang sah untuk susunan ulang (lihat chopify/render_clips.py cabang `layout`).
+LAYOUTS = ("off", "center", "stack", "box")
+BG_FILLS = ("blur", "color", "black")
 WORKDIR = ROOT_DIR / "work"
 CLIPS_DIR = ROOT_DIR / "clips"
 WORKDIR.mkdir(parents=True, exist_ok=True)
@@ -109,6 +117,21 @@ def overlay_supported() -> bool:
         except Exception:
             _OVERLAY_OK = False
     return _OVERLAY_OK
+
+_BOXBLUR_OK: Optional[bool] = None
+
+def blur_supported() -> bool:
+    """Filter `boxblur` ffmpeg = prasyarat isi latar `Blur` (T12). Hasil di-cache sekali."""
+    global _BOXBLUR_OK
+    if _BOXBLUR_OK is None:
+        try:
+            out = subprocess.run(["ffmpeg", "-hide_banner", "-filters"],
+                                 capture_output=True, text=True, timeout=15).stdout
+            _BOXBLUR_OK = any(len(t) > 1 and t[1] == "boxblur" for t in
+                              (line.split() for line in out.splitlines()))
+        except Exception:
+            _BOXBLUR_OK = False
+    return _BOXBLUR_OK
 
 def _brand_asset(name: Optional[str]) -> Optional[Path]:
     """Berkas unggahan brand; nama diambil basename-nya supaya tidak bisa keluar folder."""
@@ -325,10 +348,32 @@ def read_project_meta(pid: str) -> dict:
     if not p.exists(): raise HTTPException(404, 'Project not found')
     return json.loads(p.read_text(encoding='utf-8'))
 
+META_LOCK = threading.Lock()
+
 def write_project_meta(pid: str, meta: dict) -> None:
+    """Tulis atomik (temp unik + replace).
+
+    PUT prefs bisa datang bersamaan (mis. color picker mengirim deretan event, atau
+    dua tab bersamaan); truncate+write yang tumpang tindih pernah membuat
+    project.json korup ("Extra data" saat dibaca) dan seluruh API 500.
+    Nama temp unik per proses+thread supaya dua proses (mis. dev server + skrip cek)
+    tidak saling menimpa berkas temp yang sama.
+    """
     meta['updated_at'] = time.time()
-    (project_dir(pid) / 'project.json').write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2), encoding='utf-8')
+    p = project_dir(pid) / 'project.json'
+    tmp = p.with_name(f'project.json.{os.getpid()}.{threading.get_ident()}.tmp')
+    data = json.dumps(meta, ensure_ascii=False, indent=2)
+    with META_LOCK:
+        tmp.write_text(data, encoding='utf-8')
+        for attempt in range(4):
+            try:
+                tmp.replace(p)
+                break
+            except PermissionError:            # Windows: pengguna lain berkas masih memegangnya
+                if attempt == 3:
+                    tmp.unlink(missing_ok=True)
+                    raise
+                time.sleep(0.05)
 
 def get_source_video_path(pid: str) -> Optional[Path]:
     pdir = project_dir(pid)
@@ -677,6 +722,8 @@ def get_options():
         models.append({"id": "heuristic", "label": "Offline Heuristic (Tanpa LLM, Rp0)"})
     return {
         "aspect_ratios": ["9:16", "1:1", "4:5", "16:9"],
+        # T12: prasyarat ffmpeg. blur=false → UI mematikan opsi isi latar "Blur" (placeholder jujur).
+        "capabilities": {"overlay": overlay_supported(), "blur": blur_supported()},
         "subtitle_fonts": [
             "Arial Black", "Arial", "Impact", "Verdana", "Tahoma",
             "Trebuchet MS", "Georgia", "Courier New", "Segoe UI", "Calibri"
@@ -2169,6 +2216,10 @@ def render_clip(project_id: str, payload: RenderRequest):
             brand=brand_for_render(),
             candidate_index=payload.candidate_index,
             raw_subdir="raw",
+            layout=prefs.get("layout"),
+            bg_fill=prefs.get("bg_fill"),
+            bg_color=prefs.get("bg_color"),
+            offset_y=int(prefs.get("offset_y") or 0),
         )
 
         res_path = Path(res_p)
@@ -2251,6 +2302,33 @@ def update_prefs(project_id: str, payload: PrefsRequest):
         merged["subtitle_lang"] = lang_in
     if "subtitle_dual" in new_prefs:
         merged["subtitle_dual"] = bool(new_prefs["subtitle_dual"])
+
+    # Latar + susunan ulang (T12). Susunan "off" = crop_mode lama tetap berlaku.
+    if "layout" in new_prefs:
+        layout_in = str(new_prefs["layout"] or "off").strip().lower()
+        if layout_in not in LAYOUTS:
+            raise HTTPException(400, "Susunan tidak valid: pakai off|center|stack|box")
+        merged["layout"] = layout_in
+    if "bg_fill" in new_prefs:
+        fill_in = str(new_prefs["bg_fill"] or "blur").strip().lower()
+        if fill_in not in BG_FILLS:
+            raise HTTPException(400, "Isi latar tidak valid: pakai blur|color|black")
+        if fill_in == "blur" and not blur_supported():
+            raise HTTPException(400, "Isi latar Blur tidak tersedia: filter ffmpeg boxblur tidak ada")
+        merged["bg_fill"] = fill_in
+    if "bg_color" in new_prefs:
+        color_in = str(new_prefs["bg_color"] or "").strip()
+        if not HEX_COLOR_RE.match(color_in):
+            raise HTTPException(400, "Warna latar tidak valid: pakai #RRGGBB")
+        merged["bg_color"] = color_in
+    if "offset_y" in new_prefs:
+        try:
+            oy = int(round(float(new_prefs["offset_y"])))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Offset vertikal tidak valid: offset_y")
+        if not (-30 <= oy <= 30):
+            raise HTTPException(400, "Offset vertikal tidak valid: pakai -30..30")
+        merged["offset_y"] = oy
 
     if "caption_preset" in new_prefs:
         preset_name = str(new_prefs["caption_preset"] or "")
@@ -2726,6 +2804,10 @@ def _run_export(pid: str, job_id: str) -> None:
             burn_caption=bool(job.get("burn_caption")),
             out_name=Path(job["path"]).name,
             dual_lines=dual_lines,
+            layout=prefs.get("layout"),
+            bg_fill=prefs.get("bg_fill"),
+            bg_color=prefs.get("bg_color"),
+            offset_y=int(prefs.get("offset_y") or 0),
         )
         upd(status="done", progress=100, finished_at=time.time())
     except Exception as e:

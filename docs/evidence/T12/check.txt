@@ -1,0 +1,1 @@
+# check_t12.py — 0 gagal (detail: stdout)

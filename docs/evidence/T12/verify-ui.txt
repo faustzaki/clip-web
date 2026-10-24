@@ -1,0 +1,67 @@
+# T12 — verifikasi UI (browser, server asli repo di :8005, project uji faced12abc,
+# source testsrc2 640x360 16:9, aspect 9:16). Setiap angka di bawah diukur dari DOM/render,
+# bukan diklaim.
+
+PASS panel Layout dari pill toolbar: Isi latar = Blur/Warna/Hitam, Susunan = Tanpa/Tengah/Atas-bawah/Kotak
+     → /api/options.capabilities.blur = true sehingga opsi Blur tidak disabled
+PASS Isi latar Warna → color picker muncul, nilai tampil (#2D1D1D), latar preview jadi warna itu
+     → 30 event color berturut-turut (seperti menggeser picker) hanya menyimpan 1 nilai terakhir
+       (#2D1D1D) dan project.json tetap terbaca (state HTTP 200)
+PASS Isi latar Hitam → elemen latar jadi rgb(0, 0, 0)
+PASS Susunan Tanpa → tidak ada elemen latar (perilaku framing lama tetap utuh)
+
+Geometri pratinjau (topRel = posisi atas video utama sebagai pecahan tinggi frame):
+  Tengah      -> topRel 0.268, botRel 0.572, lebar video = 100% lebar frame, latar DIV/video blur penuh frame
+  Atas-bawah  -> topRel -0.069 (menempel atas, sisanya latar), botRel 0.236
+  Kotak       -> topRel -0.020, botRel 0.860, lebar video = 170/197 px (90%), border-radius 6 px
+
+PASS tanpa black bar: frame terisi latar (blur/warna/hitam) di seluruh tinggi, tidak ada pita hitam
+PASS tiga susunan menghasilkan tampilan berbeda di pratinjau (lihat after/preview-*.png)
+
+Drag vertikal:
+PASS tarik video turun 18% tinggi frame → readout "Geser vertikal 18%", GET state offset_y = 18
+PASS tarik melewati batas → readout berhenti di "Geser vertikal 30%" (clamp -30..30)
+PASS tombol Reset 0% → readout "Geser vertikal 0%", offset_y = 0
+
+Persistensi setelah reload:
+PASS reload halaman + buka ulang project → topRel 0.448 (= tengah 0.348 + 10%) dan
+     readout "Geser vertikal 10%"; nilai dibaca dari project.json, bukan state di memori
+
+Pratinjau vs hasil render (selisih posisi subjek, toleransi tugas < 5% tinggi frame):
+  Tengah,    offset_y = 0  -> pratinjau 0.348 vs render 0.3417  (Δ 0.63%)
+  Tengah,    offset_y = 18 -> pratinjau 0.528 vs render 0.5219  (Δ 0.61%)
+  Atas-bawah,offset_y = 0  -> pratinjau 0.011 vs render 0.0000  (Δ 1.10%; 0.011 = border 4 px frame pratinjau)
+  Kotak                    -> pratinjau (video di dalam kotak 90%) 0.36 vs render 0.357 (Δ ~0.3%)
+
+PASS tanpa error runtime: console 0 entri dan tidak ada error halaman pada satu putaran penuh
+     (buka panel, ganti 3 susunan, ganti 3 isi latar, drag, reload). Satu-satunya entri yang pernah
+     muncul adalah "GET /work/faced12abc/source.mp4: net::ERR_ABORTED" saat reload halaman —
+     perilaku elemen <video> saat navigasi, tidak muncul pada putaran bersih.
+
+## Placeholder tanpa `boxblur` (server tiruan, `MOCK_NO_BLUR=1`, :8010)
+PASS `/api/options` → `capabilities.blur = false`
+PASS tombol `Blur` disabled; `Warna` dan `Hitam` tetap bisa diklik
+PASS panel menampilkan alasan berbahasa Indonesia di bawah tombol:
+     "Isi latar Blur tidak tersedia: filter ffmpeg boxblur tidak ada. Pakai Warna atau Hitam."
+     (after/panel-blur-disabled.png)
+Catatan: server tiruan tidak memvalidasi PUT (selalu 200); penolakan `bg_fill=blur` → 400 diuji pada
+server asli di `scripts/check_t12.py`.
+
+## Perbaikan `setPrefs` (MENYIMPANG 4b) diuji lewat drag subtitle
+PASS seret teks subtitle di pratinjau → console 0 entri, 0 error halaman (sebelum perbaikan:
+     `ReferenceError: setPrefs is not defined` di handler drag/rotate/scale)
+PASS seret handle rotate di atas subtitle → subtitle berubah `transform: matrix(-0.173648, 0.984808, ...)`,
+     console tetap bersih
+     (diuji pada server tiruan :8011; persistensinya urusan prefs subtitle T5/T11 yang tidak diubah T12)
+
+## Berkas pendukung
+after/panel-layout-baru.png            panel Layout (light theme, aksen --vz-accent)
+after/panel-layout-offset18.png        panel saat offset 18%
+after/studio-layout-tengah-offset18.png  studio penuh: preview tengah + latar blur
+after/preview-tengah-blur.png          pratinjau Tengah + Blur
+after/preview-atas-bawah-blur.png      pratinjau Atas-bawah + Blur
+after/preview-kotak-blur.png           pratinjau Kotak + Blur (sudut membulat)
+after/preview-warna.png                pratinjau isi latar Warna (#12AB34)
+after/preview-hitam.png                pratinjau isi latar Hitam
+after/frame-tengah.png · frame-atas-bawah.png · frame-kotak.png · frame-warna.png
+                                       frame hasil render ffmpeg (1080x1920) dari scripts/check_t12.py

@@ -49,6 +49,7 @@ export default function PreviewStage({
   prefs,
   prefsRef,
   savePrefs,
+  options,
   aspect,
   currentVideo,
   videoRef,
@@ -181,6 +182,42 @@ export default function PreviewStage({
     prefsRef.current = next;
     return savePrefs(next);
   };
+  // Drag subtitle/rotate/scale memakai updater fungsional; samakan kontraknya ke patchPrefs.
+  const setPrefs = (updater) => savePrefs(
+    typeof updater === 'function' ? updater(prefsRef.current || {}) : updater);
+
+  // T12: latar + susunan ulang. `offset_y` bergeser mengikuti tinggi frame (px pratinjau).
+  const layoutMode = prefs?.layout || 'off';
+  const bgFill = prefs?.bg_fill || 'blur';
+  const bgColor = prefs?.bg_color || '#4822A5';
+  const blurOk = options?.capabilities?.blur !== false;
+  const layoutActive = layoutMode !== 'off' && videoViewMode !== 'freeform';
+  const [offsetDraft, setOffsetDraft] = useState(null);
+  const bgVideoRef = useRef(null);
+  const liveOffsetY = offsetDraft ?? Number(prefs?.offset_y || 0);
+  const offPx = Math.round((liveOffsetY / 100) * (frameSize.h || 0));
+  // Color picker mengirim event bertubi-tubi saat digeser; tampilkan langsung, simpan setelah diam.
+  const [colorDraft, setColorDraft] = useState(null);
+  const colorTimerRef = useRef(null);
+  const liveBgColor = colorDraft ?? bgColor;
+  const onPickColor = (hex) => {
+    const val = hex.toUpperCase();
+    setColorDraft(val);
+    clearTimeout(colorTimerRef.current);
+    colorTimerRef.current = setTimeout(() => {
+      setColorDraft(null);
+      patchPrefs({ bg_color: val });
+    }, 350);
+  };
+  useEffect(() => () => clearTimeout(colorTimerRef.current), []);
+  // Sama dengan render ffmpeg: radius blur 24 px & sudut 32 px pada frame 1080x1920.
+  const pxAt1080 = (v) => Math.max(1, Math.round(v * (frameSize.h || 800) / 1920));
+
+  // Latar blur = duplikat video yang mengikuti frame waktu klip utama.
+  useEffect(() => {
+    const bg = bgVideoRef.current;
+    if (bg && Math.abs(bg.currentTime - currentTime) > 0.2) bg.currentTime = currentTime;
+  }, [currentTime, bgFill, layoutMode]);
 
   const runAutoZoom = async (on, zoomValue) => {
     patchPrefs({ zoom_auto: on });
@@ -222,6 +259,18 @@ export default function PreviewStage({
     { id: '1:1', label: '1:1 (Feed persegi)', icon: Square },
     { id: '4:5', label: '4:5 (Feed portrait)', icon: RectangleVertical },
     { id: '16:9', label: '16:9 (Landscape)', icon: RectangleHorizontal },
+  ];
+  // T12: susunan ulang + isi latar. "off" = framing lama (pill Background) tetap dipakai.
+  const LAYOUT_ITEMS = [
+    { id: 'off', label: 'Tanpa' },
+    { id: 'center', label: 'Tengah' },
+    { id: 'stack', label: 'Atas-bawah' },
+    { id: 'box', label: 'Kotak' },
+  ];
+  const BG_FILL_ITEMS = [
+    { id: 'blur', label: 'Blur' },
+    { id: 'color', label: 'Warna' },
+    { id: 'black', label: 'Hitam' },
   ];
   const BACKGROUND_ITEMS = [
     { id: 'speaker-tracked', label: 'Wajah pembicara' },
@@ -448,6 +497,37 @@ export default function PreviewStage({
       if (!hasMoved) {
         togglePlay();
       }
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, { once: true });
+  };
+
+  // T12: tarik video naik/turun di pratinjau -> offset_y (-30..30 %), disimpan saat dilepas.
+  const startOffsetDrag = (e) => {
+    if (!layoutActive || e.button !== 0) return;
+    if (e.target.closest?.('[data-subtitle-interactive]')) return;
+    e.preventDefault();
+    setIsSubSelected(false);
+    const startY = e.clientY;
+    const startOffset = Number(prefsRef.current?.offset_y || 0);
+    const h = frameSize.h || 1;
+    let draft = startOffset;
+    let moved = false;
+
+    const move = (ev) => {
+      const dy = ev.clientY - startY;
+      if (Math.abs(dy) > 3) moved = true;
+      draft = Math.max(-30, Math.min(30, Math.round(startOffset + (dy / h) * 100)));
+      setOffsetDraft(draft);
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setOffsetDraft(null);
+      if (moved) patchPrefs({ offset_y: draft });
+      else togglePlay();
     };
 
     window.addEventListener('pointermove', move);
@@ -797,25 +877,65 @@ export default function PreviewStage({
             </div>
           )}
 
+          {/* Latar susunan (T12): blur dari duplikat video, warna solid, atau hitam */}
+          {currentVideo?.url && layoutActive && (
+            bgFill === 'blur' ? (
+              <video
+                ref={bgVideoRef}
+                src={currentVideo.url}
+                data-region="layout-bg"
+                muted
+                playsInline
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                style={{ filter: `blur(${pxAt1080(24)}px)`, transform: 'scale(1.12)' }}
+              />
+            ) : (
+              <div
+                data-region="layout-bg"
+                aria-hidden="true"
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: bgFill === 'color' ? liveBgColor : '#000000' }}
+              />
+            )
+          )}
+
           {/* Video Player */}
           {currentVideo?.url ? (
             <video
               ref={videoRef}
               src={currentVideo.url}
-              onPointerDown={videoViewMode === 'freeform' ? startVideoDrag : undefined}
-              onClick={videoViewMode !== 'freeform' ? togglePlay : undefined}
+              onPointerDown={videoViewMode === 'freeform' ? startVideoDrag : layoutActive ? startOffsetDrag : undefined}
+              onClick={videoViewMode !== 'freeform' && !layoutActive ? togglePlay : undefined}
               onWheel={videoViewMode === 'freeform' ? handleVideoWheel : undefined}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
-              className={`w-full h-full select-none ${
-                videoViewMode === 'fit'
-                  ? 'object-contain bg-black cursor-pointer'
-                  : videoViewMode === 'cover'
-                  ? 'object-cover cursor-pointer'
-                  : 'object-contain cursor-grab active:cursor-grabbing'
+              data-region="layout-foreground"
+              className={`select-none ${
+                layoutActive
+                  ? 'absolute left-1/2 object-contain cursor-ns-resize'
+                  : `w-full h-full ${
+                      videoViewMode === 'fit'
+                        ? 'object-contain bg-black cursor-pointer'
+                        : videoViewMode === 'cover'
+                        ? 'object-cover cursor-pointer'
+                        : 'object-contain cursor-grab active:cursor-grabbing'
+                    }`
               }`}
               style={
-                videoViewMode === 'freeform'
+                layoutActive
+                  ? {
+                      top: layoutMode === 'stack' ? 0 : '50%',
+                      width: layoutMode === 'box' ? '90%' : '100%',
+                      height: layoutMode === 'box' ? '90%' : 'auto',
+                      maxHeight: '100%',
+                      transform: layoutMode === 'stack'
+                        ? `translateX(-50%) translateY(${offPx}px)`
+                        : `translate(-50%, calc(-50% + ${offPx}px))`,
+                      borderRadius: layoutMode === 'box' ? `${pxAt1080(32)}px` : 0,
+                      overflow: 'hidden',
+                    }
+                  : videoViewMode === 'freeform'
                   ? {
                       transform: `translate(${videoPos.x}px, ${videoPos.y}px) scale(${videoScale})`,
                       transformOrigin: 'center center',
@@ -948,6 +1068,93 @@ export default function PreviewStage({
               aria-label="Panel Layout"
               className="w-[276px] p-3 bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-xl shadow-2xl space-y-3"
             >
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-[var(--vz-text-muted)]">Isi latar</p>
+                <div className="flex gap-1.5">
+                  {BG_FILL_ITEMS.map((it) => {
+                    const off = it.id === 'blur' && !blurOk;
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        disabled={off}
+                        onClick={() => patchPrefs({ bg_fill: it.id })}
+                        aria-pressed={bgFill === it.id}
+                        title={off ? 'Filter ffmpeg boxblur tidak tersedia di mesin ini' : `Isi latar ${it.label}`}
+                        className={`flex-1 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                          bgFill === it.id
+                            ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                            : 'bg-[var(--vz-surface-muted)] border-[var(--vz-border)] text-[var(--vz-text-soft)]'
+                        }`}
+                      >
+                        {it.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {bgFill === 'color' && (
+                  <label className="flex items-center gap-2 text-[10px] font-semibold text-[var(--vz-text-soft)]">
+                    <span>Warna latar</span>
+                    <input
+                      type="color"
+                      value={liveBgColor}
+                      onChange={(e) => onPickColor(e.target.value)}
+                      data-region="bg-color"
+                      className="h-6 w-10 rounded border border-[var(--vz-border)] bg-[var(--vz-surface)] cursor-pointer"
+                    />
+                    <span className="font-mono text-[var(--vz-text-muted)]">{liveBgColor}</span>
+                  </label>
+                )}
+                {!blurOk && (
+                  <p data-region="blur-unavailable" className="text-[10px] text-[var(--vz-text-muted)]">
+                    Isi latar Blur tidak tersedia: filter ffmpeg <span className="font-mono">boxblur</span> tidak ada.
+                    Pakai Warna atau Hitam.
+                  </p>
+                )}
+              </div>
+
+              <div className="border-t border-[var(--vz-border)] pt-3 space-y-1.5">
+                <p className="text-[10px] font-semibold text-[var(--vz-text-muted)]">Susunan</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {LAYOUT_ITEMS.map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => patchPrefs({ layout: it.id })}
+                      aria-pressed={layoutMode === it.id}
+                      title={it.id === 'off' ? 'Framing mengikuti pill Background' : `Susunan ${it.label}`}
+                      data-region={`layout-${it.id}`}
+                      className={`px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                        layoutMode === it.id
+                          ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                          : 'bg-[var(--vz-surface-muted)] border-[var(--vz-border)] text-[var(--vz-text-soft)]'
+                      }`}
+                    >
+                      {it.label}
+                    </button>
+                  ))}
+                </div>
+                <p data-region="layout-hint" className="text-[10px] text-[var(--vz-text-muted)]">
+                  {layoutMode === 'off'
+                    ? 'Tanpa susunan: framing mengikuti pilihan Background.'
+                    : 'Tarik video di pratinjau naik/turun untuk menggeser subjek.'}
+                </p>
+                {layoutMode !== 'off' && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span data-region="offset-readout" className="text-[10px] font-semibold text-[var(--vz-text-soft)]">
+                      Geser vertikal {liveOffsetY}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => patchPrefs({ offset_y: 0 })}
+                      className="px-2 py-0.5 rounded bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] text-[10px] font-semibold text-[var(--vz-text)] hover:text-[var(--vz-accent)] transition-colors"
+                    >
+                      Reset 0%
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-[var(--vz-text)]">Area aman</p>

@@ -39,6 +39,7 @@ if str(CHOPIFY_DIR) not in sys.path:
     sys.path.insert(0, str(CHOPIFY_DIR))
 
 import core_engine
+import diarize
 import render_clips
 import subtitle_burn
 import tighten
@@ -54,6 +55,7 @@ DEFAULT_RENDER_PREFS = {
     "zoom_manual": 100,
     "subtitle_style": dict(subtitle_burn.DEFAULT_STYLE),
     "caption_preset": subtitle_burn.DEFAULT_CAPTION_PRESET,
+    "speaker_names_in_caption": False,   # T8: prefix "Nama: " di caption kalau diarisasi aktif
 }
 WORKDIR = ROOT_DIR / "work"
 CLIPS_DIR = ROOT_DIR / "clips"
@@ -324,6 +326,14 @@ class SubtitlesRequest(BaseModel):
 class WordEditRequest(BaseModel):
     idx: int
     text: str
+
+class DiarizeRequest(BaseModel):
+    engine: Optional[str] = "auto"          # auto | model | heuristic
+    num_speakers: Optional[int] = None
+
+class SpeakerPatchRequest(BaseModel):
+    label: str
+    color_idx: Optional[int] = None
 
 class GlossaryRequest(BaseModel):
     text: str
@@ -898,6 +908,8 @@ def get_transcript(project_id: str, word: int = 1):
     tr = load_transcript_file(project_id)
     if not tr or not tr.get('words'):
         return _transcript_unready()
+    meta = read_project_meta(project_id)
+    prefs = dict(DEFAULT_RENDER_PREFS, **(meta.get('render_prefs') or {}))
     return {
         "words": [
             {
@@ -909,6 +921,7 @@ def get_transcript(project_id: str, word: int = 1):
                 "avg_logprob": w.get("avg_logprob"),
                 "edited": int(w.get("edited") or 0),
                 "needs_check": _needs_check(w),
+                "speaker": w.get("speaker"),          # T8: id speaker, null kalau belum diarisasi
             }
             for i, w in enumerate(tr["words"])
         ],
@@ -916,6 +929,9 @@ def get_transcript(project_id: str, word: int = 1):
         "model": tr.get("model"),
         "duration_ms": _transcript_duration_ms(tr),
         "check_threshold": core_engine.CONFIDENCE_MIN_LOGPROB,
+        "speakers": meta.get("speakers") or [],
+        "speaker_names_in_caption": bool(prefs.get("speaker_names_in_caption")),
+        "diarize_model": diarize.model_available(),
     }
 
 def _save_transcript(pid: str, tr: dict):
@@ -991,6 +1007,91 @@ def edit_transcript_word(project_id: str, payload: WordEditRequest):
             "words": [{"idx": payload.idx + i, "word": w["word"],
                        "start_ms": _word_ms(w, 'start'), "end_ms": _word_ms(w, 'end')}
                       for i, w in enumerate(replacements)]}
+
+# --------------------------------------------------------------------------
+# Diarisasi speaker (T8): jalur model (pyannote) atau heuristic (VAD + pitch)
+# --------------------------------------------------------------------------
+def _caption_words(pid: str, words: List[dict], prefs: dict) -> List[dict]:
+    """Kata untuk caption: sisipkan prefix `Nama: ` kalau toggle T8 aktif."""
+    if not prefs.get("speaker_names_in_caption"):
+        return words
+    speakers = read_project_meta(pid).get("speakers") or []
+    return diarize.prefix_words(words, speakers) if speakers else words
+
+@app.post("/api/projects/{project_id}/diarize")
+def diarize_project(project_id: str, payload: DiarizeRequest):
+    _validate_pid(project_id)
+    tr = load_transcript_file(project_id)
+    if not tr or not tr.get('words'):
+        return _transcript_unready()
+    engine = (payload.engine or 'auto').lower()
+    if engine not in ('auto', 'model', 'heuristic'):
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "Mode diarisasi tidak dikenal",
+            "hint": "Pakai auto, model, atau heuristic"})
+    if engine == 'model':
+        avail = diarize.model_available()
+        if not avail['ok']:
+            return JSONResponse(status_code=200, content={"ok": False, **avail})
+    src = get_source_video_path(project_id)
+    if not src:
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": "Video sumber tidak ditemukan",
+            "hint": "Unggah atau impor video dulu di panel kiri"})
+
+    duration_before = _transcript_duration_ms(tr)
+    try:
+        res = diarize.run(src, tr['words'], engine=engine, num_speakers=payload.num_speakers,
+                          id_base=int(project_id, 16) * diarize.MAX_SPEAKERS)
+    except Exception as e:
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": f"Diarisasi gagal: {_format_error_message(e)}",
+            "hint": "Coba lagi, atau pakai Diarisasi (perkiraan) tanpa model"})
+    if not res.get('ok'):
+        return JSONResponse(status_code=200, content=res)
+    if len(res['word_speakers']) != len(tr['words']):
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": "Jumlah speaker per kata tidak cocok dengan transkrip",
+            "hint": "Ulangi diarisasi setelah transkrip selesai dimuat"})
+
+    for w, sid in zip(tr['words'], res['word_speakers']):
+        w['speaker'] = int(sid)
+    meta = read_project_meta(project_id)
+    meta['speakers'] = res['speakers']
+    write_project_meta(project_id, meta)
+    _save_transcript(project_id, tr)
+
+    return {
+        "ok": True, "engine": res['engine'], "confidence": res['confidence'],
+        "speakers": res['speakers'], "words": len(tr['words']),
+        "segments": res.get('segments'),
+        "duration_ms": _transcript_duration_ms(tr),
+        "duration_before_ms": duration_before,   # harus identik: diarisasi tidak geser audio
+        "note": res.get('note') or '',
+    }
+
+@app.patch("/api/speakers/{speaker_id}")
+def rename_speaker(speaker_id: int, payload: SpeakerPatchRequest):
+    label = (payload.label or '').strip()[:40]
+    if not label:
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "Nama speaker tidak boleh kosong"})
+    for p in sorted(WORKDIR.glob('*/project.json')):
+        pid = p.parent.name
+        if not PID_RE.match(pid):
+            continue
+        meta = read_project_meta(pid)
+        for sp in meta.get('speakers') or []:
+            if int(sp.get('id') or 0) != speaker_id:
+                continue
+            sp['label'] = label
+            if payload.color_idx is not None:
+                sp['color_idx'] = int(payload.color_idx) % diarize.COLOR_COUNT
+            write_project_meta(pid, meta)
+            return {"ok": True, "speaker": sp}
+    return JSONResponse(status_code=404, content={
+        "ok": False, "reason": f"Speaker {speaker_id} tidak ditemukan",
+        "hint": "Jalankan diarisasi dulu di panel transkrip"})
 
 # --------------------------------------------------------------------------
 # Tighten: buang jeda sunyi + kata pengisi (T5) — pakai perencana chopify/tighten.py
@@ -1611,7 +1712,7 @@ def render_clip(project_id: str, payload: RenderRequest):
         cdir.mkdir(parents=True, exist_ok=True)
         w, h = render_clips.ffprobe_dims(src)
         res_p = render_clips.render(
-            seg=seg, words=transcript["words"], source=src,
+            seg=seg, words=_caption_words(project_id, transcript["words"], prefs), source=src,
             W=w, H=h, workdir=pdir,
             aspect=payload.aspect or "9:16",
             out_dir=cdir,
@@ -2094,7 +2195,7 @@ def _run_export(pid: str, job_id: str) -> None:
         W, H = render_clips.ffprobe_dims(src)
         upd(progress=15)
         render_clips.render(
-            seg=seg, words=transcript["words"], source=src, W=W, H=H,
+            seg=seg, words=_caption_words(pid, transcript["words"], prefs), source=src, W=W, H=H,
             workdir=project_dir(pid), aspect=prefs.get("aspect") or "9:16",
             out_dir=cdir, raw_subdir="", do_tighten=False, crop_mode="auto",
             hook_title=seg.get("hook") if prefs.get("title_enabled") else None,

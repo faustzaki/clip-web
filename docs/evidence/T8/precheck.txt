@@ -1,0 +1,25 @@
+# PRECHECK T8 — diarisasi speaker
+# tanggal: 2026-10-24
+
+$ py -3.13 -c "import torch;print('torch', torch.__version__)"
+torch 2.13.0+cpu
+
+$ py -3.13 -c "import pyannote.audio"
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import pyannote.audio
+
+$ py -3.13 -c "import os;print(os.environ.get('HF_TOKEN') or 'NO_HF')"
+NO_HF
+
+$ py -3.13 -c "import numpy;print('numpy', numpy.__version__)"
+numpy 2.3.3
+
+$ powershell -File work/_voices2.ps1   # suara TTS untuk audio uji dua speaker
+Microsoft David Desktop
+Microsoft Zira Desktop
+
+# kesimpulan
+torch ADA, pyannote.audio TIDAK, HF_TOKEN TIDAK → jalur A (model) BLOCKED,
+jalur B (VAD jeda >500 ms + pitch + k-means) dipakai; tombol 'Diarisasi (model)' disabled.
+audio uji dibuat di docs/evidence/T8/audio (dua suara TTS Windows) oleh scripts/make_t8_fixture.py

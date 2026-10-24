@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Scissors, Loader2, RotateCcw, X, AlertTriangle } from 'lucide-react';
+import { Search, Scissors, Loader2, RotateCcw, X, AlertTriangle, Users, Sparkles, Pencil, Check } from 'lucide-react';
 
 const GAP_MS = 600;
 const LINE_WORDS = 7;
 const CHECK_UNDERLINE = '#E0A800';   // underline kata ragu (T7)
+const SPEAKER_COLORS = ['#4822A5', '#0E7C86', '#B45309', '#9D174D'];  // T8: 4 warna speaker
+const ESTIMATE_TAG = '(perkiraan)';  // jalur B: hasil heuristic, bukan model
 
 const sec = (ms) => `${(Math.max(0, Number(ms) || 0) / 1000).toFixed(1)}s`;
 const mmss = (ms) => {
@@ -21,6 +23,12 @@ export default function TranscriptPanel({
   loading = false,
   error = null,
   onRetry,
+  speakers = [],
+  diarizeModel = null,
+  speakerCaption = false,
+  onDiarize,
+  onRenameSpeaker,
+  onToggleSpeakerCaption,
 }) {
   const [mode, setMode] = useState('transcript');
   const [query, setQuery] = useState('');
@@ -32,11 +40,26 @@ export default function TranscriptPanel({
   const [range, setRange] = useState(null);
   const [cutting, setCutting] = useState(false);
   const [cutError, setCutError] = useState(null);
+  const [filterSpeaker, setFilterSpeaker] = useState('all');
+  const [speakerJob, setSpeakerJob] = useState(null);      // null | 'heuristic' | 'model'
+  const [speakerMsg, setSpeakerMsg] = useState(null);      // {kind:'info'|'error', text}
+  const [renaming, setRenaming] = useState(null);          // {id, value}
+  const [savingRename, setSavingRename] = useState(false);
   const listRef = useRef(null);
   const editRef = useRef(null);
+  const renameRef = useRef(null);
   const userScrolledRef = useRef(false);
   const draggingRef = useRef(false);
   const programmaticRef = useRef(false);
+
+  const speakerById = useMemo(() => {
+    const map = new Map();
+    speakers.forEach((s) => map.set(s.id, s));
+    return map;
+  }, [speakers]);
+  const speakerColor = (id) => SPEAKER_COLORS[(speakerById.get(id)?.color_idx ?? 0) % SPEAKER_COLORS.length];
+  const speakerName = (id) => speakerById.get(id)?.label || `Speaker ${id}`;
+  const isEstimate = (id) => (speakerById.get(id)?.confidence || 'estimate') === 'estimate';
 
   // Kata dengan keyakinan ASR rendah (T7) — dasar filter "Hanya perlu dicek"
   const checkIdxs = useMemo(
@@ -44,15 +67,26 @@ export default function TranscriptPanel({
     [words],
   );
 
-  const visibleIdxs = useMemo(
-    () => (onlyCheck ? checkIdxs : words.map((_, i) => i)),
-    [onlyCheck, checkIdxs, words],
-  );
+  // Filter panel: "Hanya perlu dicek" (T7) + speaker (T8)
+  const visibleIdxs = useMemo(() => {
+    let idxs = words.map((_, i) => i);
+    if (onlyCheck) idxs = idxs.filter((i) => checkIdxs.includes(i));
+    if (filterSpeaker !== 'all') idxs = idxs.filter((i) => words[i].speaker === filterSpeaker);
+    return idxs;
+  }, [onlyCheck, checkIdxs, filterSpeaker, words]);
   const visibleSet = useMemo(() => new Set(visibleIdxs), [visibleIdxs]);
 
   useEffect(() => {
     if (editing && editRef.current) editRef.current.select();
   }, [editing]);
+
+  useEffect(() => {
+    if (renaming && renameRef.current) renameRef.current.select();
+  }, [renaming]);
+
+  useEffect(() => {
+    if (filterSpeaker !== 'all' && !speakers.some((s) => s.id === filterSpeaker)) setFilterSpeaker('all');
+  }, [speakers, filterSpeaker]);
 
   const q = query.trim().toLowerCase();
   const matchIdxs = useMemo(() => {
@@ -162,11 +196,65 @@ export default function TranscriptPanel({
     }
   };
 
+  /** Jalankan diarisasi (T8). Hasil {ok:false,reason,hint} = state jujur, bukan error keras. */
+  const runDiarize = async (engine) => {
+    if (!onDiarize || speakerJob) return;
+    setSpeakerJob(engine);
+    setSpeakerMsg(null);
+    try {
+      const res = await onDiarize(engine);
+      if (res?.ok) {
+        const tag = res.confidence === 'estimate' ? ` ${ESTIMATE_TAG}` : '';
+        setSpeakerMsg({ kind: 'info', text: `Diarisasi selesai: ${res.speakers?.length || 0} speaker${tag}.` });
+      } else {
+        setSpeakerMsg({ kind: 'error', text: res?.reason || 'Diarisasi tidak bisa dijalankan di mesin ini.' });
+      }
+    } catch (err) {
+      setSpeakerMsg({ kind: 'error', text: err?.message || 'Gagal menjalankan diarisasi.' });
+    } finally {
+      setSpeakerJob(null);
+    }
+  };
+
+  const commitRename = async () => {
+    if (!renaming || !onRenameSpeaker) return;
+    const value = renaming.value.trim();
+    if (!value || value === (speakerById.get(renaming.id)?.label || '')) {
+      setRenaming(null);
+      return;
+    }
+    setSavingRename(true);
+    try {
+      await onRenameSpeaker(renaming.id, value);
+      setRenaming(null);
+    } catch (err) {
+      setSpeakerMsg({ kind: 'error', text: err?.message || 'Gagal mengganti nama speaker.' });
+    } finally {
+      setSavingRename(false);
+    }
+  };
+
+  /** Badge nama speaker di kiri paragraf (muncul saat speaker berganti). */
+  const renderSpeakerBadge = (id) => {
+    const color = speakerColor(id);
+    return (
+      <span
+        className="inline-flex items-center gap-1 mr-1 px-1.5 py-0.5 rounded-full text-[11px] font-bold align-middle select-none"
+        style={{ color, backgroundColor: `${color}1F` }}
+        title={isEstimate(id) ? 'Speaker hasil perkiraan (pitch + jeda bicara)' : 'Speaker hasil model diarisasi'}
+      >
+        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+        {speakerName(id)}{isEstimate(id) ? ` ${ESTIMATE_TAG}` : ''}
+      </span>
+    );
+  };
+
   const renderWord = (i) => {
     const w = words[i];
     const isActive = i === activeIdx;
     const isMatch = q && String(w.word || '').toLowerCase().includes(q);
     const inRange = range && i >= range.from && i <= range.to;
+    const badge = w.speaker != null && words[i - 1]?.speaker !== w.speaker ? renderSpeakerBadge(w.speaker) : null;
 
     if (editing && editing.idx === i) {
       return (
@@ -189,32 +277,35 @@ export default function TranscriptPanel({
     }
 
     return (
-      <button
-        key={w.idx ?? i}
-        type="button"
-        data-idx={i}
-        onPointerDown={(e) => startSel(i, e)}
-        onPointerEnter={() => extendSel(i)}
-        onClick={() => onSeek?.(w.start_ms)}
-        onDoubleClick={() => { if (onEditWord) setEditing({ idx: i, value: w.word }); }}
-        title={[
-          `${sec(w.start_ms)} – ${sec(w.end_ms)}`,
-          w.needs_check ? 'Perlu dicek: keyakinan ASR rendah' : '',
-          w.edited ? 'Sudah diperbaiki manual' : '',
-          onEditWord ? 'Klik dua kali untuk memperbaiki kata' : '',
-        ].filter(Boolean).join(' · ')}
-        className={[
-          'inline-flex items-baseline gap-1 px-0.5 rounded-[6px] cursor-pointer align-baseline text-left transition-colors',
-          isActive ? 'bg-vz-tint text-vz-accent' : 'text-vz-text hover:bg-vz-muted',
-          isMatch ? 'underline decoration-vz-accent decoration-2 underline-offset-2' : '',
-          inRange ? 'ring-1 ring-vz-accent' : '',
-          w.deleted ? 'line-through opacity-45' : '',
-        ].filter(Boolean).join(' ')}
-        style={w.needs_check ? { borderBottom: `2px solid ${CHECK_UNDERLINE}` } : undefined}
-      >
-        <span className="text-body">{w.word}</span>
-        <span className="text-meta italic text-vz-dim">[{sec(w.start_ms)}]</span>
-      </button>
+      <React.Fragment key={w.idx ?? i}>
+        {badge}
+        <button
+          type="button"
+          data-idx={i}
+          onPointerDown={(e) => startSel(i, e)}
+          onPointerEnter={() => extendSel(i)}
+          onClick={() => onSeek?.(w.start_ms)}
+          onDoubleClick={() => { if (onEditWord) setEditing({ idx: i, value: w.word }); }}
+          title={[
+            `${sec(w.start_ms)} – ${sec(w.end_ms)}`,
+            w.speaker != null ? `Speaker: ${speakerName(w.speaker)}${isEstimate(w.speaker) ? ` ${ESTIMATE_TAG}` : ''}` : '',
+            w.needs_check ? 'Perlu dicek: keyakinan ASR rendah' : '',
+            w.edited ? 'Sudah diperbaiki manual' : '',
+            onEditWord ? 'Klik dua kali untuk memperbaiki kata' : '',
+          ].filter(Boolean).join(' · ')}
+          className={[
+            'inline-flex items-baseline gap-1 px-0.5 rounded-[6px] cursor-pointer align-baseline text-left transition-colors',
+            isActive ? 'bg-vz-tint text-vz-accent' : 'text-vz-text hover:bg-vz-muted',
+            isMatch ? 'underline decoration-vz-accent decoration-2 underline-offset-2' : '',
+            inRange ? 'ring-1 ring-vz-accent' : '',
+            w.deleted ? 'line-through opacity-45' : '',
+          ].filter(Boolean).join(' ')}
+          style={w.needs_check ? { borderBottom: `2px solid ${CHECK_UNDERLINE}` } : undefined}
+        >
+          <span className="text-body">{w.word}</span>
+          <span className="text-meta italic text-vz-dim">[{sec(w.start_ms)}]</span>
+        </button>
+      </React.Fragment>
     );
   };
 
@@ -260,7 +351,7 @@ export default function TranscriptPanel({
       </div>
 
       <div data-region="transcript-count" className="flex items-center justify-between gap-2 text-[11px] text-vz-dim">
-        <span>{q ? `${matchIdxs.length} hasil` : `${visibleIdxs.length} kata${onlyCheck ? ' perlu dicek' : ''}`}</span>
+        <span>{q ? `${matchIdxs.length} hasil` : `${visibleIdxs.length} kata${onlyCheck ? ' perlu dicek' : ''}${filterSpeaker !== 'all' ? ` · ${speakerName(filterSpeaker)}` : ''}`}</span>
         <div className="flex items-center gap-2">
           {checkIdxs.length > 0 && (
             <button
@@ -281,6 +372,118 @@ export default function TranscriptPanel({
           <span className="font-mono tabular-nums">Total {mmss(totalMs)}</span>
         </div>
       </div>
+
+      {!loading && !error && words.length > 0 && (
+        <div data-region="speaker-panel" className="rounded-vz-lg border border-vz-border bg-vz-surface p-2 space-y-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => runDiarize('heuristic')}
+              disabled={!onDiarize || !!speakerJob}
+              title="Pisahkan speaker dari jeda bicara + tinggi nada (tanpa model)"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-vz-lg border border-vz-border text-xs font-bold text-vz-dim hover:text-vz-accent hover:border-vz-accent transition-colors disabled:opacity-50"
+            >
+              {speakerJob === 'heuristic' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Users className="w-3.5 h-3.5" />}
+              Diarisasi (perkiraan)
+            </button>
+            <button
+              type="button"
+              onClick={() => runDiarize('model')}
+              disabled={!onDiarize || !!speakerJob || !diarizeModel?.ok}
+              title={diarizeModel?.ok ? 'Pisahkan speaker dengan model pyannote' : (diarizeModel?.reason || 'Model diarisasi belum tersedia')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-vz-lg border border-vz-border text-xs font-bold text-vz-dim hover:text-vz-accent hover:border-vz-accent transition-colors disabled:opacity-50"
+            >
+              {speakerJob === 'model' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              Diarisasi (model)
+            </button>
+            {speakers.length > 0 && (
+              <button
+                type="button"
+                onClick={onToggleSpeakerCaption}
+                disabled={!onToggleSpeakerCaption}
+                aria-pressed={speakerCaption}
+                title="Sisipkan prefix nama speaker di caption hasil export"
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-bold transition-colors ${
+                  speakerCaption ? 'border-vz-accent text-vz-accent bg-vz-tint' : 'border-vz-border text-vz-dim hover:text-vz-accent'
+                }`}
+              >
+                {speakerCaption && <Check className="w-3 h-3" />}
+                Tampilkan nama di caption
+              </button>
+            )}
+          </div>
+
+          {diarizeModel && !diarizeModel.ok && (
+            <p className="text-[11px] text-vz-dim">
+              Diarisasi (model) nonaktif: {diarizeModel.reason}.
+            </p>
+          )}
+
+          {speakerMsg && (
+            <p className={`text-[11px] ${speakerMsg.kind === 'error' ? 'text-[var(--vz-danger-fg)]' : 'text-vz-dim'}`}>
+              {speakerMsg.text}
+            </p>
+          )}
+
+          {speakers.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-[11px] font-bold text-vz-dim">Speaker</span>
+              <button
+                type="button"
+                onClick={() => setFilterSpeaker('all')}
+                aria-pressed={filterSpeaker === 'all'}
+                className={`px-2 py-0.5 rounded-full border text-[11px] font-bold transition-colors ${
+                  filterSpeaker === 'all' ? 'border-vz-accent text-vz-accent bg-vz-tint' : 'border-vz-border text-vz-dim hover:text-vz-accent'
+                }`}
+              >
+                Semua
+              </button>
+              {speakers.map((sp) => (
+                <span key={sp.id} className="inline-flex items-center rounded-full border border-vz-border overflow-hidden">
+                  {renaming && renaming.id === sp.id ? (
+                    <input
+                      ref={renameRef}
+                      value={renaming.value}
+                      disabled={savingRename}
+                      aria-label={`Ganti nama ${sp.label}`}
+                      onChange={(e) => setRenaming({ id: sp.id, value: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+                        else if (e.key === 'Escape') { setRenaming(null); }
+                      }}
+                      onBlur={() => setRenaming(null)}
+                      className="vz-input text-[11px] font-bold"
+                      style={{ width: '12ch', padding: '1px 6px', color: speakerColor(sp.id) }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFilterSpeaker(sp.id)}
+                      aria-pressed={filterSpeaker === sp.id}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold transition-colors ${
+                        filterSpeaker === sp.id ? 'bg-vz-tint text-vz-accent' : 'text-vz-dim hover:text-vz-accent'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: speakerColor(sp.id) }} />
+                      {sp.label}{isEstimate(sp.id) ? ` ${ESTIMATE_TAG}` : ''}
+                    </button>
+                  )}
+                  {onRenameSpeaker && !(renaming && renaming.id === sp.id) && (
+                    <button
+                      type="button"
+                      onClick={() => setRenaming({ id: sp.id, value: sp.label })}
+                      title={`Ganti nama ${sp.label}`}
+                      className="px-1 py-0.5 text-vz-dim hover:text-vz-accent"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {cutError && <p className="text-[11px] text-[var(--vz-danger-fg)]">{cutError}</p>}
       {editError && <p className="text-[11px] text-[var(--vz-danger-fg)]">{editError}</p>}

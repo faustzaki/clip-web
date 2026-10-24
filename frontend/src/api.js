@@ -210,6 +210,30 @@ export async function updateSettings(data) {
   return res.json();
 }
 
+// Diarisasi speaker (T8). engine 'model' balas {ok:false,reason,hint} kalau prasyarat absen —
+// itu state placeholder, bukan error, jadi tidak dilempar sebagai exception.
+export async function diarizeProject(projectId, engine = 'heuristic') {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/diarize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ engine }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.reason || data.detail || 'Gagal menjalankan diarisasi');
+  return data;
+}
+
+export async function renameSpeaker(speakerId, label) {
+  const res = await apiFetch(`${BASE_URL}/api/speakers/${speakerId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ label }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.reason || data.detail || 'Gagal mengganti nama speaker');
+  return data;
+}
+
 // Glosarium ASR (T7): 1 istilah per baris, dipakai sebagai initial_prompt Whisper
 export async function fetchGlossary() {
   const res = await apiFetch(`${BASE_URL}/api/glossary`);

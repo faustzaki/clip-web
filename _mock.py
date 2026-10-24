@@ -29,6 +29,7 @@ PREFS = {
     "subtitles_enabled": True,
     "caption_preset": subtitle_burn.DEFAULT_CAPTION_PRESET,
     "subtitle_style": subtitle_burn.preset_style(subtitle_burn.DEFAULT_CAPTION_PRESET),
+    "speaker_names_in_caption": True,   # T8: contoh toggle aktif supaya terlihat di screenshot
 }
 WORDS = [
     ("Halo", 0.4, 0.9), ("eee", 1.0, 1.3), ("semua", 1.4, 1.9),
@@ -37,6 +38,17 @@ WORDS = [
     ("bahas", 6.1, 6.5), ("captions", 6.6, 7.2), ("biar", 8.9, 9.3),
     ("rapi", 9.4, 9.9),
 ]
+# T8: diarisasi contoh — dua speaker hasil perkiraan (mesin uji tanpa pyannote/HF_TOKEN)
+SPEAKERS = [
+    {"id": 1, "label": "Host", "color_idx": 0, "confidence": "estimate"},
+    {"id": 2, "label": "Narasumber", "color_idx": 1, "confidence": "estimate"},
+]
+SPEAKER_OF_WORD = {i: (1 if i < 6 else 2) for i in range(len(WORDS))}
+DIARIZE_MODEL = {
+    "ok": False,
+    "reason": "Diarisasi model butuh pyannote.audio, HF_TOKEN (belum tersedia di mesin ini)",
+    "hint": "py -3.13 -m pip install pyannote.audio lalu set HF_TOKEN HuggingFace",
+}
 LOW_CONF_IDX = {1, 7, 11}   # kata contoh dengan keyakinan rendah → underline kuning di pratinjau
 GLOSSARY_TEXT = "# Satu istilah per baris.\nKoperasi Merah Putih\nMixue\nCakung\nMio J\n"
 ROOT = Path(__file__).resolve().parent
@@ -191,9 +203,13 @@ class H(SimpleHTTPRequestHandler):
             return self._json({"words": [
                 {"idx": i, "word": w, "start_ms": int(s * 1000), "end_ms": int(e * 1000), "deleted": 0,
                  "avg_logprob": -1.6 if i in LOW_CONF_IDX else -0.24,
-                 "edited": 0, "needs_check": i in LOW_CONF_IDX}
+                 "edited": 0, "needs_check": i in LOW_CONF_IDX,
+                 "speaker": SPEAKER_OF_WORD.get(i)}
                 for i, (w, s, e) in enumerate(WORDS)
-            ], "language": "id", "model": "medium", "duration_ms": 12_000, "check_threshold": -1.0})
+            ], "language": "id", "model": "medium", "duration_ms": 12_000, "check_threshold": -1.0,
+                "speakers": SPEAKERS,
+                "speaker_names_in_caption": bool(PREFS.get("speaker_names_in_caption")),
+                "diarize_model": DIARIZE_MODEL})
         if p.startswith("/api/projects/") and p.endswith("/timeline"):
             return self._json(TIMELINE)
         if p.startswith("/mock/"):
@@ -240,6 +256,29 @@ class H(SimpleHTTPRequestHandler):
             return self._json({"ok": True, "items": sum(len(v) for v in tracks.values())})
         if p.endswith("/render"):
             return self._json({"status": "ok", "clip": CLIPS[0]})
+        if p.endswith("/diarize"):
+            body_engine = (body.get("engine") or "heuristic").lower()
+            if body_engine == "model" and not DIARIZE_MODEL["ok"]:
+                return self._json({"ok": False, **DIARIZE_MODEL})
+            return self._json({"ok": True, "engine": "heuristic", "confidence": "estimate",
+                               "speakers": SPEAKERS, "words": len(WORDS), "segments": 4,
+                               "duration_ms": 12_000, "duration_before_ms": 12_000, "note": ""})
+        return self._json({"error": "not found"}, 404)
+
+    def do_PATCH(self):
+        p = urlparse(self.path).path
+        body = self._body()
+        m = re.match(r"^/api/speakers/(\d+)$", p)
+        if m:
+            sid = int(m.group(1))
+            label = (body.get("label") or "").strip()
+            if not label:
+                return self._json({"ok": False, "reason": "Nama speaker tidak boleh kosong"}, 400)
+            for sp in SPEAKERS:
+                if sp["id"] == sid:
+                    sp["label"] = label[:40]
+                    return self._json({"ok": True, "speaker": sp})
+            return self._json({"ok": False, "reason": f"Speaker {sid} tidak ditemukan"}, 404)
         return self._json({"error": "not found"}, 404)
 
     def do_PUT(self):

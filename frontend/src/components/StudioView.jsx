@@ -161,6 +161,7 @@ export default function StudioView({
     transcript, transcriptLoading, transcriptError, loadTranscript,
     timelineError, timelineItems, timelineDuration, seekToMs, handleTranscriptCut,
     handleWordEdit,
+    handleDiarize, handleSpeakerRename, speakers, diarizeModel,
     saveZoomKeyframes,
     clips, candidates,
   } = useEditorState({ projectId, state, videoRef });
@@ -235,6 +236,15 @@ export default function StudioView({
               handleWordEdit={handleWordEdit}
               seekToMs={seekToMs}
               currentTime={currentTime}
+              speakers={speakers}
+              diarizeModel={diarizeModel}
+              speakerCaption={Boolean(prefs?.speaker_names_in_caption)}
+              onDiarize={handleDiarize}
+              onRenameSpeaker={handleSpeakerRename}
+              onToggleSpeakerCaption={() => savePrefs({
+                ...(prefs || {}),
+                speaker_names_in_caption: !prefs?.speaker_names_in_caption,
+              })}
             />
 
             {/* Resizer Handle: Left to Center */}

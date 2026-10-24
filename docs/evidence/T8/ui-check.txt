@@ -1,0 +1,11 @@
+PASS panel speaker tampil di panel transkrip
+PASS badge speaker '(perkiraan)' muncul di daftar kata — 2 badge berlabel perkiraan
+PASS tombol 'Diarisasi (model)' disabled + alasan Indonesia — disabled=true alasan=true
+PASS 'Diarisasi (perkiraan)' selesai + pesan Indonesia — Diarisasi selesai: 2 speaker (perkiraan).
+PASS filter speaker menyaring kata — 13 → 7 kata · 7 kata · Narasumber / Hanya perlu dicek (3) / Total 00:05
+PASS klik pensil membuka input rename
+PASS rename speaker mengubah badge nama — 0.4s – 0.9s · Speaker: Pewara Utama (perkiraan) · Klik dua kali untuk memperbaiki kata
+PASS toggle 'Tampilkan nama di caption' bisa diubah — true → false
+PASS tanpa error runtime di halaman
+
+9 lulus, 0 gagal

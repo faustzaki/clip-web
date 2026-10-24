@@ -79,6 +79,12 @@ export default function GeneratePanel({
   handleWordEdit,
   seekToMs,
   currentTime,
+  speakers = [],
+  diarizeModel = null,
+  speakerCaption = false,
+  onDiarize,
+  onRenameSpeaker,
+  onToggleSpeakerCaption,
 }) {
   // Clipper settings state
   const [selectedModel, setSelectedModel] = useState(options?.default_model || 'ag/gemini-3.8-flash-high');
@@ -505,6 +511,12 @@ export default function GeneratePanel({
                 loading={transcriptLoading}
                 error={transcriptError}
                 onRetry={loadTranscript}
+                speakers={speakers}
+                diarizeModel={diarizeModel}
+                speakerCaption={speakerCaption}
+                onDiarize={onDiarize}
+                onRenameSpeaker={onRenameSpeaker}
+                onToggleSpeakerCaption={onToggleSpeakerCaption}
               />
             </div>
           </div>

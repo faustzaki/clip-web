@@ -107,6 +107,11 @@ CREATE TABLE IF NOT EXISTS speakers (
   color_idx INTEGER DEFAULT 0, confidence TEXT DEFAULT 'model'  -- model|estimate
 );
 -- transcript_words.speaker = id speaker (nullable)
+-- CATATAN IMPLEMENTASI T8 (repo ini belum punya SQLite; T2/T3/T7 juga file-based):
+--   speakers[] disimpan di `work/<project_id>/project.json`, `transcript.json` tiap kata
+--   menyimpan `speaker` = id (bukan PK tabel). Id dibuat unik antar project:
+--   `id = int(project_id, 16) * 4 + urutan` supaya `PATCH /api/speakers/{id}` (tanpa project
+--   di path) tetap unambiguous. Bentuk respons API sama seperti tabel di atas.
 
 -- T9: cache translasi
 CREATE TABLE IF NOT EXISTS subtitle_translations (
@@ -133,8 +138,8 @@ Endpoint baru P1–P2:
 |---|---|---|
 | POST | `/api/projects/{id}/transcribe?quality=high` | T7 |
 | GET | `/api/projects/{id}/wer` | T7 |
-| POST | `/api/projects/{id}/diarize` | T8 |
-| PATCH | `/api/speakers/{id}` | T8 |
+| POST | `/api/projects/{id}/diarize` | body `{engine:"auto"\|"model"\|"heuristic"}` → `{ok:true,engine,confidence,speakers:[{id,label,color_idx,confidence}],duration_ms,duration_before_ms}`; engine `model` tanpa pyannote/HF_TOKEN → `{ok:false,reason,hint}` status **200** | T8 |
+| PATCH | `/api/speakers/{id}` | body `{label,color_idx?}` → `{ok:true,speaker:{…}}`; label kosong → 400 | T8 |
 | POST | `/api/clips/{id}/translate` | T9 |
 | GET | `/api/broll/index`, `POST /api/broll/refresh` | T10 |
 | GET/POST | `/api/brand` | T11 |

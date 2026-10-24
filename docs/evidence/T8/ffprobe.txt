@@ -1,0 +1,11 @@
+# ffprobe hasil export dengan caption speaker (T8)
+-- docs/evidence/T8/after/export-caption-1-host.mp4
+6.037188
+-- docs/evidence/T8/after/export-caption-2-budi.mp4
+6.037188
+
+# dialogue pertama tiap .ass
+-- docs/evidence/T8/after/captions-budi-santoso.ass
+Dialogue: 0,0:00:00.00,0:00:00.38,Cap,,0,0,0,,{\c&HE1FFFF&}BUDI SANTOSO: HALO {\c&HFFFFFF&}SEMUANYA {\c&HFFFFFF&}HARI
+-- docs/evidence/T8/after/captions-host.ass
+Dialogue: 0,0:00:00.00,0:00:00.38,Cap,,0,0,0,,{\c&HE1FFFF&}HOST: HALO {\c&HFFFFFF&}SEMUANYA {\c&HFFFFFF&}HARI

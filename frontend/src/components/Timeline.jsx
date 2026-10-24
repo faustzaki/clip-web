@@ -179,6 +179,9 @@ export default function Timeline({
                       const end = Number(it.end_ms) || 0;
                       const widthPct = dur ? Math.max(0.4, ((end - start) / dur) * 100) : 0;
                       const label = it.payload?.text || it.kind;
+                      const zoomIdx = Object.entries(it.payload?.zoom_keyframes || {})
+                        .filter(([, kfs]) => Array.isArray(kfs) && kfs.length)
+                        .map(([k]) => `#${Number(k) + 1}`);
                       return (
                         <button
                           key={it.id ?? `${it.kind}-${start}`}
@@ -195,6 +198,15 @@ export default function Timeline({
                           }}
                         >
                           {widthPct / 100 * contentW >= 44 ? label : null}
+                          {zoomIdx.length > 0 && (
+                            <span
+                              data-region="timeline-zoom-badge"
+                              title={`Auto zoom: klip ${zoomIdx.join(', ')}`}
+                              className="absolute top-0.5 right-0.5 px-1.5 rounded-full text-[9px] font-bold bg-vz-accent text-white"
+                            >
+                              Zoom {zoomIdx.length}
+                            </span>
+                          )}
                         </button>
                       );
                     })

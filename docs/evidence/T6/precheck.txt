@@ -1,0 +1,24 @@
+$ ffmpeg -filters | grep -c zoompan
+1
+
+$ ls chopify/*.py | head
+chopify/chopify.py
+chopify/download_and_transcribe.py
+chopify/render_clips.py
+chopify/score_clips.py
+chopify/subtitle_burn.py
+chopify/tighten.py
+
+$ grep -rn 'yunet|onnx' chopify/ | head -3
+chopify/.gitignore:10:*.onnx
+chopify/render_clips.py:55:             "face_detection_yunet/face_detection_yunet_2023mar.onnx")
+chopify/render_clips.py:96:    model = Path(workdir).parent / "yunet.onnx"
+
+$ ls -la yunet.onnx work/yunet.onnx
+-rwxrwxrwx 1 somebody somegroup 232589 Oct 17 02:50 work/yunet.onnx
+-rwxrwxrwx 1 somebody somegroup 232589 Oct 17 02:50 yunet.onnx
+
+$ ffmpeg -filters | grep -E 'zoompan|boxblur'
+ T. boxblur           V->V       Blur the input.
+ .. boxblur_opencl    V->V       Apply boxblur filter to input video
+ .. zoompan           V->V       Apply Zoom & Pan effect.

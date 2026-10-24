@@ -49,6 +49,9 @@ DEFAULT_RENDER_PREFS = {
     "watermark_enabled": False,
     "watermark": "",
     "aspect": "9:16",
+    "safe_zone": False,
+    "zoom_auto": False,
+    "zoom_manual": 100,
     "subtitle_style": dict(subtitle_burn.DEFAULT_STYLE),
     "caption_preset": subtitle_burn.DEFAULT_CAPTION_PRESET,
 }
@@ -352,6 +355,11 @@ class ExportRequest(BaseModel):
 class RenameProjectRequest(BaseModel):
     title: str
 
+class ZoomKeyframesRequest(BaseModel):
+    candidate_index: int
+    zoom_manual: Optional[int] = None
+    aspect: Optional[str] = None
+
 class UpdateSettingsRequest(BaseModel):
     llm_endpoint: Optional[str] = None
     llm_api_key: Optional[str] = None
@@ -389,7 +397,7 @@ def get_options():
     if not any(m["id"] == "heuristic" for m in models):
         models.append({"id": "heuristic", "label": "Offline Heuristic (Tanpa LLM, Rp0)"})
     return {
-        "aspect_ratios": ["9:16", "1:1", "16:9"],
+        "aspect_ratios": ["9:16", "1:1", "4:5", "16:9"],
         "subtitle_fonts": [
             "Arial Black", "Arial", "Impact", "Verdana", "Tahoma",
             "Trebuchet MS", "Georgia", "Courier New", "Segoe UI", "Calibri"
@@ -1332,6 +1340,65 @@ def score_moments(project_id: str, payload: ScoreRequest):
         raise HTTPException(status_code=500, detail=f"Scoring failed: {str(e)}")
 
 
+def _stored_zoom_keyframes(pid: str, idx: int):
+    """Kotak zoom yang tersimpan di payload timeline (track 1) untuk kandidat ini."""
+    tl = _read_timeline_file(pid)
+    if not tl:
+        return None
+    for track in tl.get("tracks") or []:
+        if track.get("track") != 1:
+            continue
+        for it in track.get("items") or []:
+            by_idx = ((it.get("payload") or {}).get("zoom_keyframes") or {})
+            kfs = by_idx.get(str(idx))
+            if isinstance(kfs, list) and kfs:
+                return kfs
+    return None
+
+@app.post("/api/projects/{project_id}/zoom-keyframes")
+def compute_zoom_keyframes(project_id: str, payload: ZoomKeyframesRequest):
+    """Deteksi wajah sekali per detik -> kotak crop untuk `ffmpeg zoompan` (T6)."""
+    _validate_pid(project_id)
+    meta = read_project_meta(project_id)
+    if not ((ROOT_DIR / "yunet.onnx").exists() or (WORKDIR / "yunet.onnx").exists()):
+        return {"ok": False, "reason": "Model deteksi wajah belum ada",
+                "hint": "Letakkan yunet.onnx di folder work/ lalu ulangi."}
+
+    prefs = meta.get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
+    aspect = payload.aspect or prefs.get("aspect") or "9:16"
+    if aspect not in render_clips.ASPECTS:
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "Rasio tidak valid: aspect"})
+    zoom_manual = payload.zoom_manual
+    if zoom_manual is None:
+        zoom_manual = int(prefs.get("zoom_manual") or 100)
+    if not (100 <= int(zoom_manual) <= 160):
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "Zoom manual tidak valid: pakai 100–160"})
+
+    segments = load_segments_file(project_id)
+    idx = payload.candidate_index
+    if not segments or not (0 <= idx < len(segments)):
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "Segmen klip tidak ditemukan — cari momen viral dulu"})
+    src = get_source_video_path(project_id)
+    if not src:
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": "Video sumber tidak ditemukan"})
+
+    seg = segments[idx]
+    start = float(seg["start"])
+    dur = max(0.5, float(seg["end"]) - start)
+    try:
+        W, H = render_clips.ffprobe_dims(src)
+        kfs = render_clips.compute_zoom_keyframes(
+            src, start, dur, W, H, project_dir(project_id), aspect,
+            float(zoom_manual) / 100.0)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Deteksi wajah gagal: {e}")
+    return {"ok": True, "candidate_index": idx, "aspect": aspect,
+            "zoom_manual": int(zoom_manual), "keyframes": kfs}
+
 @app.post("/api/projects/{project_id}/render")
 def render_clip(project_id: str, payload: RenderRequest):
     _validate_pid(project_id)
@@ -1377,6 +1444,10 @@ def render_clip(project_id: str, payload: RenderRequest):
     wm = (prefs.get("watermark") or "").strip() or None
     watermark = wm if prefs.get("watermark_enabled") else None
 
+    # Zoom punch-in: keyframes timeline hanya cocok kalau tidak ada tighten (waktu tidak bergeser).
+    do_tighten = payload.do_tighten if payload.do_tighten is not None else True
+    zoom_kfs = _stored_zoom_keyframes(project_id, payload.candidate_index) if not do_tighten else None
+
     try:
         cdir.mkdir(parents=True, exist_ok=True)
         w, h = render_clips.ffprobe_dims(src)
@@ -1385,13 +1456,16 @@ def render_clip(project_id: str, payload: RenderRequest):
             W=w, H=h, workdir=pdir,
             aspect=payload.aspect or "9:16",
             out_dir=cdir,
-            do_tighten=payload.do_tighten if payload.do_tighten is not None else True,
+            do_tighten=do_tighten,
             loudnorm=payload.loudnorm or False,
             preview=False,
             crop_mode=payload.crop_mode or "auto",
             hook_title=hook_title,
             watermark=watermark,
             crop_rect=crop_rect,
+            zoom_auto=bool(prefs.get("zoom_auto")),
+            zoom_manual=int(prefs.get("zoom_manual") or 100),
+            zoom_keyframes=zoom_kfs,
             subtitle_style=prefs.get("subtitle_style"),
             candidate_index=payload.candidate_index,
             raw_subdir="raw",
@@ -1456,6 +1530,20 @@ def update_prefs(project_id: str, payload: PrefsRequest):
         if aspect_in not in render_clips.ASPECTS:
             raise HTTPException(400, "Rasio tidak valid: aspect")
         merged["aspect"] = aspect_in
+
+    # Safe-zone preview + zoom punch-in (T6): aman disimpan bareng prefs lain.
+    if "safe_zone" in new_prefs:
+        merged["safe_zone"] = bool(new_prefs["safe_zone"])
+    if "zoom_auto" in new_prefs:
+        merged["zoom_auto"] = bool(new_prefs["zoom_auto"])
+    if "zoom_manual" in new_prefs:
+        try:
+            zm = int(new_prefs["zoom_manual"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Zoom manual tidak valid: zoom_manual")
+        if not (100 <= zm <= 160):
+            raise HTTPException(400, "Zoom manual tidak valid: pakai 100–160")
+        merged["zoom_manual"] = zm
 
     if "caption_preset" in new_prefs:
         preset_name = str(new_prefs["caption_preset"] or "")
@@ -1854,6 +1942,9 @@ def _run_export(pid: str, job_id: str) -> None:
             watermark=((prefs.get("watermark") or "").strip() or None)
             if prefs.get("watermark_enabled") else None,
             crop_rect=(meta.get("crops") or {}).get(str(idx)),
+            zoom_auto=bool(prefs.get("zoom_auto")),
+            zoom_manual=int(prefs.get("zoom_manual") or 100),
+            zoom_keyframes=_stored_zoom_keyframes(pid, int(idx)),
             subtitle_style=prefs.get("subtitle_style"),
             candidate_index=int(idx),
             res_scale=EXPORT_RES[job["resolution"]], fps=int(job["fps"]),

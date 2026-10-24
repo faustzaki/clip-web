@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS timeline_items (
   kind TEXT NOT NULL,             -- video|text|caption|audio|broll
   start_ms INTEGER NOT NULL,
   end_ms INTEGER NOT NULL,
-  payload TEXT,                   -- JSON: {text,style,src,vol}
+  payload TEXT,                   -- JSON: {text,style,src,vol,zoom_keyframes}
   z INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS ix_ti_clip ON timeline_items(clip_id, track, start_ms);
@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS export_jobs (
 | POST | `/api/export` | `{clip_id,resolution,fps,burn_caption,name}` → `{job_id}` | T4 |
 | GET | `/api/export/{job_id}` | `{status,path,error}` | T4 |
 | POST | `/api/projects/{id}/tighten` | `{silence_ms:400,filler:true}` → `{saved_ms}` | T5 |
+| POST | `/api/projects/{id}/zoom-keyframes` | `{candidate_index,zoom_manual?,aspect?}` → `{ok:true,keyframes:[{t,x,y,w,h}]}` (0..1, koordinat sumber; tanpa yunet → `{ok:false,reason,hint}` status 200) | T6 |
 
 ## 4. Bentuk data klip (harus identik dua engine)
 ```json

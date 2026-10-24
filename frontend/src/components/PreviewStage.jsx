@@ -26,8 +26,7 @@ import {
   Play,
   Pause,
 } from 'lucide-react';
-import { renderClip, putPrefs, publishClip } from '../api';
-import IconDropdown from './IconDropdown';
+import { renderClip, putPrefs, publishClip, computeZoomKeyframes } from '../api';
 
 const SUBTITLE_SAMPLE = ['CONTOH', 'TEKS', 'SUBTITLE', 'KARAOKE'];
 
@@ -60,6 +59,7 @@ export default function PreviewStage({
   onClipRendered,
   onOpenCropStudio,
   onOpenSubtitleApply,
+  saveZoomKeyframes,
 }) {
   const frameBoxRef = useRef(null);
   const frameRef = useRef(null);
@@ -96,7 +96,7 @@ export default function PreviewStage({
   useEffect(() => {
     const el = frameBoxRef.current;
     if (!el) return;
-    const ratio = aspect === '1:1' ? 1 : aspect === '16:9' ? 16 / 9 : 9 / 16;
+    const ratio = aspect === '1:1' ? 1 : aspect === '16:9' ? 16 / 9 : aspect === '4:5' ? 4 / 5 : 9 / 16;
     const measure = () => {
       const b = el.getBoundingClientRect();
       if (b.width <= 0 || b.height <= 0) return;
@@ -121,6 +121,89 @@ export default function PreviewStage({
     return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
   };
   const pct = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+
+  // Pill toolbar (Ratio/Background/Layout) + panel Layout (safe zone, auto zoom)
+  const [openMenu, setOpenMenu] = useState(null);
+  const [zoomBusy, setZoomBusy] = useState(false);
+  const [zoomNote, setZoomNote] = useState('');
+  const [zoomDraft, setZoomDraft] = useState(null);
+  const menuRef = useRef(null);
+  const popRef = useRef(null);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const onDown = (e) => {
+      if (!menuRef.current?.contains(e.target) && !popRef.current?.contains(e.target)) setOpenMenu(null);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOpenMenu(null); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [openMenu]);
+
+  const zoomManual = zoomDraft ?? Number(prefs?.zoom_manual || 100);
+  // Merge dari prefsRef, bukan dari prop `prefs` yang bisa basi di tick yang sama
+  // (dua PUT berurutan: yang kedua menimpa nilai yang baru saja ditulis).
+  const patchPrefs = (patch) => {
+    const next = { ...(prefsRef.current || {}), ...patch };
+    prefsRef.current = next;
+    return savePrefs(next);
+  };
+
+  const runAutoZoom = async (on, zoomValue) => {
+    patchPrefs({ zoom_auto: on });
+    setZoomNote('');
+    if (!on || activeCandidateIdx == null) return;
+    setZoomBusy(true);
+    try {
+      const res = await computeZoomKeyframes(projectId, {
+        candidate_index: activeCandidateIdx,
+        zoom_manual: Number(zoomValue ?? prefsRef.current?.zoom_manual ?? 100),
+        aspect,
+      });
+      if (!res?.ok) {
+        setZoomNote(res?.reason || 'Zoom otomatis tidak tersedia.');
+        return;
+      }
+      await saveZoomKeyframes?.(activeCandidateIdx, res.keyframes);
+      setZoomNote(`${res.keyframes.length} titik zoom siap · rasio ${res.aspect}.`);
+    } catch (err) {
+      setZoomNote(`Zoom otomatis gagal: ${err.message}`);
+    } finally {
+      setZoomBusy(false);
+    }
+  };
+
+  const commitZoomManual = (value) => {
+    setZoomDraft(null);
+    patchPrefs({ zoom_manual: value });
+    if (prefs?.zoom_auto) runAutoZoom(true, value);
+  };
+
+  const enterFullscreen = () => {
+    const el = frameBoxRef.current;
+    if (el?.requestFullscreen) el.requestFullscreen().catch(() => {});
+  };
+
+  const RATIO_ITEMS = [
+    { id: '9:16', label: '9:16 (Reels/TikTok)', icon: RectangleVertical },
+    { id: '1:1', label: '1:1 (Feed persegi)', icon: Square },
+    { id: '4:5', label: '4:5 (Feed portrait)', icon: RectangleVertical },
+    { id: '16:9', label: '16:9 (Landscape)', icon: RectangleHorizontal },
+  ];
+  const BACKGROUND_ITEMS = [
+    { id: 'speaker-tracked', label: 'Wajah pembicara' },
+    { id: 'center', label: 'Tengah (statis)' },
+    { id: 'blur', label: 'Blur latar' },
+    { id: 'split', label: 'Split reaksi + gameplay' },
+  ];
+  const PILL_CLASS = 'flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold whitespace-nowrap transition-colors';
+  const pillTone = (open) => (open
+    ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] text-[var(--vz-accent)]'
+    : 'bg-[var(--vz-surface)] border-[var(--vz-border)] text-[var(--vz-text)] hover:border-[var(--vz-accent)] hover:text-[var(--vz-accent)]');
 
   const triggerPlayOverlay = (type) => {
     clearTimeout(playAnimTimeoutRef.current);
@@ -424,66 +507,17 @@ export default function PreviewStage({
   };
 
   return (
-    <main className="flex-1 min-w-0 flex flex-col items-center justify-between overflow-hidden gap-1.5 py-1">
-      {/* Top Bar: Aspect Ratio + Video View Mode */}
-      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-center px-1">
-        {/* Aspect Ratio Dropdown */}
-        <IconDropdown
-          icon={Ratio}
-          title="Rasio"
-          activeIcon={aspect === '1:1' ? Square : aspect === '16:9' ? RectangleHorizontal : RectangleVertical}
-          items={[
-            { id: '9:16', label: '9:16', icon: RectangleVertical, active: aspect === '9:16' },
-            { id: '1:1', label: '1:1', icon: Square, active: aspect === '1:1' },
-            { id: '16:9', label: '16:9', icon: RectangleHorizontal, active: aspect === '16:9' },
-          ]}
-          onSelect={(r) => savePrefs({ ...(prefs || {}), aspect: r })}
-        />
-
-        {/* Video View Mode Dropdown */}
-        <IconDropdown
-          icon={Maximize2}
-          title="Tampilan Video"
-          items={[
-            { id: 'fit', label: 'Fit (Utuh)', icon: Maximize2, active: videoViewMode === 'fit' },
-            { id: 'cover', label: 'Isi Penuh', icon: Expand, active: videoViewMode === 'cover' },
-            { id: 'freeform', label: 'Bebas', icon: Move, active: videoViewMode === 'freeform' },
-          ]}
-          onSelect={(m) => {
-            setVideoViewMode(m);
-            if (m !== 'freeform') {
-              setVideoPos({ x: 0, y: 0 });
-              setVideoScale(1);
-            }
-          }}
-        />
-
-        {/* Overlay Dropdown: Judul & Subtitle (multi-toggle, stays open) */}
-        <IconDropdown
-          icon={Layers}
-          activeIcon={Layers}
-          title="Overlay"
-          closeOnSelect={false}
-          items={[
-            { id: 'judul', label: `Judul ${Boolean(prefs?.title_enabled) ? 'ON' : 'OFF'}`, icon: Type, active: Boolean(prefs?.title_enabled) },
-            { id: 'subtitle', label: `Subtitle ${Boolean(prefs?.subtitles_enabled) ? 'ON' : 'OFF'}`, icon: Captions, active: Boolean(prefs?.subtitles_enabled) },
-          ]}
-          onSelect={(id) => {
-            if (id === 'judul') savePrefs({ ...(prefs || {}), title_enabled: !prefs?.title_enabled });
-            if (id === 'subtitle') savePrefs({ ...(prefs || {}), subtitles_enabled: !prefs?.subtitles_enabled });
-          }}
-        />
-      </div>
-
+    <main className="relative flex-1 min-w-0 flex flex-col items-center justify-between overflow-hidden gap-1.5 py-1">
       {/* Vertical Mobile Phone Viewport (auto-scales cleanly to available height) */}
       <div ref={frameBoxRef} className="w-full flex-1 min-h-0 flex items-center justify-center">
         <div
           ref={frameRef}
+          data-region="preview-frame"
           onClick={() => setIsSubSelected(false)}
           style={{
             width: frameSize.w ? `${frameSize.w}px` : undefined,
             height: frameSize.h ? `${frameSize.h}px` : undefined,
-            aspectRatio: aspect === '1:1' ? '1 / 1' : aspect === '16:9' ? '16 / 9' : '9 / 16',
+            aspectRatio: aspect === '1:1' ? '1 / 1' : aspect === '16:9' ? '16 / 9' : aspect === '4:5' ? '4 / 5' : '9 / 16',
             maxHeight: '100%',
             maxWidth: '100%',
           }}
@@ -518,6 +552,17 @@ export default function PreviewStage({
           {prefs?.watermark_enabled && (prefs?.watermark || '').trim() && (
             <div className="absolute top-4 right-4 z-20 text-[10px] text-white/60 font-semibold tracking-wider bg-black/40 px-2 py-0.5 rounded-full">
               {prefs.watermark}
+            </div>
+          )}
+
+          {/* Safe zone TikTok/Reels: 88% lebar x 80% tinggi, overlay (tanpa geser layout) */}
+          {Boolean(prefs?.safe_zone) && (
+            <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
+              <div data-region="safe-zone" className="relative w-[88%] h-[80%] border border-dashed border-[var(--vz-text-muted)]">
+                <span className="absolute -top-4 left-0 text-[10px] font-semibold text-[var(--vz-text-muted)]">
+                  Area aman
+                </span>
+              </div>
             </div>
           )}
 
@@ -748,6 +793,251 @@ export default function PreviewStage({
           )}
         </div>
       </div>
+
+      {/* Pill toolbar di bawah preview: Ratio · Background · Layout · Layar penuh */}
+      <div ref={menuRef} className="relative w-full flex flex-nowrap items-center justify-center gap-1.5 shrink-0 overflow-x-auto px-1">
+        <button
+          type="button"
+          onClick={() => setOpenMenu(openMenu === 'ratio' ? null : 'ratio')}
+          data-region="pill-ratio"
+          aria-haspopup="menu"
+          aria-expanded={openMenu === 'ratio'}
+          title="Ubah rasio keluaran"
+          className={`${PILL_CLASS} ${pillTone(openMenu === 'ratio')}`}
+        >
+          <Ratio className="w-3.5 h-3.5" />
+          <span>Ratio ({aspect})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setOpenMenu(openMenu === 'background' ? null : 'background')}
+          data-region="pill-background"
+          aria-haspopup="menu"
+          aria-expanded={openMenu === 'background'}
+          title="Ubah perlakuan latar / framing"
+          className={`${PILL_CLASS} ${pillTone(openMenu === 'background')}`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Background</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setOpenMenu(openMenu === 'layout' ? null : 'layout')}
+          data-region="pill-layout"
+          aria-haspopup="dialog"
+          aria-expanded={openMenu === 'layout'}
+          title="Panel Layout: area aman, zoom"
+          className={`${PILL_CLASS} ${pillTone(openMenu === 'layout')}`}
+        >
+          <Crop className="w-3.5 h-3.5" />
+          <span>Layout</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={enterFullscreen}
+          data-region="pill-fullscreen"
+          title="Layar penuh"
+          className={`${PILL_CLASS} ${pillTone(false)}`}
+        >
+          <Maximize2 className="w-3.5 h-3.5" />
+          <span>Layar penuh</span>
+        </button>
+
+      </div>
+
+      {/* Panel mengapung (kanan, di samping rail): menu Ratio/Background + Layout */}
+      {(openMenu === 'ratio' || openMenu === 'background' || openMenu === 'layout') && (
+        <div
+          ref={popRef}
+          className="fixed top-[64px] right-[88px] z-50 max-h-[80vh] overflow-y-auto"
+        >
+          {openMenu === 'ratio' && (
+            <div role="menu" className="w-56 py-1 bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-xl shadow-2xl">
+              {RATIO_ITEMS.map((it) => {
+                const Icon = it.icon;
+                return (
+                  <button
+                    key={it.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={aspect === it.id}
+                    onClick={() => { patchPrefs({ aspect: it.id }); setOpenMenu(null); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-[var(--vz-surface-muted)] ${
+                      aspect === it.id ? 'text-[var(--vz-accent)]' : 'text-[var(--vz-text-soft)]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 text-left">{it.label}</span>
+                    {aspect === it.id && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {openMenu === 'background' && (
+            <div role="menu" className="w-64 py-1 bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-xl shadow-2xl">
+              {BACKGROUND_ITEMS.map((it) => (
+                <button
+                  key={it.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={cropMode === it.id}
+                  onClick={() => { setCropMode(it.id); setOpenMenu(null); }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold hover:bg-[var(--vz-surface-muted)] ${
+                    cropMode === it.id ? 'text-[var(--vz-accent)]' : 'text-[var(--vz-text-soft)]'
+                  }`}
+                >
+                  <span className="flex-1 text-left">{it.label}</span>
+                  {cropMode === it.id && <Check className="w-3.5 h-3.5" />}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {openMenu === 'layout' && (
+            <div
+              role="dialog"
+              data-region="layout-panel"
+              aria-label="Panel Layout"
+              className="w-[276px] p-3 bg-[var(--vz-surface)] border border-[var(--vz-border)] rounded-xl shadow-2xl space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[var(--vz-text)]">Area aman</p>
+                  <p className="text-[10px] text-[var(--vz-text-muted)]">Batas aman TikTok/Reels (88% x 80%)</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => patchPrefs({ safe_zone: !prefs?.safe_zone })}
+                  aria-pressed={Boolean(prefs?.safe_zone)}
+                  aria-label="Area aman"
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                    prefs?.safe_zone
+                      ? 'bg-[var(--vz-accent)] border-[var(--vz-accent)] text-white'
+                      : 'bg-[var(--vz-surface-muted)] border-[var(--vz-border)] text-[var(--vz-text-soft)]'
+                  }`}
+                >
+                  {prefs?.safe_zone ? 'ON' : 'OFF'}
+                </button>
+              </div>
+
+              <div className="border-t border-[var(--vz-border)] pt-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[var(--vz-text)]">Auto zoom</p>
+                    <p className="text-[10px] text-[var(--vz-text-muted)]">Ikuti wajah, punch-in per detik</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={zoomBusy || activeCandidateIdx == null}
+                    onClick={() => runAutoZoom(!prefs?.zoom_auto)}
+                    aria-pressed={Boolean(prefs?.zoom_auto)}
+                    aria-label="Auto zoom"
+                    title={activeCandidateIdx == null ? 'Pilih klip dulu di clip strip' : 'Auto zoom ikuti wajah'}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors disabled:opacity-50 ${
+                      prefs?.zoom_auto
+                        ? 'bg-[var(--vz-accent)] border-[var(--vz-accent)] text-white'
+                        : 'bg-[var(--vz-surface-muted)] border-[var(--vz-border)] text-[var(--vz-text-soft)]'
+                    }`}
+                  >
+                    {zoomBusy ? 'Menghitung…' : prefs?.zoom_auto ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                {zoomNote && (
+                  <p data-region="zoom-note" className="mt-1.5 text-[10px] text-[var(--vz-text-muted)]">{zoomNote}</p>
+                )}
+                <label className="mt-2 block text-[10px] font-semibold text-[var(--vz-text-soft)]" htmlFor="zoom-manual">
+                  Zoom manual {zoomManual}%
+                </label>
+                <input
+                  id="zoom-manual"
+                  type="range"
+                  min="100"
+                  max="160"
+                  step="5"
+                  value={zoomManual}
+                  onChange={(e) => setZoomDraft(Number(e.target.value))}
+                  onPointerUp={() => commitZoomManual(zoomManual)}
+                  onKeyUp={() => commitZoomManual(zoomManual)}
+                  onBlur={() => zoomDraft != null && commitZoomManual(zoomManual)}
+                  className="w-full accent-[var(--vz-accent)] cursor-pointer"
+                />
+              </div>
+
+              <div className="border-t border-[var(--vz-border)] pt-3 space-y-1.5">
+                <p className="text-[10px] font-semibold text-[var(--vz-text-muted)]">Tampilan video</p>
+                <div className="flex gap-1.5">
+                  {[
+                    { id: 'fit', label: 'Fit', icon: Maximize2 },
+                    { id: 'cover', label: 'Isi', icon: Expand },
+                    { id: 'freeform', label: 'Bebas', icon: Move },
+                  ].map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setVideoViewMode(m.id);
+                          if (m.id !== 'freeform') {
+                            setVideoPos({ x: 0, y: 0 });
+                            setVideoScale(1);
+                          }
+                        }}
+                        aria-pressed={videoViewMode === m.id}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                          videoViewMode === m.id
+                            ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                            : 'bg-[var(--vz-surface-muted)] border-[var(--vz-border)] text-[var(--vz-text-soft)]'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        <span>{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="border-t border-[var(--vz-border)] pt-3 space-y-1.5">
+                <p className="text-[10px] font-semibold text-[var(--vz-text-muted)]">Overlay</p>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => patchPrefs({ title_enabled: !prefs?.title_enabled })}
+                    aria-pressed={Boolean(prefs?.title_enabled)}
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                      prefs?.title_enabled
+                        ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                        : 'bg-[var(--vz-surface-muted)] border-[var(--vz-border)] text-[var(--vz-text-soft)]'
+                    }`}
+                  >
+                    <Type className="w-3.5 h-3.5" />
+                    <span>Judul</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => patchPrefs({ subtitles_enabled: !prefs?.subtitles_enabled })}
+                    aria-pressed={Boolean(prefs?.subtitles_enabled)}
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
+                      prefs?.subtitles_enabled
+                        ? 'bg-[var(--vz-accent-tint)] border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                        : 'bg-[var(--vz-surface-muted)] border-[var(--vz-border)] text-[var(--vz-text-soft)]'
+                    }`}
+                  >
+                    <Captions className="w-3.5 h-3.5" />
+                    <span>Subtitle</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}        
+        </div>
+      )}
 
       {/* Freeform Mini-Dock Toolbar */}
       {videoViewMode === 'freeform' && (

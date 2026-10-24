@@ -1,0 +1,36 @@
+PASS file T6 ada (render_clips, server, PreviewStage, Timeline, useEditorState, StudioView, api) — 7/7
+PASS render_clips: rasio 4:5 + helper zoompan
+PASS server: endpoint zoom-keyframes + prefs safe_zone/zoom
+PASS PreviewStage: pill toolbar berlabel + safe zone + panel Layout
+PASS Timeline: badge zoom di track video
+PASS useEditorState + api.js: simpan zoom_keyframes ke timeline, endpoint zoom-keyframes
+PASS file yang disentuh tanpa dark/neon/gradient/TODO/console.log
+PASS build memuat token aksen — index-BnjIzJzC.css
+PASS ffmpeg punya filter zoompan
+PASS model wajah yunet.onnx ada
+PASS video uji berisi wajah tersedia (project lama) — work\c292ecb04e\hq\hd.mp4
+PASS GET /api/health 200 — {"status":"ok","ffmpeg":true,"yunet":true,"ninerouter":true}
+PASS health melaporkan yunet siap — True
+PASS GET /api/options memuat 4 rasio termasuk 4:5 — ['9:16', '1:1', '4:5', '16:9']
+PASS source uji siap — source.mp4 (1920, 1080)
+PASS POST /zoom-keyframes ok:true + keyframes — {'ok': True, 'candidate_index': 0, 'aspect': '9:16', 'zoom_manual': 100, 'keyframes': [{'t': 0.0, 'x': 0.68333, 'y': 0.0
+PASS keyframes cukup padat (>= 1 per detik) — 60 kotak untuk 12 s
+PASS kotak keyframe berasio 9:16 dan di dalam frame — 60 kotak, w 0.317-0.317
+PASS keyframes mengikuti subjek (x bervariasi) — 46 posisi x unik
+PASS kotak keyframe mengikuti wajah (dx ≤ 0.12 dari pusat kotak) — 11 sampel, dx=0.094, dy=0.150 (ruang gerak vertikal 0.000, tidak diuji)
+PASS POST /timeline simpan zoom_keyframes di payload — {'ok': True, 'items': 1}
+PASS GET /timeline mengembalikan payload.zoom_keyframes — 60 kotak tersimpan
+PASS PUT /prefs simpan safe_zone + zoom_auto + zoom_manual — 130
+PASS PUT /prefs tolak zoom_manual di luar 100–160 — {"detail":"Zoom manual tidak valid: pakai 100–160"}
+PASS POST /render 9:16 + auto zoom ok — {"status":"ok","clip":{"name":"t6-9x16.mp4","slug":"t6-9x16","url":"/clips/7189b6efcb/raw/t6-9x16.mp4","raw_url":"/clips
+PASS hasil 9:16 = 1080x1920 — (1080, 1920)
+PASS durasi hasil tetap 12 s — 12.00s
+PASS POST /render 4:5 ok — {"status":"ok","clip":{"name":"t6-4x5.mp4","slug":"t6-4x5","url":"/clips/7189b6efcb/raw/t6-4x5.mp4","raw_url":"/clips/71
+PASS hasil 4:5 = 1080x1350 (beda dari 9:16) — (1080, 1350)
+PASS POST /render pakai zoom_keyframes dari payload timeline — sha256 identik dengan render auto zoom
+PASS POST /render baseline (zoom mati) ok — {"status":"ok","clip":{"name":"t6-baseline.mp4","slug":"t6-baseline","url":"/cli
+PASS auto zoom: subjek dekat tengah pada frame 10/50/90% — cx=[0.18, 0.444], simpangan rata-rata=0.188
+PASS auto zoom lebih terpusat daripada center crop — zoom 0.188 vs baseline 0.354
+PASS file uji dibersihkan dari work/ dan clips/
+
+0 gagal

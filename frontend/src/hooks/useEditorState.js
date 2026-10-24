@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchTranscript, cutTranscript, fetchTimeline } from '../api';
+import { fetchTranscript, cutTranscript, fetchTimeline, saveTimeline } from '../api';
 
 /**
  * State inti editor studio: transkrip (kata), timeline, klip/kandidat, posisi putar (detik),
@@ -61,6 +61,32 @@ export default function useEditorState({ projectId, state, videoRef }) {
     await loadTranscript();
   };
 
+  /** Tulis kotak zoom (T6) ke payload item track 1, kunci per candidate_index. */
+  const saveZoomKeyframes = async (candidateIndex, keyframes) => {
+    const tracks = timeline?.tracks || [];
+    if (!tracks.length) return false;
+    let touched = false;
+    const items = tracks.flatMap((t) => (t.items || []).map((it) => {
+      if (t.track !== 1) return { ...it, track: t.track };
+      touched = true;
+      return {
+        ...it,
+        track: t.track,
+        payload: {
+          ...(it.payload || {}),
+          zoom_keyframes: {
+            ...((it.payload || {}).zoom_keyframes || {}),
+            [String(candidateIndex)]: keyframes,
+          },
+        },
+      };
+    }));
+    if (!touched) return false;
+    await saveTimeline(projectId, items);
+    setTimeline(await fetchTimeline(projectId));
+    return true;
+  };
+
   const clips = state?.clips || [];
   const candidates = state?.candidates || [];
 
@@ -79,6 +105,7 @@ export default function useEditorState({ projectId, state, videoRef }) {
     loadTranscript,
     seekToMs,
     handleTranscriptCut,
+    saveZoomKeyframes,
     clips,
     candidates,
   };

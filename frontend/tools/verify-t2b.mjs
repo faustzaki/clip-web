@@ -11,10 +11,9 @@ const out = { pass: [], fail: [] };
 const ck = (n, c, d = "") => { (c ? out.pass : out.fail).push(n + (d ? ` — ${d}` : "")); console.log((c ? "PASS " : "FAIL ") + n + (d ? ` — ${d}` : "")); };
 
 await page.goto(BASE, { waitUntil: "networkidle" });
-await page.evaluate(() => {
-  const el = document.querySelector(".vz-card, [class*=cursor-pointer]");
-  if (el) el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-});
+// klik kartu proyek: dispatchEvent tidak memicu routing React Router -> pakai klik elemen nyata
+await page.locator(".vz-card").first().click({ force: true });
+await page.waitForFunction(() => location.pathname.split("/").filter(Boolean).length >= 2, { timeout: 15000 }).catch(() => {});
 await page.waitForSelector('[data-region="sidebar"]', { timeout: 15000 });
 await page.waitForSelector('[data-region="transcript-count"]', { timeout: 20000 }).catch(() => {});
 
@@ -35,17 +34,47 @@ const pick = await page.evaluate(async () => {
   }
   return null;
 });
-const targetIdx = pick ? pick.idx : 1;
-const api = pick ? { start: pick.start } : null;
-if (!pick) console.log("INFO: tidak ada kata visible >3s — pakai idx 1");
+let targetIdx = pick ? pick.idx : null;
+let api = pick ? { start: pick.start } : null;
+if (!pick) {
+  // Headless: scrollIntoView sering tidak membuat kandidat lolos cek viewport. Pilih kata dengan
+  // start_ms > 3000 langsung dari API (yang penting bukan kata pertama di 0s).
+  const fallback = await page.evaluate(async () => {
+    // routing bisa tanpa pid di path -> ambil project aktif dari daftar
+    let pid = location.pathname.split("/").filter(Boolean).pop();
+    const list = await (await fetch("/api/projects")).json();
+    const ok = (list.projects || []).some((x) => x.id === pid);
+    if (!ok) pid = (list.projects || [])[0]?.id;
+    const j = await (await fetch(`/api/projects/${pid}/transcript?word=1`)).json();
+    const w = (j.words || []).find((x) => x.start_ms > 3000 && !x.deleted);
+    return w ? { idx: w.idx, start: w.start_ms } : null;
+  });
+  if (fallback) { targetIdx = fallback.idx; api = { start: fallback.start }; console.log(`INFO: pakai kata idx ${fallback.idx} @ ${Math.round(fallback.start / 1000)}s`); }
+  else { targetIdx = 1; console.log("INFO: tidak ada kata >3s — pakai idx 1"); }
+}
 await page.waitForTimeout(300);
 
 await page.waitForFunction(() => { const v = document.querySelector("video"); return v && v.readyState >= 1; }, { timeout: 20000 }).catch(() => {});
 
 const before = await page.evaluate(() => document.querySelector("video")?.currentTime ?? -1);
-const box = await page.locator(`[data-idx="${targetIdx}"]`).first().boundingBox();
-if (box) await page.mouse.click(box.x + 4, box.y + box.height / 2);
-else await page.locator(`[data-idx="${targetIdx}"]`).first().click({ force: true }).catch(() => {});
+// Pastikan kata berada di tengah viewport; kalau tertutup elemen lain, klik elemennya langsung.
+const sel = `[data-idx="${targetIdx}"]`;
+await page.locator(sel).first().scrollIntoViewIfNeeded().catch(() => {});
+await page.waitForTimeout(200);
+const hit = await page.evaluate((s) => {
+  const el = document.querySelector(s);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  const top = document.elementFromPoint(r.x + 2, r.y + r.height / 2);
+  return { covers: top === el || el.contains(top), y: Math.round(r.y) };
+}, sel);
+if (hit && hit.covers) {
+  const box = await page.locator(sel).first().boundingBox();
+  await page.mouse.click(box.x + 4, box.y + box.height / 2);
+} else {
+  console.log(`INFO: kata idx ${targetIdx} tertutup elemen lain (y=${hit ? hit.y : "?"}) — pakai .click()`);
+  await page.locator(sel).first().click({ force: true }).catch(() => {});
+}
 
 // tunggu currentTime berubah (maks 6s), jangan pakai sleep tetap
 await page.waitForFunction((t0) => {

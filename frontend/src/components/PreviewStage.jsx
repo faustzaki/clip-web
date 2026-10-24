@@ -1364,7 +1364,7 @@ export default function PreviewStage({
           <button
             type="button"
             onClick={togglePlay}
-            className="p-1 text-[var(--vz-text)] hover:text-[var(--vz-text-strong)] transition-colors"
+            className="p-1.5 grid place-items-center text-[var(--vz-text)] hover:text-[var(--vz-text-strong)] transition-colors"
             title={isPlaying ? 'Jeda video' : 'Putar video'}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}

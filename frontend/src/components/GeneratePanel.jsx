@@ -157,7 +157,7 @@ export default function GeneratePanel({
             <Sparkles className="w-4 h-4 text-[var(--vz-accent)]" />
           )}
           <div
-            className="text-xs font-bold text-[var(--vz-text-muted)] uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 py-4 select-none"
+            className="text-xs font-bold text-[var(--vz-text-muted)] uppercase tracking-widest [writing-mode:vertical-rl] rotate-180 py-6 select-none"
           >
             {panelTitle}
           </div>
@@ -172,7 +172,7 @@ export default function GeneratePanel({
               onClick={() => setEditMode((v) => !v)}
               aria-expanded={editMode}
               title={editMode ? 'Beralih ke Generate Clip' : 'Beralih ke Edit Clip'}
-              className="text-sm font-extrabold uppercase tracking-wider text-[var(--vz-text-strong)] flex items-center gap-2 hover:text-[var(--vz-accent)] transition-colors"
+              className="text-sm font-extrabold uppercase tracking-wider text-[var(--vz-text-strong)] flex items-center gap-2 py-1.5 -my-1 hover:text-[var(--vz-accent)] transition-colors"
             >
               {editMode ? <Pencil className="w-4 h-4 text-[var(--vz-accent)]" /> : <Sparkles className="w-4 h-4 text-[var(--vz-accent)]" />}
               <span>{panelTitle}</span>
@@ -183,7 +183,7 @@ export default function GeneratePanel({
                   type="button"
                   onClick={() => setEditMode(false)}
                   title="Kembali ke Generate Clip"
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold text-[var(--vz-text-muted)] hover:text-[var(--vz-accent)] hover:bg-[var(--vz-surface-muted)] transition-colors"
+                  className="px-2 py-1.5 rounded-lg text-[10px] font-bold text-[var(--vz-text-muted)] hover:text-[var(--vz-accent)] hover:bg-[var(--vz-surface-muted)] transition-colors"
                 >
                   Generate Clip
                 </button>

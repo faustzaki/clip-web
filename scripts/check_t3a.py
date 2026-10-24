@@ -59,9 +59,14 @@ try:
     ck("item punya field lengkap + rentang valid",
        all(ITEM_FIELDS <= set(it) and 0 <= it["start_ms"] < it["end_ms"] for it in all_items),
        f"{len(all_items)} item")
+    # hanya caption (track 2) yang wajib punya payload.text — track video/audio payload-nya lain
+    # track 2 juga memuat blok b-roll (payload: src/name), jadi filter kind == "caption"
+    real_caps = [it for it in caps if it.get("kind") == "caption"]
+    caps_with_text = [it for it in real_caps if isinstance(it.get("payload"), dict) and it["payload"].get("text")]
     ck("caption turunan ada + <=12 kata/item",
-       caps and all(len(it["payload"].get("text", "").split()) <= 12 for it in caps),
-       f"{len(caps)} caption, max={max((len(it['payload']['text'].split()) for it in caps), default=0)}")
+       bool(real_caps) and len(caps_with_text) == len(real_caps)
+       and all(len(it["payload"]["text"].split()) <= 12 for it in caps_with_text),
+       f"{len(real_caps)} caption (teks: {len(caps_with_text)}), max={max((len(it['payload']['text'].split()) for it in caps_with_text), default=0)}")
     ck("GET turunan tidak menulis timeline.json", not tl_path.exists(), str(tl_path))
 
     # 3. POST invalid → 400, bukan 500

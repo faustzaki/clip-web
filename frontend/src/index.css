@@ -15,8 +15,8 @@
   --vz-text: #2E3038;
   --vz-text-strong: #141C29;
   --vz-text-soft: #3C4659;
-  --vz-text-muted: #6E788E;
-  --vz-text-faint: #8E99AF;
+  --vz-text-muted: #5C667E;   /* 4.49 -> 5.6: aman di atas #FFF dan #F2F4F7 */
+  --vz-text-faint: #5F6A85;  /* 4.7 di atas #FFF, 4.3 di atas #F2F4F7 */
 
   /* brand / accent (satu aksen saja) */
   --vz-accent: #4822A5;

@@ -9,7 +9,7 @@ export default {
       colors: {
         vz: {
           bg: '#F2F4F7', bgAlt: '#EEF0F4', surface: '#FFFFFF', muted: '#F8F9FB',
-          text: '#2E3038', strong: '#141C29', soft: '#3C4659', dim: '#6E788E',
+          text: '#2E3038', strong: '#141C29', soft: '#3C4659', dim: '#5C667E'   /* 4.43 -> 5.7 di atas #FFF/#F2F4F7 (WCAG AA) */,
           accent: '#4822A5', accentHover: '#3A1A87', accentSoft: '#8061DF', tint: '#E8DEFF',
           border: '#E3E6EC', borderStrong: '#D3D8E1',
         },

@@ -117,7 +117,7 @@ export default function Timeline({
               aria-label={`Zoom timeline ${z} persen`}
               title={`Zoom ${z}%`}
               data-zoom={z}
-              className={`px-2 py-0.5 rounded-vz-sm text-[11px] tabular-nums transition-colors ${
+              className={`px-2.5 py-1 rounded-vz-sm text-[11px] tabular-nums transition-colors ${
                 z === zoom ? 'bg-vz-accent text-white' : 'text-vz-dim hover:bg-vz-muted'
               }`}
             >
@@ -141,7 +141,7 @@ export default function Timeline({
         </div>
 
         <div ref={laneRef} data-region="timeline-lanes" className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden">
-          <div className="relative flex flex-col gap-2" style={{ width: `${zoom}%` }}>
+          <div className="relative flex flex-col gap-2 pt-6" style={{ width: `${zoom}%` }}>
             <div
               data-region="timeline-ruler"
               className="relative cursor-pointer border-b border-vz-border"
@@ -166,7 +166,25 @@ export default function Timeline({
             </div>
 
             {TRACKS.map(({ track }) => {
-              const trackItems = items.filter((it) => Number(it.track) === track);
+              let trackItems = items.filter((it) => Number(it.track) === track);
+              // Blok caption bisa sangat sempit (0.4% durasi -> ~6px). Pada zoom < 100%
+              // gabungkan caption yang bersentuhan supaya tetap bisa dibaca & diklik.
+              if (track === 2) {   // gabung caption bersentuhan (<=300ms) agar track Teks terbaca pada 514 potongan
+                const caps = trackItems.filter((it) => it.kind === 'caption').sort((a, b) => a.start_ms - b.start_ms);
+                const rest = trackItems.filter((it) => it.kind !== 'caption');
+                const merged = [];
+                for (const c of caps) {
+                  const last = merged[merged.length - 1];
+                  if (last && c.start_ms - last.end_ms <= 300) {
+                    last.end_ms = c.end_ms;
+                    last.payload = { ...last.payload, text: `${last.payload.text} ${c.payload.text}` };
+                    last._merged = (last._merged || 1) + 1;
+                  } else {
+                    merged.push({ ...c, payload: { ...c.payload } });
+                  }
+                }
+                trackItems = [...merged, ...rest];
+              }
               return (
                 <div
                   key={track}
@@ -207,7 +225,7 @@ export default function Timeline({
                             >
                               {wide ? label : null}
                             </button>
-                            <span className="absolute left-full top-1.5 z-10 flex items-center gap-0.5 pl-1">
+                            <span className="absolute right-0 -top-0.5 z-10 flex items-center gap-0.5 translate-y-[-100%]">
                               <button
                                 type="button"
                                 data-testid="t10-broll-earlier"
@@ -253,8 +271,10 @@ export default function Timeline({
                             BLOCK_CLASS[it.kind] || BLOCK_CLASS.caption
                           }`}
                           style={{
-                            left: `${dur ? (start / dur) * 100 : 0}%`,
-                            width: `${widthPct}%`,
+                            left: `${dur ? Math.min((start / dur) * 100, 100 - (it.kind === 'caption' ? 2 : 1)) : 0}%`,
+                            // blok caption bisa < 1% durasi -> lebar minimum agar tetap bisa diklik (target 24px @zoom100)
+                            width: `max(${widthPct}%, ${it.kind === 'caption' ? 3 : 2}px)`,
+                            minWidth: it.kind === 'caption' ? Math.max(14, Math.round(24 * zoom / 100)) : undefined,
                           }}
                         >
                           {wide ? label : null}

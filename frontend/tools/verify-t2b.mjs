@@ -33,14 +33,20 @@ const api = await page.evaluate(async (idx) => {
   return w ? { start: w.start_ms, dur: j.duration_ms } : null;
 }, targetIdx).catch(() => null);
 
-const seek = await page.evaluate(async (idx) => {
-  const el = document.querySelector(`[data-idx="${idx}"]`);
-  if (!el) return { ok: false, reason: "kata tidak ada" };
-  el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  await new Promise(r => setTimeout(r, 1200));
+// tunggu video punya metadata (loadedmetadata), kalau belum seek tidak jalan
+await page.waitForFunction(() => {
   const v = document.querySelector("video");
-  return { ok: true, current: v ? v.currentTime : -1, paused: v ? v.paused : null };
-}, targetIdx);
+  return v && v.readyState >= 1;
+}, { timeout: 15000 }).catch(() => {});
+
+const box = await page.locator(`[data-idx="${targetIdx}"]`).first().boundingBox();
+if (box) await page.mouse.click(box.x + Math.min(12, box.width / 2), box.y + box.height / 2);
+else await page.locator(`[data-idx="${targetIdx}"]`).first().click({ force: true }).catch(() => {});
+await page.waitForTimeout(1500);
+const seek = await page.evaluate(() => {
+  const v = document.querySelector("video");
+  return { ok: !!v, current: v ? v.currentTime : -1, ready: v ? v.readyState : 0 };
+});
 
 if (api) {
   const expected = api.start / 1000;

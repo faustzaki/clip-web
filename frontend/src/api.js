@@ -433,3 +433,32 @@ export async function refreshBrollIndex(projectId, candidateIndex = 0) {
   if (!res.ok) throw new Error(data.detail || data.reason || 'Gagal memindai ulang folder b-roll');
   return data;
 }
+
+// T11: brand kit global (data/brand.json). Balasan {ok:false,reason,hint} = prasyarat
+// kurang (mis. ffmpeg tanpa filter overlay), bukan error — jadi tidak dilempar.
+export async function fetchBrand() {
+  const res = await apiFetch(`${BASE_URL}/api/brand`);
+  if (!res.ok) throw new Error('Gagal memuat brand kit');
+  return res.json();
+}
+
+export async function updateBrand(brand) {
+  const res = await apiFetch(`${BASE_URL}/api/brand`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(brand),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.reason || 'Gagal menyimpan brand kit');
+  return data;
+}
+
+// kind: 'logo' | 'intro' | 'outro'
+export async function uploadBrandAsset(kind, file) {
+  const formData = new FormData();
+  formData.append('kind', kind);
+  formData.append('file', file);
+  const res = await apiFetch(`${BASE_URL}/api/brand/upload`, { method: 'POST', body: formData });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.reason || `Unggah ${kind} gagal`);
+  return data;
+}

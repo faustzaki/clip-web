@@ -17,7 +17,10 @@ import {
   Layers,
   BookOpen,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  Palette,
+  Upload,
+  Film
 } from 'lucide-react';
 import {
   fetchSettings,
@@ -29,8 +32,70 @@ import {
   fetchOptions,
   fetchGlossary,
   updateGlossary,
-  fetchAccuracy
+  fetchAccuracy,
+  fetchBrand,
+  updateBrand,
+  uploadBrandAsset
 } from '../api';
+
+const BRAND_CORNER_LABELS = {
+  tl: 'Kiri atas',
+  tr: 'Kanan atas',
+  bl: 'Kiri bawah',
+  br: 'Kanan bawah'
+};
+const BRAND_ASSETS = {
+  logo: { label: 'Logo', hint: 'PNG transparan, tampil di sudut frame.', accept: '.png,.webp,.jpg,.jpeg' },
+  intro: { label: 'Intro', hint: 'Video MP4 yang diputar sebelum klip.', accept: '.mp4,.mov,.mkv,.webm' },
+  outro: { label: 'Outro', hint: 'Video MP4 yang diputar setelah klip.', accept: '.mp4,.mov,.mkv,.webm' }
+};
+
+function BrandAssetRow({ kind, url, busyKind, onUpload, onClear }) {
+  const meta = BRAND_ASSETS[kind];
+  return (
+    <div className="flex items-center gap-3" data-region={`brand-${kind}`}>
+      <div className="w-14 h-14 rounded-xl border border-[var(--vz-border)] bg-[var(--vz-surface-muted)] flex items-center justify-center overflow-hidden shrink-0">
+        {url && kind === 'logo' ? (
+          <img src={url} alt={`Pratinjau ${meta.label}`} className="w-full h-full object-contain" />
+        ) : (
+          <Film className="w-5 h-5 text-[var(--vz-text-faint)]" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-[var(--vz-text-strong)]">{meta.label}</p>
+        <p className="text-[11px] text-[var(--vz-text-muted)] truncate">
+          {url ? url.split('/').pop() : meta.hint}
+        </p>
+      </div>
+      <label className="px-3 py-1.5 rounded-xl bg-[var(--vz-surface)] border border-[var(--vz-border)] hover:border-[var(--vz-accent)] text-[11px] font-bold cursor-pointer flex items-center gap-1.5 shrink-0">
+        <Upload className="w-3 h-3" />
+        <span>{busyKind === kind ? 'Mengunggah...' : url ? 'Ganti' : 'Unggah'}</span>
+        <input
+          type="file"
+          accept={meta.accept}
+          disabled={busyKind !== null}
+          data-testid={`brand-upload-${kind}`}
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) onUpload(kind, file);
+          }}
+        />
+      </label>
+      {url && (
+        <button
+          type="button"
+          onClick={() => onClear(kind)}
+          className="p-1.5 rounded-lg text-[var(--vz-text-muted)] hover:text-[var(--vz-danger-fg)] hover:bg-[var(--vz-surface-muted)] shrink-0"
+          title={`Hapus ${meta.label} dari brand kit`}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 const ENDPOINT_PRESETS = [
   { label: '9Router (Lokal)', value: 'http://127.0.0.1:20128/v1' },
@@ -41,7 +106,7 @@ const ENDPOINT_PRESETS = [
 ];
 
 export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved, projectId, onResetWorkspace, isResetting }) {
-  const [activeTab, setActiveTab] = useState('engine'); // 'engine' | 'storage' | 'accuracy'
+  const [activeTab, setActiveTab] = useState('engine'); // 'engine' | 'storage' | 'brand' | 'accuracy'
 
   // Settings State
   const [endpoint, setEndpoint] = useState('');
@@ -64,6 +129,16 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
   const [accuracyError, setAccuracyError] = useState(null);
   const [isLoadingAccuracy, setIsLoadingAccuracy] = useState(false);
 
+  // Brand kit (T11)
+  const [brand, setBrand] = useState(null);
+  const [brandFonts, setBrandFonts] = useState([]);
+  const [brandCorners, setBrandCorners] = useState(['tl', 'tr', 'bl', 'br']);
+  const [brandBlocked, setBrandBlocked] = useState(null);
+  const [brandMsg, setBrandMsg] = useState(null);
+  const [brandConfigured, setBrandConfigured] = useState(false);
+  const [isSavingBrand, setIsSavingBrand] = useState(false);
+  const [uploadingKind, setUploadingKind] = useState(null);
+
   // Status & Loaders
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,6 +154,7 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
     if (isOpen) {
       loadSettings();
       loadAccuracyTab();
+      loadBrand();
       setTestResult(null);
       setClearResult(null);
       setSaveSuccess(false);
@@ -107,6 +183,91 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
       setAccuracyError(err.message || 'Gagal memuat skor akurasi.');
     } finally {
       setIsLoadingAccuracy(false);
+    }
+  };
+
+  const loadBrand = async () => {
+    try {
+      const data = await fetchBrand();
+      if (data.ok === false) {
+        setBrandBlocked({ reason: data.reason, hint: data.hint });
+        return;
+      }
+      setBrandBlocked(null);
+      setBrand(data.brand || null);
+      setBrandConfigured(Boolean(data.configured));
+      setBrandFonts(data.fonts || []);
+      setBrandCorners(data.corners || []);
+    } catch (err) {
+      setBrandMsg({ ok: false, text: err.message || 'Gagal memuat brand kit.' });
+    }
+  };
+
+  const patchBrand = (patch) => setBrand((cur) => ({ ...cur, ...patch }));
+
+  const broadcastBrand = () => window.dispatchEvent(new Event('vz:brand-updated'));
+
+  const handleSaveBrand = async () => {
+    if (!brand) return;
+    setIsSavingBrand(true);
+    setBrandMsg(null);
+    try {
+      const data = await updateBrand({
+        color_primary: brand.color_primary,
+        color_secondary: brand.color_secondary,
+        font: brand.font,
+        logo_corner: brand.logo_corner,
+        logo_size_pct: Number(brand.logo_size_pct) || 8
+      });
+      if (data.ok === false) {
+        setBrandMsg({ ok: false, text: `${data.reason} — ${data.hint}` });
+        return;
+      }
+      setBrand(data.brand);
+      setBrandConfigured(true);
+      setBrandMsg({ ok: true, text: 'Brand kit tersimpan. Render & export berikutnya memakai kit ini.' });
+      broadcastBrand();
+    } catch (err) {
+      setBrandMsg({ ok: false, text: err.message || 'Gagal menyimpan brand kit.' });
+    } finally {
+      setIsSavingBrand(false);
+    }
+  };
+
+  const handleBrandUpload = async (kind, file) => {
+    setUploadingKind(kind);
+    setBrandMsg(null);
+    try {
+      const data = await uploadBrandAsset(kind, file);
+      if (data.ok === false) {
+        setBrandMsg({ ok: false, text: `${data.reason} — ${data.hint}` });
+        return;
+      }
+      setBrand(data.brand);
+      setBrandConfigured(true);
+      setBrandMsg({ ok: true, text: `${BRAND_ASSETS[kind].label} tersimpan di data/brand/.` });
+      broadcastBrand();
+    } catch (err) {
+      setBrandMsg({ ok: false, text: err.message || `Unggah ${kind} gagal.` });
+    } finally {
+      setUploadingKind(null);
+    }
+  };
+
+  const handleBrandAssetClear = async (kind) => {
+    setBrandMsg(null);
+    try {
+      const data = await updateBrand({ [`${kind}_path`]: '' });
+      if (data.ok === false) {
+        setBrandMsg({ ok: false, text: `${data.reason} — ${data.hint}` });
+        return;
+      }
+      setBrand(data.brand);
+      setBrandConfigured(true);
+      setBrandMsg({ ok: true, text: `${BRAND_ASSETS[kind].label} dilepas dari brand kit.` });
+      broadcastBrand();
+    } catch (err) {
+      setBrandMsg({ ok: false, text: err.message || `Gagal melepas ${kind}.` });
     }
   };
 
@@ -314,6 +475,19 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>3. Akurasi ASR</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('brand')}
+            data-testid="tab-brand"
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold border-b-2 transition-all ${
+              activeTab === 'brand'
+                ? 'border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                : 'border-transparent text-[var(--vz-text-muted)] hover:text-[var(--vz-text)]'
+            }`}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span>4. Brand Kit</span>
           </button>
         </div>
 
@@ -624,6 +798,169 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
                     </button>
                   </div>
                 </div>
+              )}
+            </div>
+          ) : activeTab === 'brand' ? (
+            /* TAB 4: BRAND KIT (T11) */
+            <div className="space-y-5" data-region="brand-tab">
+              {brandBlocked && (
+                <div className="p-3 rounded-xl border border-[var(--vz-border)] bg-[var(--vz-surface-muted)] space-y-1">
+                  <p className="text-xs font-bold text-[var(--vz-text-strong)] flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" style={{ color: '#E0A800' }} />
+                    {brandBlocked.reason}
+                  </p>
+                  <p className="text-[11px] text-[var(--vz-text-muted)]">{brandBlocked.hint}</p>
+                </div>
+              )}
+
+              <p className="text-[11px] text-[var(--vz-text-muted)] leading-relaxed">
+                {brandConfigured
+                  ? 'Brand kit aktif: logo, warna caption, dan intro/outro dipakai setiap render & export.'
+                  : 'Brand kit belum tersimpan — export tetap jalan dengan gaya bawaan sampai kit ini kamu simpan.'}
+              </p>
+
+              <div className="space-y-3">
+                {['logo', 'intro', 'outro'].map((kind) => (
+                  <BrandAssetRow
+                    key={kind}
+                    kind={kind}
+                    busyKind={uploadingKind}
+                    url={brand?.[kind === 'logo' ? 'logo_url' : `${kind}_url`] || null}
+                    onUpload={handleBrandUpload}
+                    onClear={handleBrandAssetClear}
+                  />
+                ))}
+                <p className="text-[11px] text-[var(--vz-text-muted)]">
+                  Berkas tersimpan di data/brand/. Logo ditempel 24 px dari tepi frame.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-[var(--vz-border)]">
+                <label className="font-bold text-[var(--vz-text-strong)]">Warna Brand</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: 'color_primary', label: 'Warna caption' },
+                    { key: 'color_secondary', label: 'Warna kata aktif' }
+                  ].map((c) => (
+                    <div key={c.key} className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={brand?.[c.key] || '#FFFFFF'}
+                        disabled={Boolean(brandBlocked)}
+                        data-testid={`brand-color-${c.key}`}
+                        onChange={(e) => patchBrand({ [c.key]: e.target.value.toUpperCase() })}
+                        className="w-9 h-9 rounded-lg border border-[var(--vz-border)] bg-[var(--vz-surface)] cursor-pointer"
+                      />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-[var(--vz-text-strong)]">{c.label}</p>
+                        <p className="text-[10px] font-mono text-[var(--vz-text-muted)]">
+                          {brand?.[c.key] || '—'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-[var(--vz-border)]">
+                <label className="font-bold text-[var(--vz-text-strong)] flex items-center justify-between">
+                  <span>Font Caption</span>
+                  <span className="text-[10px] text-[var(--vz-text-faint)] font-normal">
+                    {brandFonts.length} font terpasang
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {(brandFonts.length ? brandFonts : ['Arial Black']).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      disabled={Boolean(brandBlocked)}
+                      onClick={() => patchBrand({ font: f })}
+                      data-testid={`brand-font-${f}`}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 ${
+                        brand?.font === f
+                          ? 'border-[var(--vz-accent)] bg-[var(--vz-accent-tint)] text-[var(--vz-accent)]'
+                          : 'border-[var(--vz-border)] text-[var(--vz-text)] hover:border-[var(--vz-accent)]'
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-[var(--vz-border)]">
+                <label className="font-bold text-[var(--vz-text-strong)]">Posisi Logo</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {brandCorners.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      disabled={Boolean(brandBlocked)}
+                      onClick={() => patchBrand({ logo_corner: c })}
+                      data-testid={`brand-corner-${c}`}
+                      className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all disabled:opacity-50 ${
+                        brand?.logo_corner === c
+                          ? 'border-[var(--vz-accent)] bg-[var(--vz-accent-tint)] text-[var(--vz-accent)]'
+                          : 'border-[var(--vz-border)] text-[var(--vz-text)] hover:border-[var(--vz-accent)]'
+                      }`}
+                    >
+                      {BRAND_CORNER_LABELS[c] || c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-[var(--vz-border)]">
+                <label className="font-bold text-[var(--vz-text-strong)] flex items-center justify-between">
+                  <span>Ukuran Logo</span>
+                  <span className="text-[10px] font-mono text-[var(--vz-text-faint)]">
+                    {brand?.logo_size_pct ?? 8}% tinggi frame
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="4"
+                  max="15"
+                  step="1"
+                  disabled={Boolean(brandBlocked)}
+                  value={brand?.logo_size_pct ?? 8}
+                  data-testid="brand-logo-size"
+                  onChange={(e) => patchBrand({ logo_size_pct: Number(e.target.value) })}
+                  className="w-full accent-[var(--vz-accent)] disabled:opacity-50"
+                />
+              </div>
+
+              <div className="flex items-start justify-between gap-3 pt-3 border-t border-[var(--vz-border)]">
+                <p className="text-[11px] text-[var(--vz-text-muted)] leading-relaxed">
+                  Logo langsung tampil di stage pratinjau setelah kit disimpan.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSaveBrand}
+                  disabled={isSavingBrand || Boolean(brandBlocked)}
+                  data-testid="brand-save"
+                  className="px-3.5 py-2 rounded-xl bg-[var(--vz-accent)] hover:bg-[var(--vz-accent-hover)] text-white text-xs font-extrabold shrink-0 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSavingBrand ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Simpan Brand Kit</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              {brandMsg && (
+                <p className={`text-[11px] font-bold ${
+                  brandMsg.ok ? 'text-[var(--vz-success-fg)]' : 'text-[var(--vz-danger-fg)]'
+                }`}>
+                  {brandMsg.text}
+                </p>
               )}
             </div>
           ) : (

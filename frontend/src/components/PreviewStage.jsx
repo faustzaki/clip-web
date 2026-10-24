@@ -26,9 +26,18 @@ import {
   Play,
   Pause,
 } from 'lucide-react';
-import { renderClip, putPrefs, publishClip, computeZoomKeyframes } from '../api';
+import { renderClip, putPrefs, publishClip, computeZoomKeyframes, fetchBrand } from '../api';
 
 const SUBTITLE_SAMPLE = ['CONTOH', 'TEKS', 'SUBTITLE', 'KARAOKE'];
+
+// T11: margin logo brand = 24 px pada frame 1080x1920 (1.25%), ukuran = logo_size_pct% tinggi frame
+const BRAND_LOGO_MARGIN = '1.25%';
+const BRAND_LOGO_POS = {
+  tl: { top: BRAND_LOGO_MARGIN, left: BRAND_LOGO_MARGIN },
+  tr: { top: BRAND_LOGO_MARGIN, right: BRAND_LOGO_MARGIN },
+  bl: { bottom: BRAND_LOGO_MARGIN, left: BRAND_LOGO_MARGIN },
+  br: { bottom: BRAND_LOGO_MARGIN, right: BRAND_LOGO_MARGIN },
+};
 
 /**
  * Panggung preview 9:16 milik studio: viewport video (satu elemen <video> — ref diteruskan via props),
@@ -110,6 +119,26 @@ export default function PreviewStage({
       return () => ro.disconnect();
     }
   }, [aspect]);
+
+  const [brand, setBrand] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    const loadBrand = async () => {
+      try {
+        const data = await fetchBrand();
+        if (alive) setBrand(data.ok === false ? null : data.brand || null);
+      } catch {
+        if (alive) setBrand(null);
+      }
+    };
+    loadBrand();
+    window.addEventListener('vz:brand-updated', loadBrand);
+    return () => {
+      alive = false;
+      window.removeEventListener('vz:brand-updated', loadBrand);
+    };
+  }, []);
 
   const [isMuted, setIsMuted] = useState(false);
   const [renderingIndices, setRenderingIndices] = useState(new Set());
@@ -553,6 +582,20 @@ export default function PreviewStage({
             <div className="absolute top-4 right-4 z-20 text-[10px] text-white/60 font-semibold tracking-wider bg-black/40 px-2 py-0.5 rounded-full">
               {prefs.watermark}
             </div>
+          )}
+
+          {/* Logo brand kit (T11): sudut & ukuran mengikuti Settings → Brand Kit */}
+          {brand?.logo_url && (
+            <img
+              src={brand.logo_url}
+              alt="Logo brand"
+              data-region="brand-logo"
+              className="absolute z-20 pointer-events-none select-none"
+              style={{
+                height: `${brand.logo_size_pct || 8}%`,
+                ...(BRAND_LOGO_POS[brand.logo_corner] || BRAND_LOGO_POS.br),
+              }}
+            />
           )}
 
           {/* Safe zone TikTok/Reels: 88% lebar x 80% tinggi, overlay (tanpa geser layout) */}

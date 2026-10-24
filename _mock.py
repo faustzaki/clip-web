@@ -60,6 +60,21 @@ TRANSLATE_MODEL = "ninerouter/T-SOTA/claude-sonnet-5"
 GLOSSARY_TEXT = "# Satu istilah per baris.\nKoperasi Merah Putih\nMixue\nCakung\nMio J\n"
 ROOT = Path(__file__).resolve().parent
 WER_SAMPLE = ROOT / "data" / "wer_sample.json"
+
+# T11: brand kit contoh supaya tab Brand + logo di stage bisa dinilai visual (tanpa file asli)
+BRAND = {
+    "logo_path": "logo-mock.svg", "logo_url": "/brand/logo-mock.svg",
+    "color_primary": "#FFFFFF", "color_secondary": "#4822A5", "font": "Impact",
+    "logo_corner": "br", "logo_size_pct": 8,
+    "intro_path": "", "intro_url": None, "outro_path": "", "outro_url": None,
+}
+BRAND_FONTS = ["Arial Black", "Impact", "Verdana"]
+BRAND_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">'
+    '<rect x="4" y="4" width="152" height="152" rx="34" fill="none" stroke="#4822A5" stroke-width="12"/>'
+    '<path d="M44 46 L80 118 L116 46" fill="none" stroke="#4822A5" stroke-width="16" '
+    'stroke-linecap="round" stroke-linejoin="round"/></svg>'
+)
 NON_SPEECH = re.compile(r"\[[^\]]*\]|\([^)]*\)", re.UNICODE)
 
 
@@ -284,6 +299,18 @@ class H(SimpleHTTPRequestHandler):
                 "diarize_model": DIARIZE_MODEL})
         if p.startswith("/api/projects/") and p.endswith("/timeline"):
             return self._json(TIMELINE)
+        if p == "/api/brand":
+            return self._json({"ok": True, "configured": True, "brand": BRAND,
+                               "fonts": BRAND_FONTS, "corners": ["tl", "tr", "bl", "br"],
+                               "hint": "Unggah logo transparan (PNG) atau simpan warna, lalu render ulang klip."})
+        if p == "/brand/logo-mock.svg":
+            data = BRAND_SVG.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if p == "/api/broll/index":
             return self._json(broll_payload())
         if p.startswith("/broll/"):
@@ -339,6 +366,12 @@ class H(SimpleHTTPRequestHandler):
                 tracks.setdefault(int(it.get("track") or 1), []).append(it)
             TIMELINE["tracks"] = [{"track": t, "items": tracks.get(t, [])} for t in (1, 2, 3)]
             return self._json({"ok": True, "items": sum(len(v) for v in tracks.values())})
+        if p == "/api/brand":
+            for key in ("color_primary", "color_secondary", "font", "logo_corner", "logo_size_pct"):
+                if key in body:
+                    BRAND[key] = body[key]
+            return self._json({"ok": True, "configured": True, "brand": BRAND,
+                               "fonts": BRAND_FONTS, "corners": ["tl", "tr", "bl", "br"]})
         if p == "/api/broll/refresh":
             return self._json(broll_payload())
         if p.endswith("/translate"):

@@ -1,0 +1,9 @@
+PASS logo brand tampil di stage pratinjau
+PASS tab Brand terbuka
+PASS kontrol lengkap: 2 color picker, slider 4-15, 4 sudut, 3 font, 3 unggahan — warna=2 slider=1 sudut=4 font=3 unggah=3
+PASS logo tampil di tab Brand (pratinjau berkas)
+PASS simpan brand kit sukses + pesan Indonesia — Brand kit tersimpan. Render & export berikutnya memakai kit ini.
+PASS stage ikut posisi/ukuran baru setelah disimpan (tl, 13%) — top=3.78125px height=13%
+PASS tidak ada error runtime di halaman
+
+7 lulus, 0 gagal

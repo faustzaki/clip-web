@@ -1,0 +1,3 @@
+# T11 — bukti hasil render berbeda (project abcdef1101, segmen 0-6 s, 9:16 1080x1920)
+0ad1593c04105fe5cda6d6d28a348959899a49ca0caa9a310d7db55af4639b5e  uji-brand.mp4   (tanpa brand kit)
+38f3cfeca4e7bd800cd5c2a801376aa2f6e7d2e438c19c4b2aac82a1633e7344  brand.mp4   (logo di sudut br + intro 2 s + outro 1.5 s)

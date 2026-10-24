@@ -21,16 +21,24 @@ await page.waitForSelector('[data-region="transcript-count"]', { timeout: 20000 
 const wordCount = await page.locator('[data-idx]').count();
 ck("kata transkrip ter-render", wordCount > 20, `${wordCount} elemen`);
 
-const words = await page.evaluate(() => [...document.querySelectorAll("[data-idx]")].map(e => Number(e.dataset.idx)));
-const targetIdx = words[Math.floor(words.length / 2)];
-
-const api = await page.evaluate(async (idx) => {
+// Pilih kata yang start_ms-nya jauh dari 0 dan terlihat di viewport (kalau tidak, klik meleset).
+const pick = await page.evaluate(async () => {
   const pid = location.pathname.split("/").filter(Boolean).pop();
-  const r = await fetch(`/api/projects/${pid}/transcript?word=1`);
-  const j = await r.json();
-  const w = (j.words || []).find(x => x.idx === idx);
-  return w ? { start: w.start_ms } : null;
-}, targetIdx).catch(() => null);
+  const j = await (await fetch(`/api/projects/${pid}/transcript?word=1`)).json();
+  const ws = (j.words || []).filter((w) => w.start_ms > 3000 && !w.deleted);
+  for (const w of ws) {
+    const el = document.querySelector(`[data-idx="${w.idx}"]`);
+    if (!el) continue;
+    el.scrollIntoView({ block: "center" });
+    const r = el.getBoundingClientRect();
+    if (r.top > 80 && r.bottom < window.innerHeight - 80) return { idx: w.idx, start: w.start_ms };
+  }
+  return null;
+});
+const targetIdx = pick ? pick.idx : 1;
+const api = pick ? { start: pick.start } : null;
+if (!pick) console.log("INFO: tidak ada kata visible >3s — pakai idx 1");
+await page.waitForTimeout(300);
 
 await page.waitForFunction(() => { const v = document.querySelector("video"); return v && v.readyState >= 1; }, { timeout: 20000 }).catch(() => {});
 

@@ -1,0 +1,11 @@
+PASS modal Antrian posting terbuka dari header
+PASS status OAuth jujur: `Belum terhubung` — Belum terhubung
+PASS kalender 7 hari ke depan — kolom=7
+PASS caption berhashtag & < 2200 karakter — len=85 baris=3
+PASS tombol Salin caption menaruh teks yang sama di clipboard — Kenapa Hook 3 Detik Menentukan Segalanya
+PASS tombol Jadwalkan menyimpan ke kalender — 2 → 3 item, error=0
+PASS tombol Batal menghapus jadwal — sisa=2
+PASS tab Analitik: 3 angka + `Belum tersedia` + alasan OAuth — Views | — | Likes | —
+PASS tidak ada error runtime di halaman
+
+9 lulus, 0 gagal

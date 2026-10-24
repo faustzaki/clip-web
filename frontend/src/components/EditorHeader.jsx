@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Redo2, Scissors, Undo2, User } from 'lucide-react';
+import { CalendarClock, ChevronDown, Redo2, Scissors, Undo2, User } from 'lucide-react';
 
 const SAVE_LABEL = {
   saved: 'Tersimpan',
@@ -17,6 +17,7 @@ export default function EditorHeader({
   onUndo,
   onRedo,
   onBackToProjects,
+  onOpenPostQueue,
 }) {
   const [draft, setDraft] = useState(title);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -136,6 +137,17 @@ export default function EditorHeader({
         >
           {SAVE_LABEL[saveState] || SAVE_LABEL.saved}
         </span>
+
+        <button
+          type="button"
+          onClick={onOpenPostQueue}
+          data-testid="open-post-queue"
+          title="Antrian posting"
+          className="flex items-center gap-2 h-10 px-3 rounded-vz-lg text-meta font-medium text-vz-soft hover:bg-vz-muted hover:text-vz-strong transition-colors"
+        >
+          <CalendarClock className="w-4 h-4" />
+          Posting
+        </button>
 
         <button
           type="button"

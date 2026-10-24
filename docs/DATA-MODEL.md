@@ -148,5 +148,14 @@ Endpoint baru P1–P2:
 | POST | `/api/clips/{id}/translate` | T9 |
 | GET | `/api/broll/index`, `POST /api/broll/refresh` | T10 |
 | GET/POST | `/api/brand` | T11 |
-| POST | `/api/post/queue`, `DELETE /api/post/queue/{id}` | T13 |
-| GET | `/api/analytics/{clip_id}` | T13 |
+| GET/POST | `/api/post/queue` | `GET ?project_id=` → `{ok:true,items:[{id,project_id,clip_id,platform,caption,scheduled_at,status,error}],server_time_ms,platforms}`; `POST {project_id,clip_id,platform,caption?,scheduled_at}` → `{ok:true,item}`; waktu lampau / platform asing / klip asing → 400/404 | T13 |
+| DELETE | `/api/post/queue/{id}` | → `{ok:true,removed}`; tidak ada → 404 | T13 |
+| GET | `/api/post/caption` | `?project_id=&clip_id=&platform=tiktok\|reels\|shorts` → `{ok:true,title,hashtags[],caption,length,max_chars:2200}` (judul klip + maks 5 hashtag dari keywords) | T13 |
+| GET | `/api/post/status` | `{ok:true,platforms:[{id,label,connected,reason,hint}],queue:{total,queued}}`; tanpa env OAuth → semua `connected:false`, `reason:"Belum terhubung"` | T13 |
+| GET | `/api/analytics/{clip_id}` | tanpa kredensial OAuth → 200 `{ok:false,reason:"Belum tersedia",detail,hint,metrics:null,days:[]}` (tidak ada permintaan jaringan ke platform) | T13 |
+
+CATATAN IMPLEMENTASI T13 (repo ini belum punya SQLite; T2/T3/T7–T9 juga file-based):
+antrian disimpan di `data/post_queue.json` (`{next_id, items:[…]}`), bukan tabel `post_queue`;
+`oauth_tokens` belum dibuat karena flow izin OAuth platform + `FERNET_KEY` belum ada di mesin uji
+(lihat `docs/evidence/T13/BLOCKED.md`). Endpoint `/api/analytics/{clip_id}` tetap ada dan balas
+placeholder `{ok:false,reason,hint}` status 200, sesuai `docs/TESTING.md` §4.

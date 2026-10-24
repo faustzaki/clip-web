@@ -10,9 +10,10 @@ import os
 import re
 import shutil
 import sys
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 DIST = Path(__file__).resolve().parent / "frontend" / "dist"
 ASSETS = Path(__file__).resolve().parent / "work" / "assets"
@@ -217,6 +218,48 @@ def insert_mock_broll(index):
 insert_mock_broll(0)   # contoh item b-roll di track Teks supaya tombol hapus/geser terlihat
 
 
+# T13: antrian posting contoh — jadwal relatif ke waktu mock jalan, jadi kalender selalu terisi
+POST_PLATFORM_LABELS = {"tiktok": "TikTok", "reels": "Instagram Reels", "shorts": "YouTube Shorts"}
+POST_CAPTION_MAX = 2200
+POST_OAUTH_HINT = ("Isi kredensial platform (TIKTOK_CLIENT_ID, IG_CLIENT_ID, YT_CLIENT_ID + secret) "
+                   "lalu hubungkan akun lewat izin OAuth.")
+
+def _seed_post_queue():
+    now = int(time.time() * 1000)
+    day = 86_400_000
+    return {"next_id": 3, "items": [
+        {"id": 1, "project_id": PROJECTS[0]["id"], "clip_id": "clip_01", "platform": "tiktok",
+         "caption": "Kenapa Hook 3 Detik Menentukan Segalanya\n\n#hook #detik #menentukan #segalanya",
+         "scheduled_at": now + 2 * 3_600_000, "status": "queued", "error": None, "created_at": now},
+        {"id": 2, "project_id": PROJECTS[0]["id"], "clip_id": "clip_02", "platform": "reels",
+         "caption": "Ritme Potongan yang Bikin Orang Bertahan\n\n#ritme #potongan #bertahan #orang",
+         "scheduled_at": now + 3 * day, "status": "queued", "error": None, "created_at": now},
+    ]}
+
+POST_QUEUE = _seed_post_queue()
+
+def post_platforms():
+    return [{"id": key, "label": label, "connected": False,
+             "reason": "Belum terhubung", "hint": POST_OAUTH_HINT}
+            for key, label in POST_PLATFORM_LABELS.items()]
+
+def post_caption_payload(clip_id, platform):
+    clip = next((c for c in CLIPS if c["slug"] == clip_id), CLIPS[0])
+    title = clip.get("title") or clip["slug"]
+    tags, seen = [], set()
+    for token in re.findall(r"\w+", title):
+        key = token.lower()
+        if len(token) < 4 or key in seen:
+            continue
+        seen.add(key)
+        tags.append(f"#{key}")
+        if len(tags) == 5:
+            break
+    caption = f"{title.strip()}\n\n{' '.join(tags)}".strip()[:POST_CAPTION_MAX]
+    return {"ok": True, "clip_id": clip_id, "platform": platform,
+            "label": POST_PLATFORM_LABELS.get(platform, platform), "title": title,
+            "hashtags": tags, "caption": caption, "length": len(caption), "max_chars": POST_CAPTION_MAX}
+
 def mock_zoom_keyframes():
     """Kotak zoom mock: zigzag 9:16 (w 0.317, tinggi penuh) — cukup untuk menguji UI."""
     return [{"t": round(0.2 * i, 2),
@@ -305,6 +348,26 @@ class H(SimpleHTTPRequestHandler):
                 "diarize_model": DIARIZE_MODEL})
         if p.startswith("/api/projects/") and p.endswith("/timeline"):
             return self._json(TIMELINE)
+        if p == "/api/post/status":
+            items = POST_QUEUE["items"]
+            return self._json({"ok": True, "platforms": post_platforms(),
+                               "queue": {"total": len(items),
+                                         "queued": sum(1 for i in items if i["status"] == "queued")}})
+        if p == "/api/post/queue":
+            qs = parse_qs(urlparse(self.path).query)
+            pid = (qs.get("project_id") or [None])[0]
+            items = sorted([i for i in POST_QUEUE["items"] if not pid or i["project_id"] == pid],
+                           key=lambda i: i["scheduled_at"])
+            return self._json({"ok": True, "items": items, "server_time_ms": int(time.time() * 1000),
+                               "platforms": post_platforms()})
+        if p == "/api/post/caption":
+            qs = parse_qs(urlparse(self.path).query)
+            return self._json(post_caption_payload((qs.get("clip_id") or [CLIPS[0]["slug"]])[0],
+                                                  (qs.get("platform") or ["tiktok"])[0]))
+        if p.startswith("/api/analytics/"):
+            return self._json({"ok": False, "reason": "Belum tersedia",
+                               "detail": "Belum terhubung ke akun platform",
+                               "hint": POST_OAUTH_HINT, "metrics": None, "days": []})
         if p == "/api/brand":
             return self._json({"ok": True, "configured": True, "brand": BRAND,
                                "fonts": BRAND_FONTS, "corners": ["tl", "tr", "bl", "br"],
@@ -366,6 +429,24 @@ class H(SimpleHTTPRequestHandler):
             return self._json({"ok": True, "candidate_index": body.get("candidate_index", 0),
                                "aspect": "9:16", "zoom_manual": body.get("zoom_manual", 100),
                                "keyframes": kfs})
+        if p == "/api/post/queue":
+            when = int(body.get("scheduled_at") or 0)
+            platform = (body.get("platform") or "").lower()
+            clip_id = (body.get("clip_id") or "").strip()
+            if platform not in POST_PLATFORM_LABELS:
+                return self._json({"ok": False, "detail": "Platform tidak dikenal."}, 400)
+            if not clip_id:
+                return self._json({"ok": False, "detail": "Klip belum dipilih"}, 400)
+            if when <= int(time.time() * 1000):
+                return self._json({"ok": False, "detail": "Waktu jadwal harus di masa depan"}, 400)
+            item = {"id": POST_QUEUE["next_id"], "project_id": body.get("project_id") or PROJECTS[0]["id"],
+                    "clip_id": clip_id, "platform": platform,
+                    "caption": (body.get("caption") or post_caption_payload(clip_id, platform)["caption"])[:POST_CAPTION_MAX],
+                    "scheduled_at": when, "status": "queued", "error": None,
+                    "created_at": int(time.time() * 1000)}
+            POST_QUEUE["next_id"] += 1
+            POST_QUEUE["items"].append(item)
+            return self._json({"ok": True, "item": item})
         if p.endswith("/timeline"):
             tracks = {}
             for it in body.get("items") or []:
@@ -392,6 +473,18 @@ class H(SimpleHTTPRequestHandler):
             return self._json({"ok": True, "engine": "heuristic", "confidence": "estimate",
                                "speakers": SPEAKERS, "words": len(WORDS), "segments": 4,
                                "duration_ms": 12_000, "duration_before_ms": 12_000, "note": ""})
+        return self._json({"error": "not found"}, 404)
+
+    def do_DELETE(self):
+        p = urlparse(self.path).path
+        m = re.match(r"^/api/post/queue/(\d+)$", p)
+        if m:
+            qid = int(m.group(1))
+            before = len(POST_QUEUE["items"])
+            POST_QUEUE["items"] = [i for i in POST_QUEUE["items"] if i["id"] != qid]
+            if len(POST_QUEUE["items"]) == before:
+                return self._json({"ok": False, "detail": f"Jadwal {qid} tidak ditemukan"}, 404)
+            return self._json({"ok": True, "removed": qid})
         return self._json({"error": "not found"}, 404)
 
     def do_PATCH(self):

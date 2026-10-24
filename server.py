@@ -2897,6 +2897,175 @@ def reset_workspace(project_id: str):
     write_project_meta(project_id, meta)
     return {"status": "ok", "message": "Workspace reset"}
 
+# --------------------------------------------------------------------------
+# T13: antrian posting + metadata platform (file-based, repo ini belum pakai SQLite;
+# sama seperti T8/T9). Unggah otomatis + analitik butuh kredensial OAuth platform:
+# kalau env-nya kosong, endpoint balas {ok:false,reason,hint} status 200 dan TIDAK
+# ada permintaan jaringan ke platform.
+# --------------------------------------------------------------------------
+POST_QUEUE_FILE = DATA_DIR / "post_queue.json"
+POST_QUEUE_LOCK = threading.Lock()
+POST_CAPTION_MAX = 2200
+POST_HASHTAG_MAX = 5
+
+POST_PLATFORMS = {
+    "tiktok": {"label": "TikTok", "env": ("TIKTOK_CLIENT_ID", "TIKTOK_CLIENT_SECRET")},
+    "reels": {"label": "Instagram Reels", "env": ("IG_CLIENT_ID", "IG_CLIENT_SECRET")},
+    "shorts": {"label": "YouTube Shorts", "env": ("YT_CLIENT_ID", "YT_CLIENT_SECRET")},
+}
+OAUTH_HINT = ("Isi kredensial aplikasi platform di environment (TIKTOK_CLIENT_ID/TIKTOK_CLIENT_SECRET, "
+              "IG_CLIENT_ID/IG_CLIENT_SECRET, YT_CLIENT_ID/YT_CLIENT_SECRET), hubungkan akun lewat izin OAuth, "
+              "lalu simpan token di data/oauth_tokens.json (payload terenkripsi FERNET_KEY). "
+              "Tanpa itu jadwal tetap tersimpan lokal.")
+
+
+class PostQueueRequest(BaseModel):
+    project_id: str
+    clip_id: str
+    platform: str
+    caption: Optional[str] = None
+    scheduled_at: Optional[int] = None
+
+def platform_status() -> List[dict]:
+    """Status koneksi tiap platform dari env — dasar jalur OAuth vs placeholder."""
+    out = []
+    for key, cfg in POST_PLATFORMS.items():
+        connected = all(os.environ.get(env_key) for env_key in cfg["env"])
+        out.append({
+            "id": key,
+            "label": cfg["label"],
+            "connected": connected,
+            "reason": "" if connected else "Belum terhubung",
+            "hint": "" if connected else OAUTH_HINT,
+        })
+    return out
+
+def load_post_queue() -> dict:
+    if POST_QUEUE_FILE.exists():
+        try:
+            data = json.loads(POST_QUEUE_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("items"), list):
+                return {"next_id": int(data.get("next_id") or 1), "items": data["items"]}
+        except Exception:
+            pass
+    return {"next_id": 1, "items": []}
+
+def post_queue_mutate(fn):
+    """Baca → ubah → tulis di bawah satu lock supaya dua tab tidak saling menimpa."""
+    with POST_QUEUE_LOCK:
+        data = load_post_queue()
+        result = fn(data)
+        POST_QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        POST_QUEUE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        return result
+
+def caption_hashtags(words: List[str]) -> List[str]:
+    tags, seen = [], set()
+    for word in words:
+        token = re.sub(r"[^\w]", "", str(word))
+        if len(token) < 3 or token.lower() in KEYWORD_STOPWORDS:
+            continue
+        if token.lower() in seen:
+            continue
+        seen.add(token.lower())
+        tags.append(f"#{token}")
+        if len(tags) >= POST_HASHTAG_MAX:
+            break
+    return tags
+
+def build_caption(project_id: str, clip_id: str, platform: str) -> dict:
+    """Judul klip + maksimal 5 hashtag dari keywords; dipotong di 2200 karakter."""
+    if platform not in POST_PLATFORMS:
+        raise HTTPException(400, "Platform tidak dikenal. Pilih TikTok, Instagram Reels, atau YouTube Shorts.")
+    clip = next((c for c in _list_project_clips(project_id) if c.get("slug") == clip_id), None)
+    if not clip:
+        raise HTTPException(404, f"Klip {clip_id} tidak ditemukan di project ini")
+    idx = int(clip.get("candidate_index") or 0)
+    segs = load_segments_file(project_id)
+    seg = segs[idx] if 0 <= idx < len(segs) else {}
+    title = str(seg.get("title") or (clip.get("meta") or {}).get("title") or clip_id).strip()
+    hashtags = caption_hashtags(_clip_keywords(project_id, idx) or re.findall(r"[\w']+", title))
+    caption = f"{title}\n\n{' '.join(hashtags)}".strip()[:POST_CAPTION_MAX]
+    return {
+        "ok": True, "clip_id": clip_id, "platform": platform,
+        "label": POST_PLATFORMS[platform]["label"],
+        "title": title, "hashtags": hashtags, "caption": caption,
+        "length": len(caption), "max_chars": POST_CAPTION_MAX,
+    }
+
+@app.get("/api/post/status")
+def get_post_status():
+    items = load_post_queue()["items"]
+    return {
+        "ok": True, "platforms": platform_status(),
+        "queue": {"total": len(items), "queued": sum(1 for i in items if i.get("status") == "queued")},
+    }
+
+@app.get("/api/post/queue")
+def get_post_queue(project_id: Optional[str] = None):
+    items = load_post_queue()["items"]
+    if project_id:
+        _validate_pid(project_id)
+        read_project_meta(project_id)
+        items = [i for i in items if i.get("project_id") == project_id]
+    items = sorted(items, key=lambda i: int(i.get("scheduled_at") or 0))
+    return {"ok": True, "items": items, "server_time_ms": int(time.time() * 1000),
+            "platforms": platform_status()}
+
+@app.get("/api/post/caption")
+def get_post_caption(project_id: str, clip_id: str, platform: str = "tiktok"):
+    _validate_pid(project_id)
+    read_project_meta(project_id)
+    return build_caption(project_id, clip_id, platform.strip().lower())
+
+@app.post("/api/post/queue")
+def add_post_queue(payload: PostQueueRequest):
+    _validate_pid(payload.project_id)
+    read_project_meta(payload.project_id)
+    slug = (payload.clip_id or "").strip()
+    if not slug:
+        raise HTTPException(400, "Klip belum dipilih")
+    if not any(c.get("slug") == slug for c in _list_project_clips(payload.project_id)):
+        raise HTTPException(404, f"Klip {slug} tidak ditemukan di project ini")
+    when = int(payload.scheduled_at or 0)
+    if when <= int(time.time() * 1000):
+        raise HTTPException(400, "Waktu jadwal harus di masa depan")
+    platform = (payload.platform or "").strip().lower()
+    caption = (payload.caption or "").strip() or build_caption(payload.project_id, slug, platform)["caption"]
+    item = {
+        "id": 0, "project_id": payload.project_id, "clip_id": slug, "platform": platform,
+        "caption": caption[:POST_CAPTION_MAX], "scheduled_at": when,
+        "status": "queued", "error": None, "created_at": int(time.time() * 1000),
+    }
+    def add(data):
+        item["id"] = int(data["next_id"])
+        data["next_id"] = item["id"] + 1
+        data["items"].append(item)
+        return item
+    return {"ok": True, "item": post_queue_mutate(add)}
+
+@app.delete("/api/post/queue/{item_id}")
+def delete_post_queue(item_id: int):
+    def remove(data):
+        before = len(data["items"])
+        data["items"] = [i for i in data["items"] if int(i.get("id") or 0) != item_id]
+        return before != len(data["items"])
+    if not post_queue_mutate(remove):
+        raise HTTPException(404, f"Jadwal {item_id} tidak ditemukan")
+    return {"ok": True, "removed": item_id}
+
+@app.get("/api/analytics/{clip_id}")
+def clip_analytics(clip_id: str):
+    connected = [p for p in platform_status() if p["connected"]]
+    if not connected:
+        return {"ok": False, "reason": "Belum tersedia",
+                "detail": "Belum terhubung ke akun platform",
+                "hint": OAUTH_HINT, "metrics": None, "days": []}
+    return {"ok": False, "reason": "Belum tersedia",
+            "detail": f"Kredensial {', '.join(p['label'] for p in connected)} terdeteksi, "
+                      "tetapi akun belum dihubungkan (butuh izin OAuth)",
+            "hint": OAUTH_HINT, "metrics": None, "days": []}
+
 # Serve compiled assets with explicit MIME types and anti-cache headers
 FRONTEND_DIST = ROOT_DIR / "frontend" / "dist"
 

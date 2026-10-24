@@ -2,8 +2,8 @@
 title clip-web
 cd /d "%~dp0"
 echo ====================================================
-echo   Starting clip-web on http://127.0.0.1:8005
+echo   Starting clip-web on http://127.0.0.1:8000
 echo ====================================================
-start "" "http://127.0.0.1:8005"
-python -m uvicorn server:app --host 127.0.0.1 --port 8005 --reload
+start "" "http://127.0.0.1:8000"
+py -3.13 -m uvicorn server:app --host 127.0.0.1 --port 8000 --reload --reload-exclude work --reload-exclude clips --reload-exclude data --reload-exclude frontend --reload-exclude docs
 pause

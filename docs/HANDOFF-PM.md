@@ -21,6 +21,7 @@ Ditulis: 24 Okt 2026, sesi PM dihentikan karena laptop dimatikan.
 | T4a backend export | `545fb5e` | `POST /api/export` + `GET /api/export/{id}` |
 | T4b modal export | `a125443` | modal 480px, polling 2s, unduh 200 video/mp4 |
 | T5 filler + preset caption | `0e34a14` | tighten + 5 preset, ToolPanel 320px |
+| T6 safe zone + ratio + auto zoom | `ea23d7a` | pill berlabel, 4 ratio (9:16/1:1/4:5/16:9), safe zone 88×80, zoompan+yunet |
 
 Verifier PM yang harus tetap hijau:
 ```
@@ -28,27 +29,30 @@ cd frontend
 node tools/verify-t2b.mjs   # 6/6
 node tools/verify-t3b.mjs   # 6/6
 node tools/verify-t4b.mjs   # 10/10
+node tools/verify-t5.mjs    # 0 gagal
+node tools/verify-t6.mjs    # 0 gagal
 py -3.13 scripts/check_t5.py
 ```
 
 ## 3. Yang belum selesai
-- **T6** (safe-zone + ratio + auto zoom) — branch `t6-safezone-zoom`, belum ada hasil. Prompt: `docs/prompts/06-T6-safezone-zoom.md`
-- Setelah T6 lolos → **gate P0** → baru boleh P1: T7 akurasi ASR, T8 diarisasi, T9 translasi
+- **P0 SELESAI SEMUA (T1–T6)** — T6 merged di `ea23d7a`. Gate P0 lolos: check_t6 0 gagal, verify-t6 0 gagal, regresi t2b 6/6 · t3b 6/6 · t4b 10/10 · t5 0 gagal.
+- **Berikutnya P1**: T7 akurasi ASR (`docs/prompts/07-T7-akurasi-transkripsi.md`), lalu T8 diarisasi & T9 translasi
 - P2: T10 b-roll, T11 brand kit, T12 background/layout, T13 posting+analitik
 
 ## 4. Cara melanjutkan (setelah laptop hidup)
 ```bash
 cd C:\Users\faust\orca\clip-web
-git branch --show-current          # harus t6-safezone-zoom
-git status --short                 # kalau kosong: mulai ulang T6 dari prompt
+git checkout main && git pull
+git branch --show-current          # main (P0 selesai)
 # nyalakan backend asli (WAJIB untuk verifikasi, bukan mock)
 py -3.13 -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```
-Jalankan T6:
+Jalankan P1 (T7) setelah backend hidup:
 ```bash
+git checkout -b t7-akurasi
 omp -p --approval-mode=yolo --max-time=2400 \
   --model="ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash" --thinking=low \
-  @AGENTS.md @docs/prompts/06-T6-safezone-zoom.md
+  @AGENTS.md @docs/prompts/07-T7-akurasi-transkripsi.md
 ```
 
 ## 5. Hal yang mudah terlupa

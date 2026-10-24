@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchTranscript, cutTranscript, editTranscriptWord, fetchTimeline, saveTimeline } from '../api';
+import { fetchTranscript, cutTranscript, editTranscriptWord, fetchTimeline, saveTimeline, diarizeProject, renameSpeaker } from '../api';
 
 /**
  * State inti editor studio: transkrip (kata), timeline, klip/kandidat, posisi putar (detik),
@@ -67,6 +67,22 @@ export default function useEditorState({ projectId, state, videoRef }) {
     await loadTranscript();
   };
 
+  /**
+   * Diarisasi speaker (T8). `engine="model"` balas {ok:false,reason,hint} kalau
+   * pyannote/HF_TOKEN absen — pemanggil menampilkan alasannya, tidak melempar error.
+   */
+  const handleDiarize = async (engine = 'heuristic') => {
+    const res = await diarizeProject(projectId, engine);
+    if (res?.ok) await loadTranscript();
+    return res;
+  };
+
+  /** Ganti nama speaker (T8); label disimpan di project, caption export ikut berubah. */
+  const handleSpeakerRename = async (speakerId, label) => {
+    await renameSpeaker(speakerId, label);
+    await loadTranscript();
+  };
+
   /** Tulis kotak zoom (T6) ke payload item track 1, kunci per candidate_index. */
   const saveZoomKeyframes = async (candidateIndex, keyframes) => {
     const tracks = timeline?.tracks || [];
@@ -112,6 +128,10 @@ export default function useEditorState({ projectId, state, videoRef }) {
     seekToMs,
     handleTranscriptCut,
     handleWordEdit,
+    handleDiarize,
+    handleSpeakerRename,
+    speakers: transcript?.speakers || [],
+    diarizeModel: transcript?.diarize_model || null,
     saveZoomKeyframes,
     clips,
     candidates,

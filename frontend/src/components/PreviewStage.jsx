@@ -110,8 +110,9 @@ export default function PreviewStage({
     const measure = () => {
       const b = el.getBoundingClientRect();
       if (b.width <= 0 || b.height <= 0) return;
-      const w = Math.min(b.width, b.height * ratio);
-      setFrameSize({ w: Math.round(w), h: Math.round(w / ratio) });
+      // isi tinggi dulu, lalu hitung lebar dari rasio (sebelumnya terbalik -> preview jadi ~120px)
+      const h = Math.min(b.height, b.width / ratio);
+      setFrameSize({ w: Math.round(h * ratio), h: Math.round(h) });
     };
     measure();
     if (typeof ResizeObserver !== 'undefined') {
@@ -616,7 +617,7 @@ export default function PreviewStage({
   };
 
   return (
-    <main className="relative flex-1 min-w-0 flex flex-col items-center justify-between overflow-hidden gap-1.5 py-1">
+    <main className="relative flex-1 min-w-0 flex flex-col items-center overflow-hidden gap-1.5 py-1">
       {/* Vertical Mobile Phone Viewport (auto-scales cleanly to available height) */}
       <div ref={frameBoxRef} className="w-full flex-1 min-h-0 flex items-center justify-center">
         <div

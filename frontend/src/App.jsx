@@ -141,14 +141,18 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-vz-bg text-vz-text flex flex-col font-sans">
-      <Navbar
-        projectId={view === 'project' ? activeProjectId : null}
-        projectTitle={state?.project?.title || null}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onBackToProjects={backToProjects}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
+      {/* Navbar disembunyikan di view studio: EditorHeader sudah memuat judul project,
+          breadcrumb, pengaturan — dua bar 56px bikin tumpang tindih & makan layar. */}
+      {view !== 'project' && (
+        <Navbar
+          projectId={null}
+          projectTitle={null}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onBackToProjects={backToProjects}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      )}
 
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {view === 'projects' && (

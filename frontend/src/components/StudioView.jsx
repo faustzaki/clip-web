@@ -32,13 +32,17 @@ export default function StudioView({
     const saved = Number(localStorage.getItem('studio.bottomH'));
     return (saved && saved <= 220 && saved >= 110) ? saved : 135;
   });
-  const [bottomCollapsed, setBottomCollapsed] = useState(() => localStorage.getItem('studio.bottomCollapsed') === '1');
+  const [bottomCollapsed, setBottomCollapsed] = useState(() => {
+    const saved = localStorage.getItem('studio.bottomCollapsed');
+    if (saved != null) return saved === '1';
+    return true;   // default kuncup — preview butuh ruang; panel klip dibuka saat ada klip
+  });
   const [rightW, setRightW] = useState(() => Number(localStorage.getItem('studio.rightW')) || 340);
   const [rightCollapsed, setRightCollapsed] = useState(() => localStorage.getItem('studio.rightCollapsed') === '1');
   const [activeTool, setActiveTool] = useState(null);
   const [saveState, setSaveState] = useState('saved');
   const [timelineZoom, setTimelineZoom] = useState(() => Number(localStorage.getItem('vz.timeline.zoom')) || 100);
-  const [timelineCollapsed, setTimelineCollapsed] = useState(() => localStorage.getItem('vz.timeline.collapsed') === '1');
+  const [timelineCollapsed, setTimelineCollapsed] = useState(() => localStorage.getItem('vz.timeline.collapsed') !== '0');
 
   const handleTitle = async (nextTitle) => {
     const current = state?.project?.title || '';
@@ -313,32 +317,9 @@ export default function StudioView({
             )}
           </div>
 
-        {/* BOTTOM PANEL MODE: If pipelinePos === 'bottom' */}
-      {pipelinePos === 'bottom' && (
-        <ClipsPanel
-          variant="bottom"
-          pipelinePos={pipelinePos}
-          setPipelinePos={setPipelinePos}
-          rightW={rightW}
-          rightCollapsed={rightCollapsed}
-          setRightCollapsed={setRightCollapsed}
-          bottomH={bottomH}
-          bottomCollapsed={bottomCollapsed}
-          setBottomCollapsed={setBottomCollapsed}
-          startRightDrag={startRightDrag}
-          startBottomDrag={startBottomDrag}
-          projectId={projectId}
-          candidates={candidates}
-          clips={clips}
-          activeCandidateIdx={activeCandidateIdx}
-          setActiveCandidateIdx={setActiveCandidateIdx}
-          setEditMode={setEditMode}
-          jumpToCandidate={jumpToCandidate}
-        />
-      )}
-        </div>
+      </div>
 
-        {activeTool && (
+      {activeTool && (
           <ToolPanel
             tool={activeTool}
             onClose={() => setActiveTool(null)}
@@ -357,6 +338,30 @@ export default function StudioView({
 
         <ToolRail active={activeTool} onSelect={setActiveTool} />
       </div>
+
+    {/* BOTTOM PANEL MODE: If pipelinePos === 'bottom' (default kuncup kalau belum ada klip) */}
+    {pipelinePos === 'bottom' && (
+    <ClipsPanel
+        variant="bottom"
+        pipelinePos={pipelinePos}
+        setPipelinePos={setPipelinePos}
+        rightW={rightW}
+        rightCollapsed={rightCollapsed}
+        setRightCollapsed={setRightCollapsed}
+        bottomH={bottomH}
+        bottomCollapsed={bottomCollapsed}
+        setBottomCollapsed={setBottomCollapsed}
+        startRightDrag={startRightDrag}
+        startBottomDrag={startBottomDrag}
+        projectId={projectId}
+        candidates={candidates}
+        clips={clips}
+        activeCandidateIdx={activeCandidateIdx}
+        setActiveCandidateIdx={setActiveCandidateIdx}
+        setEditMode={setEditMode}
+        jumpToCandidate={jumpToCandidate}
+      />
+    )}
 
       <Timeline
         items={timelineItems}

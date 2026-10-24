@@ -87,7 +87,7 @@ export default function Timeline({
     <section
       data-region="timeline"
       className="shrink-0 flex flex-col border-t border-vz-border bg-vz-surface"
-      style={{ height: collapsed ? 240 : 320 }}
+      style={{ height: collapsed ? 200 : 320 }}
     >
       <div className="h-9 shrink-0 flex items-center gap-2 px-3 border-b border-vz-border">
         <button

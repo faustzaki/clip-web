@@ -15,3 +15,5 @@ Diisi dari verifikasi visual/angka tiap tugas. Item dicoret setelah dikerjakan.
 | P-09 | Refactor T3c memenuhi ≤400 baris, tapi state masih di `StudioView` (23 useState/useEffect); hook `useEditorState` baru 85 baris | audit T3c | T4/T5 (pindah bertahap saat menyentuh file) | OPEN |
 | P-10 | Mode filmstrip: kandidat ≥6 bikin item `flex-row` → stage `w=0` (sidebar/stage tertutup) | A/B T3c, ada juga di build HEAD | T6 (layout/ratio) | OPEN |
 | P-11 | `PreviewStage` 965 & `GeneratePanel` 513 baris — masih besar, belum dipecah | audit T3c | T6/T10 | OPEN |
+| P-12 | T7: kriteria `≤2× waktu` tidak terpenuhi dengan default medium+beam5 (3.78× di CPU) | `docs/evidence/T7/waktu.txt` | opsi patuh tersedia di setting (small 1.60×, base 1.78×); keputusan josjis | OPEN |
+| P-13 | T7: acuan WER pakai caption YouTube, bukan transkrip manual (audio tidak tersedia untuk ditranskrip manusia) | `docs/evidence/T7/wer.txt` | ganti acuan kalau josjis punya transkrip manual | OPEN |

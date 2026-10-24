@@ -7,6 +7,7 @@ No writes, no jobs — purely for UI review.
 import json
 import mimetypes
 import os
+import re
 import shutil
 import sys
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -36,6 +37,48 @@ WORDS = [
     ("bahas", 6.1, 6.5), ("captions", 6.6, 7.2), ("biar", 8.9, 9.3),
     ("rapi", 9.4, 9.9),
 ]
+LOW_CONF_IDX = {1, 7, 11}   # kata contoh dengan keyakinan rendah → underline kuning di pratinjau
+GLOSSARY_TEXT = "# Satu istilah per baris.\nKoperasi Merah Putih\nMixue\nCakung\nMio J\n"
+ROOT = Path(__file__).resolve().parent
+WER_SAMPLE = ROOT / "data" / "wer_sample.json"
+NON_SPEECH = re.compile(r"\[[^\]]*\]|\([^)]*\)", re.UNICODE)
+
+
+def _wer_tokens(text):
+    """Normalisasi sama seperti server: buang tag non-ucapan + tanda baca, kecilkan huruf."""
+    clean = NON_SPEECH.sub(" ", text or "")
+    return re.sub(r"[^\w\s]", " ", clean, flags=re.UNICODE).lower().split()
+
+
+def _wer(reference, hypothesis):
+    ref, hyp = _wer_tokens(reference), _wer_tokens(hypothesis)
+    prev = list(range(len(hyp) + 1))
+    for i, r in enumerate(ref, 1):
+        cur = [i]
+        for j, h in enumerate(hyp, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (r != h)))
+        prev = cur
+    errors = prev[-1]
+    return {"words": len(ref), "errors": errors,
+            "wer": round(errors / len(ref), 4) if ref else None}
+
+
+def accuracy_payload():
+    """Pratinjau mock: WER asli dihitung dari data/wer_sample.json (ambil angka nyata, bukan salinan)."""
+    if not WER_SAMPLE.is_file():
+        return {"ok": False, "reason": "Sampel akurasi belum tersedia",
+                "hint": "Siapkan data/wer_sample.json: 60 detik transkrip manual + teks pembanding"}
+    sample = json.loads(WER_SAMPLE.read_text(encoding="utf-8-sig"))
+    reference = sample.get("reference") or ""
+    rows = []
+    for key, fallback in (("baseline", "Sebelum"), ("after", "Sesudah")):
+        entry = sample.get(key) or {}
+        rows.append({"id": key, "label": entry.get("label") or fallback,
+                     **_wer(reference, entry.get("text"))})
+    return {"ok": True, "source": sample.get("source"), "window": sample.get("window"),
+            "reference_note": sample.get("reference_note"), "measured_at": sample.get("measured_at"),
+            "rows": rows,
+            "improvement": round((rows[0]["wer"] or 0) - (rows[1]["wer"] or 0), 4)}
 MEDIA.mkdir(exist_ok=True)
 for src, dst in ((ASSETS / "snapshot.jpg", "cover.jpg"), (Path(r"C:/Users/faust/Downloads/clipper_re/work/exported720.mp4"), "clip.mp4")):
     if src.exists() and not (MEDIA / dst).exists():
@@ -115,10 +158,23 @@ class H(SimpleHTTPRequestHandler):
                                "models": ["ocf/deepseek-v4.1-flash-free", "nara/glm-5.3", "cbai/kimi-k2.7"],
                                "clip_lengths": [30, 45, 60, 90],
                                "aspect_ratios": ["9:16", "1:1", "4:5", "16:9"],
+                               "asr_models": [
+                                   {"id": "medium", "label": "Medium — default, akurat & hemat waktu"},
+                                   {"id": "large-v3", "label": "Large v3 — paling akurat, ~2-4x lebih lama di CPU"},
+                                   {"id": "small", "label": "Small — cepat, akurasi lebih rendah"},
+                                   {"id": "base", "label": "Base — paling cepat, untuk pratinjau"},
+                                   {"id": "auto", "label": "Auto — large-v3 kalau disk ≥ 10 GB bebas, selain medium"},
+                               ],
                                "caption_presets": CAPTION_PRESETS})
         if p == "/api/settings":
             return self._json({"base_url": "http://127.0.0.1:20128/v1", "model": "ocf/deepseek-v4.1-flash-free",
-                               "api_key_set": True, "whisper_model": "small", "render_dir": "clips"})
+                               "api_key_set": True, "whisper_model": "medium", "asr_disk_free_gb": 23.5,
+                               "render_dir": "clips"})
+        if p == "/api/glossary":
+            return self._json({"ok": True, "path": "data/glossary.txt", "text": GLOSSARY_TEXT,
+                               "terms": [t for t in GLOSSARY_TEXT.splitlines() if t.strip() and not t.startswith("#")]})
+        if p == "/api/accuracy":
+            return self._json(accuracy_payload())
         if p == "/api/projects":
             return self._json({"projects": PROJECTS})
         if p.startswith("/api/projects/") and p.endswith("/state"):
@@ -133,9 +189,11 @@ class H(SimpleHTTPRequestHandler):
             return self._json({"clips": CLIPS})
         if p.startswith("/api/projects/") and p.endswith("/transcript"):
             return self._json({"words": [
-                {"idx": i, "word": w, "start_ms": int(s * 1000), "end_ms": int(e * 1000), "deleted": 0}
+                {"idx": i, "word": w, "start_ms": int(s * 1000), "end_ms": int(e * 1000), "deleted": 0,
+                 "avg_logprob": -1.6 if i in LOW_CONF_IDX else -0.24,
+                 "edited": 0, "needs_check": i in LOW_CONF_IDX}
                 for i, (w, s, e) in enumerate(WORDS)
-            ], "language": "id", "duration_ms": 12_000})
+            ], "language": "id", "model": "medium", "duration_ms": 12_000, "check_threshold": -1.0})
         if p.startswith("/api/projects/") and p.endswith("/timeline"):
             return self._json(TIMELINE)
         if p.startswith("/mock/"):
@@ -161,6 +219,11 @@ class H(SimpleHTTPRequestHandler):
     def do_POST(self):
         p = urlparse(self.path).path
         body = self._body()
+        if p.endswith("/transcript/word"):
+            idx = int(body.get("idx") or 0)
+            return self._json({"ok": True, "from_idx": idx, "count": 1,
+                               "words": [{"idx": idx, "word": (body.get("text") or "").strip(),
+                                          "start_ms": 0, "end_ms": 0}]})
         if p.endswith("/tighten"):
             return self._json({"ok": True, "saved_ms": 3200, "deleted": 3, "new_duration_ms": 8800,
                                "silence_ms": body.get("silence_ms", 400), "filler": bool(body.get("filler", True))})
@@ -182,6 +245,12 @@ class H(SimpleHTTPRequestHandler):
     def do_PUT(self):
         p = urlparse(self.path).path
         body = self._body()
+        if p == "/api/glossary":
+            global GLOSSARY_TEXT
+            GLOSSARY_TEXT = body.get("text") or ""
+            return self._json({"ok": True, "path": "data/glossary.txt",
+                               "terms": [t.strip() for t in GLOSSARY_TEXT.splitlines()
+                                         if t.strip() and not t.strip().startswith("#")]})
         if p.endswith("/prefs"):
             PREFS.update(body.get("render_prefs") or {})
             return self._json({"status": "ok", "render_prefs": PREFS})

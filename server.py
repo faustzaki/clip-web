@@ -285,7 +285,7 @@ app.mount("/work", StaticFiles(directory=str(WORKDIR)), name="work")
 # --------------------------------------------------------------------------
 class IngestUrlRequest(BaseModel):
     url: str
-    model_size: Optional[str] = "base"
+    model_size: Optional[str] = None   # kosong → pakai setting whisper_model (T7)
     language: Optional[str] = None
     quality: Optional[str] = "proxy"
 
@@ -318,8 +318,15 @@ class CropsRequest(BaseModel):
 
 class SubtitlesRequest(BaseModel):
     words: Optional[List[dict]] = None
-    model_size: Optional[str] = "base"
+    model_size: Optional[str] = None
     regenerate: Optional[bool] = False
+
+class WordEditRequest(BaseModel):
+    idx: int
+    text: str
+
+class GlossaryRequest(BaseModel):
+    text: str
 
 
 class CutRequest(BaseModel):
@@ -366,6 +373,7 @@ class UpdateSettingsRequest(BaseModel):
     llm_model: Optional[str] = None
     available_models: Optional[List[str]] = None
     render_dir: Optional[str] = None
+    whisper_model: Optional[str] = None
 
 class TestConnectionRequest(BaseModel):
     endpoint: str
@@ -429,7 +437,16 @@ def get_options():
             {"code": "es", "label": "Spanish / Español"}
         ],
         "ai_models": models,
-        "default_model": cfg.get("llm_model") or "ag/gemini-3.8-flash"
+        "default_model": cfg.get("llm_model") or "ag/gemini-3.8-flash",
+        "asr_models": [
+            {"id": "medium", "label": "Medium — default, akurat & hemat waktu"},
+            {"id": "large-v3", "label": "Large v3 — paling akurat, ~2-4x lebih lama di CPU"},
+            {"id": "small", "label": "Small — cepat, akurasi lebih rendah"},
+            {"id": "base", "label": "Base — paling cepat, untuk pratinjau"},
+            {"id": "auto", "label": "Auto — large-v3 kalau disk ≥ 10 GB bebas, selain medium"},
+        ],
+        "asr_glossary_file": str(core_engine.GLOSSARY_FILE.relative_to(ROOT_DIR)),
+        "asr_confidence_threshold": core_engine.CONFIDENCE_MIN_LOGPROB,
     }
 
 
@@ -439,6 +456,8 @@ def get_settings():
     render_p = Path(cfg.get("render_dir", default_render_dir()))
     return {
         **cfg,
+        "whisper_model": cfg.get("whisper_model") or core_engine.DEFAULT_ASR_MODEL,
+        "asr_disk_free_gb": round(core_engine.disk_free_gb(), 1),
         "storage": {
             "work": get_dir_disk_usage(WORKDIR),
             "clips": get_dir_disk_usage(CLIPS_DIR),
@@ -465,6 +484,8 @@ def update_settings(payload: UpdateSettingsRequest):
             updates["render_dir"] = p_str
         except Exception as e:
             raise HTTPException(400, f"Folder render tidak valid: {e}")
+    if payload.whisper_model is not None:
+        updates["whisper_model"] = core_engine.resolve_model_size(payload.whisper_model.strip() or "auto")
     save_global_config(updates)
     return get_settings()
 
@@ -578,6 +599,85 @@ def open_render_dir_endpoint():
 def _validate_pid(project_id: str):
     if not PID_RE.match(project_id):
         raise HTTPException(404, "Project not found")
+
+# --------------------------------------------------------------------------
+# Glosarium ASR (T7) — data/glossary.txt, 1 istilah per baris → initial_prompt Whisper
+# --------------------------------------------------------------------------
+GLOSSARY_FILE = core_engine.GLOSSARY_FILE
+
+@app.get("/api/glossary")
+def get_glossary():
+    """Berkas dibuat kosong kalau belum ada, supaya UI editor tetap bisa dibuka."""
+    GLOSSARY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not GLOSSARY_FILE.exists():
+        GLOSSARY_FILE.write_text("", encoding="utf-8")
+    return {"ok": True, "path": "data/glossary.txt",
+            "text": GLOSSARY_FILE.read_text(encoding="utf-8-sig"),
+            "terms": core_engine.read_glossary()}
+
+@app.put("/api/glossary")
+def update_glossary(payload: GlossaryRequest):
+    GLOSSARY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    GLOSSARY_FILE.write_text(payload.text, encoding="utf-8")
+    return {"ok": True, "path": "data/glossary.txt",
+            "terms": core_engine.read_glossary()}
+
+# --------------------------------------------------------------------------
+# Akurasi transkrip (T7): WER kata terhadap data/wer_sample.json
+# --------------------------------------------------------------------------
+WER_SAMPLE_FILE = ROOT_DIR / "data" / "wer_sample.json"
+NON_SPEECH_TAG_RE = re.compile(r"\[[^\]]*\]|\([^)]*\)", re.UNICODE)
+
+def _wer_tokens(text: str) -> List[str]:
+    """Token WER: buang tag non-ucapan, tanda baca, dan beda huruf besar/kecil."""
+    clean = NON_SPEECH_TAG_RE.sub(" ", text or "")
+    return re.sub(r"[^\w\s]", " ", clean, flags=re.UNICODE).lower().split()
+
+def _levenshtein(ref: List[str], hyp: List[str]) -> int:
+    prev = list(range(len(hyp) + 1))
+    for i, r in enumerate(ref, 1):
+        cur = [i]
+        for j, h in enumerate(hyp, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (r != h)))
+        prev = cur
+    return prev[-1]
+
+def _wer(reference: str, hypothesis: str) -> dict:
+    ref, hyp = _wer_tokens(reference), _wer_tokens(hypothesis)
+    errors = _levenshtein(ref, hyp)
+    return {"words": len(ref), "errors": errors,
+            "wer": round(errors / len(ref), 4) if ref else None}
+
+@app.get("/api/accuracy")
+def get_accuracy():
+    """WER 60 detik (data/wer_sample.json) — sebelum vs sesudah T7."""
+    if not WER_SAMPLE_FILE.is_file():
+        return {"ok": False, "reason": "Sampel akurasi belum tersedia",
+                "hint": "Siapkan data/wer_sample.json: 60 detik transkrip manual + teks pembanding"}
+    try:
+        sample = json.loads(WER_SAMPLE_FILE.read_text(encoding="utf-8-sig"))
+    except Exception as e:
+        return {"ok": False, "reason": "Sampel akurasi tidak terbaca",
+                "hint": f"Periksa data/wer_sample.json ({e})"}
+
+    reference = sample.get("reference") or ""
+    rows = []
+    for key, fallback in (("baseline", "Sebelum"), ("after", "Sesudah")):
+        entry = sample.get(key)
+        text = entry.get("text") if isinstance(entry, dict) else entry
+        if not text:
+            continue
+        label = entry.get("label") if isinstance(entry, dict) else None
+        rows.append({"id": key, "label": label or fallback, **_wer(reference, text)})
+
+    if not reference or len(rows) < 2:
+        return {"ok": False, "reason": "Sampel akurasi belum lengkap",
+                "hint": "Butuh kunci reference, baseline, dan after"}
+    return {"ok": True, "source": sample.get("source"), "window": sample.get("window"),
+            "reference_note": sample.get("reference_note"), "measured_at": sample.get("measured_at"),
+            "rows": rows,
+            "improvement": round((rows[0]["wer"] or 0) - (rows[1]["wer"] or 0), 4)}
+
 
 
 # --------------------------------------------------------------------------
@@ -785,6 +885,13 @@ def _transcript_unready() -> JSONResponse:
     return JSONResponse(status_code=404, content={
         "ok": False, "reason": "Transkrip belum siap", "hint": "Jalankan analisis dulu"})
 
+def _needs_check(w: dict) -> bool:
+    """Kata ragu: keyakinan ASR di bawah ambang dan belum diedit manual."""
+    if w.get('edited'):
+        return False
+    lp = w.get('avg_logprob')
+    return isinstance(lp, (int, float)) and lp < core_engine.CONFIDENCE_MIN_LOGPROB
+
 @app.get("/api/projects/{project_id}/transcript")
 def get_transcript(project_id: str, word: int = 1):
     _validate_pid(project_id)
@@ -799,12 +906,27 @@ def get_transcript(project_id: str, word: int = 1):
                 "start_ms": _word_ms(w, "start"),
                 "end_ms": _word_ms(w, "end"),
                 "deleted": int(w.get("deleted") or 0),
+                "avg_logprob": w.get("avg_logprob"),
+                "edited": int(w.get("edited") or 0),
+                "needs_check": _needs_check(w),
             }
             for i, w in enumerate(tr["words"])
         ],
         "language": tr.get("language"),
+        "model": tr.get("model"),
         "duration_ms": _transcript_duration_ms(tr),
+        "check_threshold": core_engine.CONFIDENCE_MIN_LOGPROB,
     }
+
+def _save_transcript(pid: str, tr: dict):
+    """Simpan transcript.json dengan backup sekali (pola sama seperti cut/tighten/edit kata)."""
+    path = project_dir(pid) / 'transcript.json'
+    bak = path.with_name('transcript.json.bak')
+    if not bak.exists():
+        shutil.copy2(path, bak)
+    tmp = path.with_name('transcript.json.tmp')
+    tmp.write_text(json.dumps(tr, ensure_ascii=False), encoding='utf-8')
+    os.replace(tmp, path)
 
 @app.post("/api/projects/{project_id}/cut")
 def cut_transcript(project_id: str, payload: CutRequest):
@@ -816,24 +938,59 @@ def cut_transcript(project_id: str, payload: CutRequest):
     if not (0 <= payload.from_idx <= payload.to_idx < len(words)):
         return JSONResponse(status_code=400,
                             content={"ok": False, "reason": "Rentang tidak valid"})
-    path = project_dir(project_id) / 'transcript.json'
-    bak = path.with_name('transcript.json.bak')
-    if not bak.exists():
-        shutil.copy2(path, bak)
     removed = 0
     for w in words[payload.from_idx:payload.to_idx + 1]:
         removed += max(0, _word_ms(w, 'end') - _word_ms(w, 'start'))
         w['deleted'] = 1
     duration = _transcript_duration_ms(tr)
-    tmp = path.with_name('transcript.json.tmp')
-    tmp.write_text(json.dumps(tr, ensure_ascii=False), encoding='utf-8')
-    os.replace(tmp, path)
+    _save_transcript(project_id, tr)
     return {
         "ok": True,
         "removed_ms": removed,
         "new_duration_ms": duration - removed,
         "deleted": payload.to_idx - payload.from_idx + 1,
     }
+
+@app.post("/api/projects/{project_id}/transcript/word")
+def edit_transcript_word(project_id: str, payload: WordEditRequest):
+    """Ganti teks satu kata; timing dibagi proporsional per karakter di rentang kata itu."""
+    _validate_pid(project_id)
+    tr = load_transcript_file(project_id)
+    if not tr or not tr.get('words'):
+        return _transcript_unready()
+    words = tr["words"]
+    if not (0 <= payload.idx < len(words)):
+        return JSONResponse(status_code=400, content={"ok": False, "reason": "Indeks kata tidak valid"})
+    text = (payload.text or '').strip()
+    if not text:
+        return JSONResponse(status_code=400, content={"ok": False, "reason": "Teks kata tidak boleh kosong"})
+
+    old = words[payload.idx]
+    start_ms, end_ms = _word_ms(old, 'start'), _word_ms(old, 'end')
+    tokens = text.split()
+    span = max(0, end_ms - start_ms)
+    total_chars = sum(len(t) for t in tokens) or 1
+
+    replacements, cursor, done_chars = [], start_ms, 0
+    for i, token in enumerate(tokens):
+        done_chars += len(token)
+        w_end = end_ms if i == len(tokens) - 1 else start_ms + round(span * done_chars / total_chars)
+        replacements.append({
+            "word": token,
+            "start": round(cursor / 1000, 3),
+            "end": round(max(w_end, cursor + 1) / 1000, 3),
+            "deleted": int(old.get('deleted') or 0),
+            "avg_logprob": 0.0,     # teks sudah dikonfirmasi manusia
+            "edited": 1,
+        })
+        cursor = max(w_end, cursor + 1)
+
+    words[payload.idx:payload.idx + 1] = replacements
+    _save_transcript(project_id, tr)
+    return {"ok": True, "from_idx": payload.idx, "count": len(replacements),
+            "words": [{"idx": payload.idx + i, "word": w["word"],
+                       "start_ms": _word_ms(w, 'start'), "end_ms": _word_ms(w, 'end')}
+                      for i, w in enumerate(replacements)]}
 
 # --------------------------------------------------------------------------
 # Tighten: buang jeda sunyi + kata pengisi (T5) — pakai perencana chopify/tighten.py
@@ -872,15 +1029,9 @@ def tighten_transcript(project_id: str, payload: TightenRequest):
         deleted += 1
 
     if deleted or new_duration_ms != duration_ms:
-        path = project_dir(project_id) / 'transcript.json'
-        bak = path.with_name('transcript.json.bak')
-        if not bak.exists():
-            shutil.copy2(path, bak)
         tr['duration'] = round(new_duration_ms / 1000.0, 3)
         tr['duration_ms'] = new_duration_ms
-        tmp = path.with_name('transcript.json.tmp')
-        tmp.write_text(json.dumps(tr, ensure_ascii=False), encoding='utf-8')
-        os.replace(tmp, path)
+        _save_transcript(project_id, tr)
 
     return {"ok": True, "saved_ms": duration_ms - new_duration_ms, "deleted": deleted,
             "new_duration_ms": new_duration_ms, "silence_ms": silence_ms,
@@ -1063,7 +1214,14 @@ def _ingest_write(pid: str, **fields):
 
 DOWNLOAD_QUALITY_LABELS = {'proxy': '360p', 'hd': '1080p', 'best': 'terbaik'}
 
-def _start_ingest(pid: str, url: Optional[str] = None, uploaded: bool = False, model_size: str = 'base', language: Optional[str] = None, quality: str = 'proxy'):
+def _asr_model_size(requested: Optional[str] = None) -> str:
+    """Model ASR: eksplisit dari request → setting `whisper_model` → default medium."""
+    req = (requested or '').strip()
+    if not req:
+        req = str(load_global_config().get('whisper_model') or core_engine.DEFAULT_ASR_MODEL)
+    return core_engine.resolve_model_size(req)
+
+def _start_ingest(pid: str, url: Optional[str] = None, uploaded: bool = False, model_size: Optional[str] = None, language: Optional[str] = None, quality: str = 'proxy'):
     with INGEST_LOCK:
         if pid in INGEST_JOBS:
             raise HTTPException(409, "Proses lain masih berjalan")
@@ -1096,7 +1254,8 @@ def _format_error_message(err: Exception) -> str:
     return msg
 
 
-def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str, language: Optional[str] = None, quality: str = 'proxy'):
+def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: Optional[str], language: Optional[str] = None, quality: str = 'proxy'):
+    model_size = _asr_model_size(model_size)
     pdir = project_dir(pid)
     try:
         if _ingest_cancelled(pid):
@@ -1168,7 +1327,7 @@ def _ingest_worker(pid: str, url: Optional[str], uploaded: bool, model_size: str
         # Step 4: Whisper if transcript does not exist
         transcript_file = pdir / 'transcript.json'
         if not transcript_file.exists():
-            _ingest_write(pid, stage='transcript', percent=92, message='Transkripsi audio (Whisper)...')
+            _ingest_write(pid, stage='transcript', percent=92, message=f'Transkripsi audio (Whisper {model_size})...')
             video_path = get_source_video_path(pid)
             if not video_path:
                 raise RuntimeError("Video source tidak ditemukan untuk transkripsi.")
@@ -1232,13 +1391,13 @@ def ingest_url(project_id: str, payload: IngestUrlRequest):
     if tier not in ('proxy', 'hd', 'best'):
         raise HTTPException(400, "Kualitas tidak dikenal: pakai proxy|hd|best")
 
-    _start_ingest(project_id, url=url, model_size=payload.model_size or 'base', language=payload.language, quality=tier)
+    _start_ingest(project_id, url=url, model_size=payload.model_size, language=payload.language, quality=tier)
     return {"status": "started"}
 
 
 @app.post("/api/projects/{project_id}/upload")
 async def upload_video(project_id: str, file: UploadFile = File(...),
-                       model_size: str = Form("base"), language: Optional[str] = Form(None)):
+                       model_size: Optional[str] = Form(None), language: Optional[str] = Form(None)):
     _validate_pid(project_id)
     read_project_meta(project_id)
     pdir = project_dir(project_id)
@@ -1710,7 +1869,7 @@ def transcribe_clip(project_id: str, slug: str, force: bool = False):
     tr_proj = load_transcript_file(project_id) or {}
     lang = tr_proj.get("language")
     try:
-        tr = subtitle_burn.transcribe_audio(master, model_size="base", language=lang)
+        tr = subtitle_burn.transcribe_audio(master, model_size=_asr_model_size(), language=lang)
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_text(json.dumps(tr, ensure_ascii=False, indent=2), encoding="utf-8")
         return {"status": "ok", **tr}
@@ -1741,7 +1900,7 @@ def apply_subtitles(project_id: str, slug: str, payload: SubtitlesRequest):
             master=master,
             out_path=final,
             style=style,
-            model_size=payload.model_size or "base",
+            model_size=_asr_model_size(payload.model_size),
             language=lang,
             words=payload.words,
             words_cache=cache,

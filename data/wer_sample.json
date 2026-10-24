@@ -1,0 +1,55 @@
+{
+  "source": "work/261e5b42f5 — 60 detik (28–88 s) audio Indonesia",
+  "window": {
+    "start": 28.0,
+    "end": 88.0
+  },
+  "reference_note": "Acuan WER: caption YouTube project yang sama untuk 60 detik itu (tag non-ucapan seperti [musik]/[tertawa] dibuang saat hitung).",
+  "measured_at": "2026-10-24",
+  "reference": "[musik] Belanja di Koperasi Merah Putih. Betul. Oh, iya. Ini baru mewah. Mewah kenapa? Mepet sawah. Ini mewah. Kenapa? mewah enggak, Biu? [tertawa] Merah, merah. Merah itu, ya. Tapi gua baru tahu, Bang Pul. Selain menjual segala macam makanan dan sembako, Oke. lu ngejual Mio J? Enggak, itu karyawan, [tertawa] motor karyawannya. Motor karyawannya. Tapi okelah secara bangunannya gede menurut gua. Ini di mana, Dek? Ah? Ini di mana? Ini di cuaca mendukung, alias Cakung. Ah, makanya dari jauh tadi gua kira Mixue. Merah-merah begini kan. Cabangnya di mana-mana, ternyata sudah Koperasi Merah Putih. Betul. Iya. Ayon terancam tutup. Kenapa? Karena ini sudah buka di sini. Bahaya banget, ya. Bahaya. Cuma kalau di sini enggak ada Biang Lala. Adanya? Biang Keringat. [tertawa] Sekarang kita mau belanja di dalam. apa saja sih? Loh, lah. Banyak banget. Makanya ayo kita masuk. Kita kita izin dulu. Apa? Ke dalam. Emang sakit [tertawa] lu izin? Tuh, makanya tuh. Iya. Kakak! Oh, baik dia. Tuh. Halo, Kakak. Halo, Kakak.",
+  "baseline": {
+    "label": "Sebelum — Whisper base, beam 1, bahasa auto",
+    "text": " Belanja  ke  komprasi  meraputi  Oh  iya,  ini  baru  mewah  Mewah  kenapa?  Ini  mewah  Kenapa?  Gak  ternyata  orangnya  mewah  ga  biu  Merah,  tapi  gua  berada  tau  bangpul  Selain  menjual  segala  macem  makanan  dan  semak  kok  Lu  ke  jual  mio  aja  Gak,  itu  kan  ya,  maka  menemotorkan  ya,  maka  menemotorkan  ya  Tapi  oke  lah,  secara  bau  nana  gede  Ini  di  mana?  Ini  di  cocam  mendukung  alis  cakum  Maka  dari  jauh  tadi  gua  gira  mixu  Pokok  berharap -harap  yang  ini  kan?  Coba  kan  di  mana -mana  terata  udah  poprasi  meraputi.  Iya.  Aion  terancam  tutup.  Kenapa?  Karena  ini  udah  buka  di  sini.  Bahaya  banget.  Bahaya.  Coba  kok  sini  nggak  ada  biang -bawa.  Apa  ada  aja?  Biar  keringat.  Sekarang  kita  mau  belanja  di  dalam.  Kenapa  nggak  ada?  Bahaya  banget,  banyak.  Banyanya  kita  masuk.  Kita,  kita,  itu  dulu.  Apa?  Kedalau.  Lu  sakit  lu.  Maenanya  tuh.  Gak,  gak,  gak,  gak,  gak,  gak,  gak.  Amat  naka!  Amat  naka!  Mari!"
+  },
+  "after": {
+    "label": "Sesudah — Whisper medium, beam 5, VAD 400 ms, glosarium, bahasa id",
+    "text": " Belanja  ke  Koperasi  Merah  Putih  Oh  iya  Ini  baru  mewah  Mewah  kenapa?  Ini  mewah  Kenapa?  Lihat  warnanya  mewah  gak  biu  Merah  Tapi  gue  baru  tau  bang  Pol  Selain  menjual  segala  macam  makanan  dan  sembah  Kok  lo  ngejual  Mio  J?  Nggak  itu  motor  karyawannya  Motor  karyawannya  Tapi  oke  lah  secara  bangunannya  gede  Buat  gue  Ini  di  mana  Dap?  Ini  di  coca  mendukung  alias  Cakung  Cakung  Makanya  dari  jauh  tadi  gue  kira  Mixue  Aku  merah -merah  begini  kan  cabangnya  dimana -mana  ternyata  udah  poprasi  merah  putih  iyaaa  aion  terancam  tutup  kenapa?  karena  ini  udah  buka  disini  bahaya  banget  ya  bahaya  iya  cuman  kalau  disini  gak  ada  biang  lala  adanya?  biang  geringat  sekarang  kita  mau  belanja  didalam  emang  ada  apa  aja  sih?  lah  banyak  banget  makanya  ayo  kita  masuk  kita,  kita  izin  dulu  apa?  kedalam  eh  sakit  lu  izin  semangatnya  tuh  iya  kakak  oh  maen  ya  tuh  halo  kakak  halo  kakak  mari"
+  },
+  "timing": {
+    "base_b1": {
+      "label": "Whisper base, beam 1 (kode sebelum T7)",
+      "model": "base",
+      "beam": 1,
+      "load_sec": 2.1,
+      "transcribe_sec": 15.5
+    },
+    "base_b5": {
+      "label": "Whisper base, beam 5",
+      "model": "base",
+      "beam": 5,
+      "load_sec": 0.8,
+      "transcribe_sec": 27.6
+    },
+    "medium_b1": {
+      "label": "Whisper medium, beam 1",
+      "model": "medium",
+      "beam": 1,
+      "load_sec": 5.0,
+      "transcribe_sec": 47.2
+    },
+    "medium_b5": {
+      "label": "Whisper medium, beam 5 + glosarium (kode T7)",
+      "model": "medium",
+      "beam": 5,
+      "load_sec": 4.6,
+      "transcribe_sec": 58.6
+    },
+    "small_b5": {
+      "label": "Whisper small, beam 5 (opsi cepat)",
+      "model": "small",
+      "beam": 5,
+      "load_sec": 128.9,
+      "transcribe_sec": 24.8
+    }
+  }
+}

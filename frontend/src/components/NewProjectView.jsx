@@ -32,8 +32,8 @@ export default function NewProjectView({ options, onCreated, onCancel }) {
         setDraftPid(pid);
       }
       setStatusMessage('Menyiapkan project...');
-      if (sourceType === 'youtube') await ingestUrl(pid, ytUrl.trim(), 'base', null, downloadQuality);
-      else await uploadVideoFile(pid, file, 'base');
+      if (sourceType === 'youtube') await ingestUrl(pid, ytUrl.trim(), null, null, downloadQuality);
+      else await uploadVideoFile(pid, file, null);
       onCreated(pid);
     } catch (e) {
       setError(e.message);

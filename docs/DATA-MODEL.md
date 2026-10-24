@@ -68,6 +68,10 @@ CREATE TABLE IF NOT EXISTS export_jobs (
 | GET | `/api/export/{job_id}` | `{status,path,error}` | T4 |
 | POST | `/api/projects/{id}/tighten` | `{silence_ms:400,filler:true}` → `{saved_ms}` | T5 |
 | POST | `/api/projects/{id}/zoom-keyframes` | `{candidate_index,zoom_manual?,aspect?}` → `{ok:true,keyframes:[{t,x,y,w,h}]}` (0..1, koordinat sumber; tanpa yunet → `{ok:false,reason,hint}` status 200) | T6 |
+| GET | `/api/projects/{id}/transcript?word=1` | tambah `avg_logprob`, `edited`, `needs_check`, `model`, `check_threshold` per kata | T7 |
+| POST | `/api/projects/{id}/transcript/word` | `{idx,text}` → `{ok:true,from_idx,count,words:[{idx,word,start_ms,end_ms}]}`; timing lama dibagi proporsional per karakter | T7 |
+| GET/PUT | `/api/glossary` | `{path,text,terms:[…]}` ↔ `{text}` → `{ok:true,terms}`; berkas `data/glossary.txt` dibuat kalau belum ada | T7 |
+| GET | `/api/accuracy` | `{ok:true,source,window,reference_note,measured_at,rows:[{id,label,words,errors,wer}],improvement}`; sampel `data/wer_sample.json` absen → `{ok:false,reason,hint}` status 200 | T7 |
 
 ## 4. Bentuk data klip (harus identik dua engine)
 ```json
@@ -95,6 +99,7 @@ Aturan: field tidak boleh beda antar engine. Kalau Vizard tidak menyediakan sesu
 ```sql
 -- T7: keyakinan per kata + glosarium di file data/glossary.txt
 ALTER TABLE transcript_words ADD COLUMN avg_logprob REAL;   -- additive, aman
+ALTER TABLE transcript_words ADD COLUMN edited INTEGER DEFAULT 0;  -- 1 = teks sudah diperbaiki manual
 
 -- T8: diarisasi
 CREATE TABLE IF NOT EXISTS speakers (

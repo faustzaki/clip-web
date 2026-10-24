@@ -85,3 +85,23 @@ Backup: `config.yml.pre-cinder-*`.
 - Kirim file target saja (`@frontend/src/components/StudioView.jsx`), bukan `@frontend`.
 - Satu tugas per sesi.
 - `max_tokens` wajar.
+
+## 8. Model farm josjis (diuji 24 Okt 2026)
+Semua diuji via 9Router `:20128` dengan tool-call + tugas koding nyata. **Nama OMP wajib pakai prefix `ninerouter/`.**
+
+| Model | Tool-call | Skor kode | Latensi | Catatan |
+|---|---|---|---|---|
+| `ninerouter/river/deepseek-ai/DeepSeek-V4.1-Flash` | ✅ | 5/5 | 10.4s | **default proyek** |
+| `ninerouter/cbai/kimi-k2.6` | ✅ | 5/5 | 8.8s | alternatif kuat |
+| `ninerouter/moc/cx/gpt-5.6-luna-review` | ✅ | 5/5 | 5.2s | **tercepat** |
+| `ninerouter/moc/qwen/qwen3.8-max:free` | ✅ | 5/5 | 12.1s | gratis |
+| `ninerouter/moc/kr/glm-5` | ✅ | 5/5 | 27.0s | lambat tapi tepat |
+| `ninerouter/moc/LongCat-2.5-Preview` | ✅ | 4/5 | 10.4s | cadangan |
+| `ninerouter/moc/Atria-Dawn-Preview` | ✅ | 3–4/5 | 31.1s | lambat |
+| `ninerouter/moc/deepseek-v4.1-flash` | ✅ | 0/5 | 6.7s | tool jalan, kode jelek |
+| `ninerouter/g24/minimax-m2.7` | ❌ | 3/5 | 24.6s | tidak bisa jadi agent |
+| `ninerouter/moc/grok-4.7` | ❌ | 5/5 | 34.2s | bagus kode, tanpa tool |
+| `ninerouter/moc/gemini/*`, `moc/gemini-4-argon` | ❌ 422 | — | — | mati |
+| `xkiro/*`, `bai/*`, `unikey/*`, `groq/*`, `mistral/*`, `cf/*` | ❌ | — | — | 403/404/429 (belum ada kredensial) |
+
+**Jebakan OMP:** provider terpisah tidak bisa dipakai untuk id ber-slash. Kalau model 9Router bernama `moc/xxx`, di OMP harus didaftarkan di provider `ninerouter` dengan id **`moc/xxx`** — OMP mengirim id apa adanya.

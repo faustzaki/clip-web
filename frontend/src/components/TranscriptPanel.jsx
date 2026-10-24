@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Scissors, Loader2, RotateCcw, X } from 'lucide-react';
+import { Search, Scissors, Loader2, RotateCcw, X, AlertTriangle } from 'lucide-react';
 
 const GAP_MS = 600;
 const LINE_WORDS = 7;
+const CHECK_UNDERLINE = '#E0A800';   // underline kata ragu (T7)
 
 const sec = (ms) => `${(Math.max(0, Number(ms) || 0) / 1000).toFixed(1)}s`;
 const mmss = (ms) => {
@@ -16,20 +17,42 @@ export default function TranscriptPanel({
   current = 0,
   onSeek,
   onCut,
+  onEditWord,
   loading = false,
   error = null,
   onRetry,
 }) {
   const [mode, setMode] = useState('transcript');
   const [query, setQuery] = useState('');
+  const [onlyCheck, setOnlyCheck] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [editError, setEditError] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [anchor, setAnchor] = useState(null);
   const [range, setRange] = useState(null);
   const [cutting, setCutting] = useState(false);
   const [cutError, setCutError] = useState(null);
   const listRef = useRef(null);
+  const editRef = useRef(null);
   const userScrolledRef = useRef(false);
   const draggingRef = useRef(false);
   const programmaticRef = useRef(false);
+
+  // Kata dengan keyakinan ASR rendah (T7) — dasar filter "Hanya perlu dicek"
+  const checkIdxs = useMemo(
+    () => words.reduce((acc, w, i) => (w.needs_check ? (acc.push(i), acc) : acc), []),
+    [words],
+  );
+
+  const visibleIdxs = useMemo(
+    () => (onlyCheck ? checkIdxs : words.map((_, i) => i)),
+    [onlyCheck, checkIdxs, words],
+  );
+  const visibleSet = useMemo(() => new Set(visibleIdxs), [visibleIdxs]);
+
+  useEffect(() => {
+    if (editing && editRef.current) editRef.current.select();
+  }, [editing]);
 
   const q = query.trim().toLowerCase();
   const matchIdxs = useMemo(() => {
@@ -119,11 +142,52 @@ export default function TranscriptPanel({
     }
   };
 
+  const commitEdit = async () => {
+    if (!editing || !onEditWord) return;
+    const { idx, value } = editing;
+    const text = value.trim();
+    if (!text || text === (words[idx]?.word || '').trim()) {
+      setEditing(null);
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await onEditWord(idx, text);
+      setEditing(null);
+    } catch (err) {
+      setEditError(err?.message || 'Gagal menyimpan kata.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const renderWord = (i) => {
     const w = words[i];
     const isActive = i === activeIdx;
     const isMatch = q && String(w.word || '').toLowerCase().includes(q);
     const inRange = range && i >= range.from && i <= range.to;
+
+    if (editing && editing.idx === i) {
+      return (
+        <input
+          key={`edit-${w.idx ?? i}`}
+          ref={editRef}
+          value={editing.value}
+          disabled={savingEdit}
+          aria-label={`Perbaiki kata ${w.word}`}
+          onChange={(e) => setEditing({ idx: i, value: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+            else if (e.key === 'Escape') { setEditing(null); }
+          }}
+          onBlur={() => setEditing(null)}
+          className="vz-input inline-block align-baseline"
+          style={{ width: `${Math.max(6, (editing.value.length || 1) + 2)}ch`, padding: '0 6px' }}
+        />
+      );
+    }
+
     return (
       <button
         key={w.idx ?? i}
@@ -132,7 +196,13 @@ export default function TranscriptPanel({
         onPointerDown={(e) => startSel(i, e)}
         onPointerEnter={() => extendSel(i)}
         onClick={() => onSeek?.(w.start_ms)}
-        title={`${sec(w.start_ms)} – ${sec(w.end_ms)}`}
+        onDoubleClick={() => { if (onEditWord) setEditing({ idx: i, value: w.word }); }}
+        title={[
+          `${sec(w.start_ms)} – ${sec(w.end_ms)}`,
+          w.needs_check ? 'Perlu dicek: keyakinan ASR rendah' : '',
+          w.edited ? 'Sudah diperbaiki manual' : '',
+          onEditWord ? 'Klik dua kali untuk memperbaiki kata' : '',
+        ].filter(Boolean).join(' · ')}
         className={[
           'inline-flex items-baseline gap-1 px-0.5 rounded-[6px] cursor-pointer align-baseline text-left transition-colors',
           isActive ? 'bg-vz-tint text-vz-accent' : 'text-vz-text hover:bg-vz-muted',
@@ -140,6 +210,7 @@ export default function TranscriptPanel({
           inRange ? 'ring-1 ring-vz-accent' : '',
           w.deleted ? 'line-through opacity-45' : '',
         ].filter(Boolean).join(' ')}
+        style={w.needs_check ? { borderBottom: `2px solid ${CHECK_UNDERLINE}` } : undefined}
       >
         <span className="text-body">{w.word}</span>
         <span className="text-meta italic text-vz-dim">[{sec(w.start_ms)}]</span>
@@ -188,12 +259,31 @@ export default function TranscriptPanel({
         )}
       </div>
 
-      <div data-region="transcript-count" className="flex items-center justify-between text-[11px] text-vz-dim">
-        <span>{q ? `${matchIdxs.length} hasil` : `${words.length} kata`}</span>
-        <span className="font-mono tabular-nums">Total {mmss(totalMs)}</span>
+      <div data-region="transcript-count" className="flex items-center justify-between gap-2 text-[11px] text-vz-dim">
+        <span>{q ? `${matchIdxs.length} hasil` : `${visibleIdxs.length} kata${onlyCheck ? ' perlu dicek' : ''}`}</span>
+        <div className="flex items-center gap-2">
+          {checkIdxs.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setOnlyCheck((v) => !v)}
+              aria-pressed={onlyCheck}
+              title="Tampilkan hanya kata yang perlu dicek"
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-bold transition-colors ${
+                onlyCheck
+                  ? 'border-vz-accent text-vz-accent bg-vz-tint'
+                  : 'border-vz-border text-vz-dim hover:text-vz-accent'
+              }`}
+            >
+              <AlertTriangle className="w-3 h-3" style={{ color: CHECK_UNDERLINE }} />
+              Hanya perlu dicek ({checkIdxs.length})
+            </button>
+          )}
+          <span className="font-mono tabular-nums">Total {mmss(totalMs)}</span>
+        </div>
       </div>
 
       {cutError && <p className="text-[11px] text-[var(--vz-danger-fg)]">{cutError}</p>}
+      {editError && <p className="text-[11px] text-[var(--vz-danger-fg)]">{editError}</p>}
 
       <div ref={listRef} onScroll={onScroll} className="max-h-[320px] overflow-y-auto pr-1">
         {loading && (
@@ -229,19 +319,27 @@ export default function TranscriptPanel({
         )}
 
         {!loading && !error && words.length > 0 && mode === 'transcript' && (
-          <div className="text-body leading-[1.6]">{words.map((_, i) => renderWord(i))}</div>
+          visibleIdxs.length === 0 ? (
+            <p className="text-xs text-vz-dim py-2">Tidak ada kata yang perlu dicek.</p>
+          ) : (
+            <div className="text-body leading-[1.6]">{visibleIdxs.map(renderWord)}</div>
+          )
         )}
 
         {!loading && !error && words.length > 0 && mode === 'subtitle' && (
           <div className="space-y-2">
-            {segments.map((seg, si) => (
-              <div key={si} className="rounded-vz-lg border border-vz-border bg-vz-surface p-2">
-                <span className="text-[11px] font-mono text-vz-dim">
-                  {sec(words[seg.idxs[0]].start_ms)} – {sec(words[seg.idxs[seg.idxs.length - 1]].end_ms)}
-                </span>
-                <div className="text-body leading-[1.6] mt-0.5">{seg.idxs.map(renderWord)}</div>
-              </div>
-            ))}
+            {segments.map((seg, si) => {
+              const idxs = seg.idxs.filter((i) => visibleSet.has(i));
+              if (!idxs.length) return null;
+              return (
+                <div key={si} className="rounded-vz-lg border border-vz-border bg-vz-surface p-2">
+                  <span className="text-[11px] font-mono text-vz-dim">
+                    {sec(words[idxs[0]].start_ms)} – {sec(words[idxs[idxs.length - 1]].end_ms)}
+                  </span>
+                  <div className="text-body leading-[1.6] mt-0.5">{idxs.map(renderWord)}</div>
+                </div>
+              );
+            })}
           </div>
         )}
 

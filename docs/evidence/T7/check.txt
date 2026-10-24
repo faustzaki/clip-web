@@ -1,0 +1,68 @@
+PASS core_engine: default model medium
+PASS core_engine: beam_size 5
+PASS core_engine: vad min_silence 400 ms
+PASS core_engine: bahasa dikunci id
+PASS core_engine: condition_on_previous_text=False
+PASS core_engine: compute_type int8
+PASS core_engine: word_timestamps
+PASS core_engine: avg_logprob per kata
+PASS core_engine: glosarium → initial_prompt
+PASS core_engine: auto upgrade ≥10 GB
+PASS cli stage-1: parameter sama
+PASS cli stage-1: model default medium
+PASS server: route glossary
+PASS server: route edit kata
+PASS server: route akurasi
+PASS server: model dari setting
+PASS server: ambang keyakinan -1.0
+PASS panel: underline kuning #E0A800
+PASS panel: filter perlu dicek
+PASS panel: edit kata inline
+PASS panel: simpan dengan Enter
+PASS settings: tab Akurasi ASR
+PASS api: fungsi T7
+PASS light theme (tanpa dark:/bg-black)
+PASS tanpa console.log/TODO
+PASS WER identik = 0
+PASS WER 1 dari 4 kata = 0.25
+PASS WER abaikan tag non-ucapan
+PASS WER abaikan tanda baca & huruf besar
+PASS GET /api/glossary 200 — 200
+PASS GET /api/glossary bentuk {ok,terms,text}
+PASS PUT /api/glossary simpan 2 istilah — ['Koperasi Merah Putih', 'Mixue']
+PASS glosarium tersimpan di disk
+PASS glosarium jadi initial_prompt — Istilah yang sering muncul: Koperasi Merah Putih, Mixue
+PASS auto + disk ≥10 GB → large-v3
+PASS auto + disk <10 GB → medium
+PASS model eksplisit dihormati
+PASS _asr_model_size(None) = default medium — medium
+PASS kata ragu ditandai needs_check — [False, True, False, True]
+PASS avg_logprob diteruskan ke UI
+PASS ambang keyakinan dikirim
+PASS POST edit kata 200 — 200
+PASS satu kata jadi dua — ['halo', 'eh', 'iya', 'dunia', 'ragu']
+PASS kata pengganti benar — [{'word': 'eh', 'start': 1.0, 'end': 1.24, 'deleted': 0, 'avg_logprob': 0.0, 'edited': 1}, {'word': 'iya', 'start': 1.24, 'end': 1.6, 'deleted': 0, 'avg_logprob': 0.0, 'edited': 1}]
+PASS rentang tetap di window kata lama — 1.0-1.6
+PASS timing dibagi per karakter — 1.24 vs 1.24
+PASS hasil edit ditandai edited + tidak perlu dicek
+PASS neighbours tidak berubah
+PASS backup transkrip dibuat
+PASS edit bertahan setelah reload
+PASS indeks salah ditolak 400 — 400
+PASS teks kosong ditolak 400 — 400
+PASS transkrip kosong → placeholder jujur — {'ok': False, 'reason': 'Transkrip belum siap', 'hint': 'Jalankan analisis dulu'}
+PASS wer_sample.json ada
+PASS sampel punya reference/baseline/after — ['after', 'baseline', 'measured_at', 'reference', 'reference_note', 'source', 'timing', 'window']
+PASS sampel punya waktu ukur — {'base_b1': {'label': 'Whisper base, beam 1 (kode sebelum T7)', 'model': 'base', 'beam': 1, 'load_sec': 2.1, 'transcribe_sec': 15.5}, 'base_b5': {'label': 'Whisper base, beam 5', 'model': 'base', 'beam': 5, 'load_sec': 0.8, 'transcribe_sec': 27.6}, 'medium_b1': {'label': 'Whisper medium, beam 1', 'model': 'medium', 'beam': 1, 'load_sec': 5.0, 'transcribe_sec': 47.2}, 'medium_b5': {'label': 'Whisper medium, beam 5 + glosarium (kode T7)', 'model': 'medium', 'beam': 5, 'load_sec': 4.6, 'transcribe_sec': 58.6}, 'small_b5': {'label': 'Whisper small, beam 5 (opsi cepat)', 'model': 'small', 'beam': 5, 'load_sec': 128.9, 'transcribe_sec': 24.8}}
+PASS window 60 detik — {'start': 28.0, 'end': 88.0}
+PASS GET /api/accuracy 200 — 200
+PASS akurasi ok — {'ok': True, 'source': 'work/261e5b42f5 — 60 detik (28–88 s) audio Indonesia', 'window': {'start': 28.0, 'end': 88.0}, 'reference_note': 'Acuan WER: caption You
+PASS ada 2 baris (sebelum & sesudah)
+PASS WER sesudah < sebelum — 0.6211 → 0.3789
+PASS improvement positif — 0.2422
+INFO WER sebelum=0.6211 (100/161) sesudah=0.3789 (61/161)
+INFO waktu transkrip 60 detik (detik): base_b1=15.5, base_b5=27.6, medium_b1=47.2, medium_b5=58.6, small_b5=24.8
+PASS waktu sebelum & sesudah terukur
+PASS sampel absen → placeholder jujur — {'ok': False, 'reason': 'Sampel akurasi belum tersedia', 'hint': 'Siapkan data/wer_sample.json: 60 detik transkrip manual + teks pembanding'}
+
+SEMUA CEK T7 LULUS

@@ -1,0 +1,20 @@
+T7 — WER sampel 60 detik (data/wer_sample.json)
+Sampel    : work/261e5b42f5, audio 28–88 s (60 detik, bahasa Indonesia)
+Referensi : caption YouTube project yang sama untuk 60 detik itu
+            (tag non-ucapan seperti [musik]/[tertawa] dibuang; tanda baca & huruf besar diabaikan)
+Metrik    : WER kata = Levenshtein(token referensi, token hipotesis) / jumlah token referensi
+Diukur    : 2026-10-24
+
+| pengaturan                                              | WER    | salah/total |
+|---------------------------------------------------------|--------|-------------|
+| SEBELUM — Whisper base, beam 1, bahasa auto             | 62.1%  | 100/161     |
+| SESUDAH — Whisper medium, beam 5, VAD 400 ms, glosarium | 37.9%  |  61/161     |
+
+Selisih: turun 24.2 poin persen.
+
+Perbaikan yang terlihat pada teks (contoh): "komprasi meraputi" → "Koperasi Merah Putih",
+"cakum" → "Cakung", "mixu" → "Mixue", "mio aja" → "Mio J" — istilah glosarium kini ikut dikenali.
+
+Perintah
+  python scripts/check_t7.py          # cetak INFO WER + validasi endpoint /api/accuracy
+  python work/_t7_wer/make_sample.py  # rakit ulang data/wer_sample.json dari hasil ukur

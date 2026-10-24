@@ -45,6 +45,7 @@ import render_clips
 import subtitle_burn
 import tighten
 import translate
+import broll_index
 
 DEFAULT_RENDER_PREFS = {
     "subtitles_enabled": False,
@@ -285,6 +286,8 @@ async def override_static_mime(request, call_next):
 # Mount static folders for video/audio streaming and thumbnails
 app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
 app.mount("/work", StaticFiles(directory=str(WORKDIR)), name="work")
+# T10: berkas b-roll + thumbnail .thumbs dipakai panel B-roll (URL /broll/<rel>)
+app.mount("/broll", StaticFiles(directory=str(broll_index.BROLL_DIR)), name="broll")
 
 
 # --------------------------------------------------------------------------
@@ -1404,6 +1407,71 @@ def post_timeline(project_id: str, payload: dict):
     os.replace(tmp, path)
     return {"ok": True, "items": sum(len(tracks.get(t, [])) for t in TIMELINE_TRACKS)}
 
+# --------------------------------------------------------------------------
+# B-roll lokal (T10) — index data/broll (file-based), saran tag, overlay saat render
+# --------------------------------------------------------------------------
+KEYWORD_STOPWORDS = {
+    "yang", "dan", "untuk", "dengan", "tidak", "dari", "ini", "itu", "kamu", "saya",
+    "akan", "juga", "bisa", "ada", "saja", "kita", "mereka", "karena", "kalau",
+    "sudah", "atau", "pada", "tapi", "agar", "oleh", "lebih", "jadi", "buat",
+    "the", "and", "for", "that", "this", "with", "you", "your", "are", "was",
+    "have", "but", "not", "they", "what", "when", "just", "very", "from", "about",
+}
+
+def _clip_keywords(pid: str, idx: int) -> List[str]:
+    """Kata kunci klip: field keywords + teks kandidat + kata transkrip tersering."""
+    words: List[str] = []
+    segs = load_segments_file(pid)
+    seg = segs[idx] if 0 <= idx < len(segs) else None
+    if seg:
+        for k in seg.get("keywords") or []:
+            words.append(str(k))
+        for key in ("hook", "title", "reason", "text_preview"):
+            words += re.findall(r"[\w']+", str(seg.get(key) or ""))
+    tr = load_transcript_file(pid) or {}
+    tr_words = tr.get("words") or []
+    if seg:
+        s, e = float(seg.get("start") or 0), float(seg.get("end") or 0)
+        in_range = [w for w in tr_words if s <= float(w.get("start") or 0) <= e]
+        tr_words = in_range or tr_words
+    freq: dict[str, int] = {}
+    for w in tr_words:
+        tok = re.sub(r"[^\w']", "", str(w.get("word") or "").lower())
+        if len(tok) >= 4 and tok not in KEYWORD_STOPWORDS:
+            freq[tok] = freq.get(tok, 0) + 1
+    words += [w for w, _ in sorted(freq.items(), key=lambda kv: (-kv[1], kv[0]))[:25]]
+    return words
+
+def _broll_payload(project_id: Optional[str], candidate_index: int) -> dict:
+    data = broll_index.load_index()
+    items = data.get("items") or []
+    resp = {"ok": True, "dir": data.get("dir") or "data/broll", "count": len(items),
+            "items": items, "scanned_at": data.get("scanned_at"),
+            "scanned_ms": data.get("scanned_ms"), "suggestions": []}
+    if not items:
+        resp["hint"] = data.get("hint") or broll_index.EMPTY_HINT
+        return resp
+    if project_id:
+        try:
+            _validate_pid(project_id)
+            read_project_meta(project_id)
+            resp["suggestions"] = broll_index.suggest(
+                items, _clip_keywords(project_id, int(candidate_index or 0)))
+        except HTTPException:
+            pass  # project tak dikenal → panel tetap menampilkan semua b-roll
+    return resp
+
+@app.get("/api/broll/index")
+def get_broll_index(project_id: Optional[str] = None, candidate_index: int = 0):
+    """Index b-roll + 5 saran untuk klip aktif. Folder kosong → `{ok:true,count:0,hint}`."""
+    return _broll_payload(project_id, candidate_index)
+
+@app.post("/api/broll/refresh")
+def refresh_broll_index(project_id: Optional[str] = None, candidate_index: int = 0):
+    """Pindai ulang `data/broll/**` (tombol "Muat ulang index" di panel)."""
+    broll_index.scan()
+    return _broll_payload(project_id, candidate_index)
+
 def _ingest_cancelled(pid: str) -> bool:
     with INGEST_LOCK:
         return INGEST_JOBS.get(pid, {}).get('cancel', False)
@@ -1730,6 +1798,34 @@ def _stored_zoom_keyframes(pid: str, idx: int):
                 return kfs
     return None
 
+def _stored_broll_spans(pid: str, seg: dict) -> List[dict]:
+    """Item b-roll (track 2, kind='broll') → rentang relatif klip untuk overlay render (T10)."""
+    tl = _read_timeline_file(pid)
+    if not tl:
+        return []
+    clip_start = float(seg.get("start") or 0.0)
+    clip_len = max(0.0, float(seg.get("end") or 0.0) - clip_start)
+    spans = []
+    for track in tl.get("tracks") or []:
+        if track.get("track") != 2:
+            continue
+        for it in track.get("items") or []:
+            if it.get("kind") != "broll":
+                continue
+            src = str((it.get("payload") or {}).get("src") or "")
+            path = (ROOT_DIR / src).resolve()
+            if not src or ROOT_DIR not in path.parents or not path.is_file():
+                continue
+            s = float(it.get("start_ms") or 0) / 1000.0 - clip_start
+            e = float(it.get("end_ms") or 0) / 1000.0 - clip_start
+            s, e = max(0.0, s), min(clip_len, e)
+            if e - s < 0.2:
+                continue
+            spans.append({"path": str(path), "start": round(s, 3), "end": round(e, 3),
+                          "image": path.suffix.lower() in broll_index.IMAGE_EXT})
+    spans.sort(key=lambda sp: sp["start"])
+    return spans
+
 @app.post("/api/projects/{project_id}/zoom-keyframes")
 def compute_zoom_keyframes(project_id: str, payload: ZoomKeyframesRequest):
     """Deteksi wajah sekali per detik -> kotak crop untuk `ffmpeg zoompan` (T6)."""
@@ -1841,6 +1937,7 @@ def render_clip(project_id: str, payload: RenderRequest):
             zoom_auto=bool(prefs.get("zoom_auto")),
             zoom_manual=int(prefs.get("zoom_manual") or 100),
             zoom_keyframes=zoom_kfs,
+            brolls=_stored_broll_spans(project_id, seg),
             subtitle_style=prefs.get("subtitle_style"),
             candidate_index=payload.candidate_index,
             raw_subdir="raw",
@@ -2395,6 +2492,7 @@ def _run_export(pid: str, job_id: str) -> None:
             zoom_auto=bool(prefs.get("zoom_auto")),
             zoom_manual=int(prefs.get("zoom_manual") or 100),
             zoom_keyframes=_stored_zoom_keyframes(pid, int(idx)),
+            brolls=_stored_broll_spans(pid, seg),
             subtitle_style=prefs.get("subtitle_style"),
             candidate_index=int(idx),
             res_scale=EXPORT_RES[job["resolution"]], fps=int(job["fps"]),

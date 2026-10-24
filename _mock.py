@@ -159,6 +159,44 @@ def build_timeline():
 
 TIMELINE = build_timeline()
 
+def load_broll_index():
+    """Index b-roll asli kalau ada (hasil `broll_index.py`), kalau tidak → empty state."""
+    if os.environ.get("MOCK_NO_BROLL") == "1":
+        return {"ok": True, "dir": "data/broll", "count": 0, "items": [], "scanned_at": 0,
+                "scanned_ms": 12, "hint": "Folder b-roll masih kosong. Taruh video di data/broll."}
+    try:
+        data = json.loads((ROOT / "data" / "broll" / "index.json").read_text(encoding="utf-8-sig"))
+        if isinstance(data, dict) and isinstance(data.get("items"), list):
+            return data
+    except Exception:
+        pass
+    return {"ok": True, "dir": "data/broll", "count": 0, "items": [], "scanned_at": 0,
+            "scanned_ms": 0, "hint": "Folder b-roll masih kosong. Taruh video di data/broll."}
+
+def broll_payload():
+    """Index + 5 saran (mock: item pertama dianggap paling cocok) untuk review UI."""
+    data = load_broll_index()
+    items = data.get("items") or []
+    suggestions = [dict(it, score=len(items) - i, matched_tags=(it.get("tags") or [])[:2])
+                   for i, it in enumerate(items[:5])]
+    return {"ok": True, "dir": data.get("dir") or "data/broll", "count": len(items), "items": items,
+            "scanned_at": data.get("scanned_at"), "scanned_ms": data.get("scanned_ms"),
+            "suggestions": suggestions, **({"hint": data["hint"]} if not items and data.get("hint") else {})}
+
+def insert_mock_broll(index):
+    """Tambah satu item b-roll ke track 2 supaya kartu timeline + tombolnya terlihat."""
+    items = load_broll_index().get("items") or []
+    if not items:
+        return
+    src = items[min(1, len(items) - 1)]
+    TIMELINE["tracks"][1]["items"].append({
+        "id": f"broll-mock-{index}", "kind": "broll",
+        "start_ms": 33_600 + index * 500, "end_ms": 36_100 + index * 500,
+        "payload": {"src": src["path"], "name": src["name"],
+                    "tags": src.get("tags") or [], "opacity": 1.0}})
+
+insert_mock_broll(0)   # contoh item b-roll di track Teks supaya tombol hapus/geser terlihat
+
 
 def mock_zoom_keyframes():
     """Kotak zoom mock: zigzag 9:16 (w 0.317, tinggi penuh) — cukup untuk menguji UI."""
@@ -246,6 +284,19 @@ class H(SimpleHTTPRequestHandler):
                 "diarize_model": DIARIZE_MODEL})
         if p.startswith("/api/projects/") and p.endswith("/timeline"):
             return self._json(TIMELINE)
+        if p == "/api/broll/index":
+            return self._json(broll_payload())
+        if p.startswith("/broll/"):
+            f = (ROOT / "data" / "broll" / p[len("/broll/"):]).resolve()
+            if f.is_file() and ROOT in f.parents:
+                data = f.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", mimetypes.guess_type(f.name)[0] or "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+            return self._json({"error": "not found"}, 404)
         if p.startswith("/mock/"):
             f = MEDIA / p.split("/")[-1]
             if f.exists():
@@ -288,6 +339,8 @@ class H(SimpleHTTPRequestHandler):
                 tracks.setdefault(int(it.get("track") or 1), []).append(it)
             TIMELINE["tracks"] = [{"track": t, "items": tracks.get(t, [])} for t in (1, 2, 3)]
             return self._json({"ok": True, "items": sum(len(v) for v in tracks.values())})
+        if p == "/api/broll/refresh":
+            return self._json(broll_payload())
         if p.endswith("/translate"):
             clip_id = p.split("/")[3] if p.startswith("/api/clips/") else "clip_01"
             return self._json(translate_payload(clip_id, (body.get("lang") or "en").lower()))

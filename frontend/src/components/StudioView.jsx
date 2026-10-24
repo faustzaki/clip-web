@@ -163,6 +163,7 @@ export default function StudioView({
     handleWordEdit,
     handleDiarize, handleSpeakerRename, speakers, diarizeModel,
     saveZoomKeyframes,
+    insertBroll, moveBroll, removeBroll,
     clips, candidates,
   } = useEditorState({ projectId, state, videoRef });
   const currentVideo = state?.video;
@@ -345,6 +346,8 @@ export default function StudioView({
             loadTranscript={loadTranscript}
             clips={clips}
             selectedClip={selectedClip}
+            playheadMs={Math.round(currentTime * 1000)}
+            onInsertBroll={insertBroll}
           />
         )}
 
@@ -360,6 +363,8 @@ export default function StudioView({
         onSeek={seekToMs}
         onZoom={setTimelineZoom}
         onToggleCollapse={() => setTimelineCollapsed((v) => !v)}
+        onBrollMove={moveBroll}
+        onBrollRemove={removeBroll}
         error={timelineError}
       />
 

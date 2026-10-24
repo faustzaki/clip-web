@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
 
 const TRACKS = [
   { track: 1, label: 'Video' },
@@ -14,6 +14,7 @@ const BLOCK_CLASS = {
   video: 'bg-vz-tint border-vz-accent text-vz-strong',
   caption: 'bg-vz-muted border-vz-border text-vz-soft',
   audio: 'bg-[var(--vz-success-bg)] border-vz-border text-vz-soft',
+  broll: 'bg-[var(--vz-accent-tint)] border-vz-accent text-vz-accent',
 };
 
 const mmss = (ms) => {
@@ -31,6 +32,8 @@ export default function Timeline({
   onZoom,
   onToggleCollapse,
   onTrim,
+  onBrollMove,
+  onBrollRemove,
   error = null,
 }) {
   const laneRef = useRef(null);
@@ -178,10 +181,67 @@ export default function Timeline({
                       const start = Number(it.start_ms) || 0;
                       const end = Number(it.end_ms) || 0;
                       const widthPct = dur ? Math.max(0.4, ((end - start) / dur) * 100) : 0;
-                      const label = it.payload?.text || it.kind;
+                      const label = it.payload?.text || it.payload?.name || it.kind;
                       const zoomIdx = Object.entries(it.payload?.zoom_keyframes || {})
                         .filter(([, kfs]) => Array.isArray(kfs) && kfs.length)
                         .map(([k]) => `#${Number(k) + 1}`);
+                      const wide = (widthPct / 100) * contentW >= 44;
+                      if (it.kind === 'broll') {
+                        // T10: item b-roll digeser/dihapus lewat tombol (bukan drag).
+                        // Tombol ditaruh di sisi kanan blok supaya blok pendek tetap terbaca.
+                        return (
+                          <div
+                            key={it.id ?? `broll-${start}`}
+                            data-region="timeline-broll"
+                            className="absolute top-0 h-10"
+                            style={{
+                              left: `${dur ? (start / dur) * 100 : 0}%`,
+                              width: `${widthPct}%`,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => onSeek?.(start)}
+                              title={`${label} ${mmss(start)}–${mmss(end)}`}
+                              className={`absolute inset-0 rounded-vz-md border text-left text-[11px] overflow-hidden ${wide ? 'px-2 truncate' : 'px-0'} ${BLOCK_CLASS.broll}`}
+                            >
+                              {wide ? label : null}
+                            </button>
+                            <span className="absolute left-full top-1.5 z-10 flex items-center gap-0.5 pl-1">
+                              <button
+                                type="button"
+                                data-testid="t10-broll-earlier"
+                                aria-label="Geser b-roll lebih awal"
+                                title="Geser 0,5 detik lebih awal"
+                                onClick={() => onBrollMove?.(it.id, -500)}
+                                className="w-7 h-7 flex items-center justify-center rounded-vz-md border border-[var(--vz-border)] bg-vz-surface text-vz-accent hover:border-[var(--vz-accent)]"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                data-testid="t10-broll-later"
+                                aria-label="Geser b-roll lebih lambat"
+                                title="Geser 0,5 detik lebih lambat"
+                                onClick={() => onBrollMove?.(it.id, 500)}
+                                className="w-7 h-7 flex items-center justify-center rounded-vz-md border border-[var(--vz-border)] bg-vz-surface text-vz-accent hover:border-[var(--vz-accent)]"
+                              >
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                data-testid="t10-broll-remove"
+                                aria-label="Hapus b-roll dari timeline"
+                                title="Hapus dari timeline"
+                                onClick={() => onBrollRemove?.(it.id)}
+                                className="w-7 h-7 flex items-center justify-center rounded-vz-md border border-[var(--vz-border)] bg-vz-surface text-[var(--vz-danger-fg)] hover:border-[var(--vz-danger-fg)]"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </span>
+                          </div>
+                        );
+                      }
                       return (
                         <button
                           key={it.id ?? `${it.kind}-${start}`}
@@ -189,7 +249,7 @@ export default function Timeline({
                           onClick={() => onSeek?.(start)}
                           onDoubleClick={() => onTrim?.(it)}
                           title={`${label} ${mmss(start)}–${mmss(end)}`}
-                          className={`absolute top-0 h-10 rounded-vz-md border text-left text-[11px] overflow-hidden ${widthPct / 100 * contentW >= 44 ? 'px-2 truncate' : 'px-0'} ${
+                          className={`absolute top-0 h-10 rounded-vz-md border text-left text-[11px] overflow-hidden ${wide ? 'px-2 truncate' : 'px-0'} ${
                             BLOCK_CLASS[it.kind] || BLOCK_CLASS.caption
                           }`}
                           style={{
@@ -197,7 +257,7 @@ export default function Timeline({
                             width: `${widthPct}%`,
                           }}
                         >
-                          {widthPct / 100 * contentW >= 44 ? label : null}
+                          {wide ? label : null}
                           {zoomIdx.length > 0 && (
                             <span
                               data-region="timeline-zoom-badge"

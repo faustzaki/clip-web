@@ -1,0 +1,14 @@
+PASS panel B-roll tampil dari rail
+PASS grid kartu b-roll ≥ 3 item — kartu=3
+PASS grid 2 kolom — kolom=2
+PASS thumbnail kartu ter-render
+PASS maksimal 5 kandidat saran tampil — saran=3
+PASS tombol Sisipkan menaruh item di playhead — kopi-latte.mp4 → "kopi-latte.mp4 disisipkan di 0,0 detik."
+PASS item b-roll muncul di kartu timeline
+PASS tombol geser + hapus ada di kartu b-roll
+PASS tombol geser memindahkan item b-roll — pantai-sunset.mp4 0:33–0:36 → pantai-sunset.mp4 0:34–0:36
+PASS tombol hapus membuang satu item b-roll dari timeline — 2 → 1
+PASS tidak ada error runtime di halaman
+PASS folder kosong: empty state Indonesia, bukan error — Folder b-roll masih kosong. Taruh video di data/broll.
+
+12 lulus, 0 gagal

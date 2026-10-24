@@ -409,3 +409,27 @@ export async function saveTimeline(projectId, items) {
   }
   return res.json();
 }
+
+// T10: index b-roll lokal + 5 saran tag untuk klip aktif
+function brollQuery(projectId, candidateIndex) {
+  const q = new URLSearchParams();
+  if (projectId) q.set('project_id', projectId);
+  q.set('candidate_index', String(candidateIndex ?? 0));
+  return q.toString();
+}
+
+export async function fetchBrollIndex(projectId, candidateIndex = 0) {
+  const res = await apiFetch(`${BASE_URL}/api/broll/index?${brollQuery(projectId, candidateIndex)}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.reason || 'Gagal memuat index b-roll');
+  return data;
+}
+
+export async function refreshBrollIndex(projectId, candidateIndex = 0) {
+  const res = await apiFetch(`${BASE_URL}/api/broll/refresh?${brollQuery(projectId, candidateIndex)}`, {
+    method: 'POST',
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.reason || 'Gagal memindai ulang folder b-roll');
+  return data;
+}

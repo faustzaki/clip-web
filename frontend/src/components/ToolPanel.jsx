@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import { Captions, Loader2, Languages, X } from 'lucide-react';
-import { applyTighten, translateClip } from '../api';
+import React, { useEffect, useState } from 'react';
+import { Captions, Film, Loader2, Languages, Plus, RefreshCw, X } from 'lucide-react';
+import { applyTighten, fetchBrollIndex, refreshBrollIndex, translateClip } from '../api';
 import SubtitlePreview from './SubtitlePreview';
 
 const TOOL_LABELS = { subtitles: 'Subtitles', audio: 'Audio', broll: 'B-roll', text: 'Text' };
 const SAMPLE_WORDS = ['CONTOH', 'TEKS', 'CAPTION'];
 
 const seconds = (ms) => (Math.max(0, Number(ms) || 0) / 1000).toFixed(1).replace('.', ',');
+const brollDuration = (ms) => (ms > 0 ? `${seconds(ms)} detik` : 'gambar');
 
 /**
  * Panel kolom kanan 320px untuk tool aktif di ToolRail.
  * T5: tool `Subtitles` = pemotong jeda/kata pengisi + 5 preset caption per project.
+ * T10: tool `B-roll` = index folder lokal + saran tag + sisipkan di playhead.
  */
 export default function ToolPanel({
   tool,
@@ -23,6 +25,8 @@ export default function ToolPanel({
   loadTranscript,
   clips,
   selectedClip,
+  playheadMs = 0,
+  onInsertBroll,
 }) {
   const [cutSilence, setCutSilence] = useState(true);
   const [silenceMs, setSilenceMs] = useState(400);
@@ -31,6 +35,38 @@ export default function ToolPanel({
   const [result, setResult] = useState(null);
   const [translating, setTranslating] = useState(false);
   const [trResult, setTrResult] = useState(null);
+
+  // T10: index b-roll lokal + saran tag
+  const [broll, setBroll] = useState(null);
+  const [brollBusy, setBrollBusy] = useState(false);
+  const [brollResult, setBrollResult] = useState(null);
+  const candidateIndex = selectedClip?.candidate_index ?? 0;
+  const isBroll = tool === 'broll';
+
+  const loadBroll = React.useCallback(async (refresh = false) => {
+    setBrollBusy(true);
+    try {
+      const data = refresh
+        ? await refreshBrollIndex(projectId, candidateIndex)
+        : await fetchBrollIndex(projectId, candidateIndex);
+      setBroll(data);
+      setBrollResult(null);
+    } catch (err) {
+      setBrollResult({ error: err?.message || 'Gagal memuat index b-roll', hint: '' });
+    } finally {
+      setBrollBusy(false);
+    }
+  }, [projectId, candidateIndex]);
+
+  useEffect(() => {
+    if (isBroll) loadBroll(false);
+  }, [isBroll, loadBroll]);
+
+  const brollItems = broll?.items || [];
+  const suggestions = broll?.suggestions || [];
+  const suggestedPaths = new Set(suggestions.map((s) => s.path));
+  // 5 kandidat saran dulu, sisanya menyusul — satu grid 2 kolom
+  const brollGrid = [...suggestions, ...brollItems.filter((it) => !suggestedPaths.has(it.path))];
 
   const presets = options?.caption_presets || [];
   const activePreset = prefs?.caption_preset || null;
@@ -73,6 +109,14 @@ export default function ToolPanel({
     }
   };
 
+  /** Sisipkan b-roll di posisi playhead (T10) lewat timeline project. */
+  const insertBroll = async (item) => {
+    const res = await onInsertBroll?.(item, playheadMs);
+    setBrollResult(res === false
+      ? { error: 'Timeline belum siap. Muat ulang project lalu coba lagi.', hint: '' }
+      : { inserted: item.name, at: playheadMs });
+  };
+
   const choosePreset = (preset) => {
     savePrefs({
       ...(prefs || {}),
@@ -109,7 +153,11 @@ export default function ToolPanel({
     >
       <header className="flex items-center justify-between gap-2 px-4 py-3 border-b border-vz-border sticky top-0 bg-vz-surface z-10">
         <span className="flex items-center gap-2 text-xs font-bold text-vz-strong uppercase tracking-wide">
-          <Captions className="w-4 h-4 text-vz-accent" />
+          {isBroll ? (
+            <Film className="w-4 h-4 text-vz-accent" />
+          ) : (
+            <Captions className="w-4 h-4 text-vz-accent" />
+          )}
           {TOOL_LABELS[tool] || tool}
         </span>
         <button
@@ -122,10 +170,125 @@ export default function ToolPanel({
         </button>
       </header>
 
-      {tool !== 'subtitles' ? (
+      {tool !== 'subtitles' && !isBroll ? (
         <p className="px-4 py-6 text-xs text-[var(--vz-text-muted)]">
           Panel {TOOL_LABELS[tool] || tool} belum tersedia.
         </p>
+      ) : isBroll ? (
+        <div className="flex flex-col gap-5 p-4" data-region="broll-panel">
+          <p className="text-[10px] text-[var(--vz-text-faint)]">
+            Disisipkan di posisi playhead ({seconds(playheadMs)} detik), durasi 2,5 detik.
+          </p>
+
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[11px] font-bold text-[var(--vz-text)] uppercase tracking-wider">
+              B-roll ({broll?.count ?? 0})
+            </h3>
+            <button
+              type="button"
+              data-testid="t10-refresh"
+              onClick={() => loadBroll(true)}
+              disabled={brollBusy}
+              title="Pindai ulang folder data/broll"
+              className="inline-flex items-center gap-1 h-8 px-2 rounded-vz-lg border border-[var(--vz-border)] text-[11px] font-medium text-[var(--vz-text)] hover:border-[var(--vz-border-strong)] disabled:opacity-40 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Muat ulang index
+            </button>
+          </div>
+
+          {brollBusy && !broll && (
+            <p role="status" className="flex items-center gap-2 text-[11px] text-[var(--vz-text-muted)]">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memindai folder b-roll…
+            </p>
+          )}
+
+          {broll?.count === 0 && (
+            <p role="status" data-testid="t10-empty" className="text-[11px] text-[var(--vz-text-muted)]">
+              {broll.hint || 'Folder b-roll masih kosong. Taruh video di data/broll.'}
+            </p>
+          )}
+
+          {brollGrid.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {brollGrid.map((it, i) => {
+                const suggested = suggestedPaths.has(it.path);
+                return (
+                  <button
+                    key={it.path}
+                    type="button"
+                    data-testid={`t10-insert-${i}`}
+                    data-broll-name={it.name}
+                    title={`Sisipkan ${it.name}`}
+                    onClick={() => insertBroll(it)}
+                    className="flex flex-col text-left bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] rounded-vz-xl overflow-hidden hover:border-[var(--vz-accent)] transition-colors"
+                  >
+                    <span className="block aspect-video bg-[var(--vz-overlay)] overflow-hidden">
+                      {it.thumb ? (
+                        <img
+                          src={`/broll/${it.thumb}`}
+                          alt={`Pratinjau ${it.name}`}
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : null}
+                    </span>
+                    <span className="flex flex-col gap-1 p-2">
+                      <span className="text-[11px] font-medium text-[var(--vz-text)] truncate">{it.name}</span>
+                      <span className="text-[10px] text-[var(--vz-text-faint)]">{brollDuration(it.dur_ms)}</span>
+                      {(it.tags || []).length > 0 && (
+                        <span className="flex flex-wrap gap-1">
+                          {(it.tags || []).slice(0, 3).map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-1.5 py-0.5 rounded-vz-sm bg-[var(--vz-accent-tint)] text-[var(--vz-accent)] text-[10px]"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                      {suggested && (
+                        <span className="text-[10px] text-[var(--vz-accent)]">
+                          Saran
+                          {(it.matched_tags || []).length > 0
+                            ? ` · cocok: ${(it.matched_tags || []).join(', ')}`
+                            : ''}
+                        </span>
+                      )}
+                      <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--vz-accent)]">
+                        <Plus className="w-3.5 h-3.5" /> Sisipkan
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {broll?.count > 0 && suggestions.length === 0 && (
+            <p className="text-[10px] text-[var(--vz-text-faint)]">
+              Belum ada kata kunci yang cocok dengan tag b-roll. Semua file tetap bisa disisipkan.
+            </p>
+          )}
+
+          {brollResult?.error && (
+            <p role="status" data-testid="t10-error" className="text-[11px] text-[var(--vz-danger-fg)]">
+              {brollResult.error}
+              {brollResult.hint ? ` — ${brollResult.hint}` : ''}
+            </p>
+          )}
+
+          {brollResult?.inserted && (
+            <p role="status" data-testid="t10-inserted" className="text-[11px] text-[var(--vz-success-fg)]">
+              {brollResult.inserted} disisipkan di {seconds(brollResult.at)} detik.
+            </p>
+          )}
+
+          <p className="text-[10px] text-[var(--vz-text-faint)]">
+            Tag dari nama file dan data/broll/tags.json. Geser atau hapus item di track Teks timeline.
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col gap-5 p-4">
           {/* Jeda sunyi + kata pengisi */}

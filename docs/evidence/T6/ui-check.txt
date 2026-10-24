@@ -1,0 +1,17 @@
+PASS pill toolbar punya 4 tombol berlabel teks — Ratio (9:16) | Background | Layout | Layar penuh
+PASS menu Ratio berisi 9:16 / 1:1 / 4:5 / 16:9 — 9:16 (Reels/TikTok) | 1:1 (Feed persegi) | 4:5 (Feed portrait) | 16:9 (Landscape)
+PASS pilih 4:5: label pill ikut berubah — Ratio (4:5)
+PASS preview mengikuti rasio 4:5 (lebar/tinggi ≈ 0.8) — 344x430 = 0.801
+PASS panel Layout terbuka
+PASS slider Zoom manual 100–160 — 100–160
+PASS safe zone tampil setelah toggle
+PASS safe zone 88% x 80% dari area preview — 206x337 dari 234x422
+PASS komposisi preview tidak bergeser saat safe zone muncul — 242x430 -> 242x430
+PASS label 'Area aman' ada
+PASS Auto zoom menghitung keyframes (nota jumlah titik) — 20 titik zoom siap · rasio 9:16.
+PASS badge Zoom muncul di track video timeline — Zoom 1
+PASS Zoom manual 130% tersimpan ke prefs — 130
+PASS slider menampilkan nilai baru (130%) — Zoom manual 130%
+PASS tanpa pageerror
+
+0 gagal

@@ -135,6 +135,7 @@ export default function StudioView({
   }, [state?.project?.id, state?.project?.render_prefs, prefsPid]);
 
   const savePrefs = async (next) => {
+    prefsRef.current = next;
     setPrefs(next);
     try {
       await putPrefs(projectId, next);
@@ -159,6 +160,7 @@ export default function StudioView({
     currentTime, setCurrentTime, duration, setDuration,
     transcript, transcriptLoading, transcriptError, loadTranscript,
     timelineError, timelineItems, timelineDuration, seekToMs, handleTranscriptCut,
+    saveZoomKeyframes,
     clips, candidates,
   } = useEditorState({ projectId, state, videoRef });
   const currentVideo = state?.video;
@@ -266,6 +268,7 @@ export default function StudioView({
               onClipRendered={onClipRendered}
               onOpenCropStudio={onOpenCropStudio}
               onOpenSubtitleApply={onOpenSubtitleApply}
+              saveZoomKeyframes={saveZoomKeyframes}
             />
 
             {/* RIGHT COLUMN MODE: If pipelinePos === 'right' */}

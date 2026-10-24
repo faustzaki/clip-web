@@ -5,6 +5,7 @@ Renders scored segments to clips in a chosen aspect ratio:
   - 16:9 (default) -> landscape, full frame kept
   - 9:16           -> vertical, dynamic speaker-tracking crop (YuNet + snap-on-cut)
   - 1:1            -> square
+  - 4:5            -> portrait feed (Instagram)
 Captions are word-by-word CapCut style, burnt in via the ffmpeg ASS engine,
 with selectable style presets. Optional --tighten removes filler words and
 long silences (captions are re-timed automatically). Every clip gets a PNG
@@ -31,6 +32,7 @@ ASPECTS = {
     "16:9": (1920, 1080, 72, 95),
     "9:16": (1080, 1920, 96, 300),
     "1:1":  (1080, 1080, 82, 120),
+    "4:5":  (1080, 1350, 88, 210),
 }
 DEFAULT_ASPECT = "16:9"
 
@@ -40,6 +42,7 @@ PREVIEW = {
     "16:9": (854, 480),
     "9:16": (480, 854),
     "1:1":  (480, 480),
+    "4:5":  (480, 600),
 }
 
 def default_out():
@@ -51,6 +54,10 @@ DET_W = 640
 EMA_ALPHA = 0.20
 JUMP_FRAC = 0.22
 MARGIN_FRAC = 0.18
+ZOOM_MIN = 1.0
+ZOOM_MAX = 1.6          # batas punch-in: sama dengan slider "Zoom manual" (100–160%)
+ZOOM_FACE_FRAC = 0.42   # tinggi wajah target sebagai pecahan tinggi crop (auto zoom)
+ZOOM_EMA = 0.25         # peredam goyang kotak zoom antar detik
 YUNET_URL = ("https://github.com/opencv/opencv_zoo/raw/main/models/"
              "face_detection_yunet/face_detection_yunet_2023mar.onnx")
 
@@ -71,6 +78,19 @@ def ffprobe_dims(path):
     w, h = out.split("x")[:2]
     return int(w), int(h)
 
+
+def ffprobe_fps(path):
+    """Frame rate sumber; 30 fps kalau ffprobe tidak memberi angka berguna."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, check=True).stdout.strip()
+        num, den = out.split("/")[:2]
+        fps = float(num) / float(den)
+        return fps if 1.0 <= fps <= 240.0 else 30.0
+    except Exception:
+        return 30.0
 
 def crop_for(W, H, tw, th):
     """Largest centred crop of the WxH source matching the target aspect."""
@@ -109,8 +129,12 @@ def _make_detector(workdir):
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
 
-def detect_track(source, start, dur, W, workdir):
-    """Low-res detection pass -> [(t_rel, center_x_source_px or None)]."""
+def _detect_boxes(source, start, dur, workdir):
+    """Low-res detection pass -> [(t_rel, cx, cy, face_h) or (t, None, None, None)].
+
+    cx/cy = pusat wajah ternormalisasi 0..1 pada frame sumber; face_h = tinggi wajah
+    sebagai pecahan tinggi frame. Tiap sampel berjarak 1/DET_FPS detik.
+    """
     import cv2
     det_path = Path(workdir) / "_det.mp4"
     subprocess.run(
@@ -122,36 +146,44 @@ def detect_track(source, start, dur, W, workdir):
     cap = cv2.VideoCapture(str(det_path))
     dw = cap.get(cv2.CAP_PROP_FRAME_WIDTH) or DET_W
     dh = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360
-    sx = W / float(dw)
     if kind == "yunet":
         det.setInputSize((int(dw), int(dh)))
-    track = []
+    boxes = []
     i = 0
     while True:
         ok, frame = cap.read()
         if not ok:
             break
         t = i / float(DET_FPS)
-        cx = None
+        box = None
         if kind == "yunet":
             _, faces = det.detect(frame)
             if faces is not None and len(faces):
                 best = max(faces, key=lambda f: f[2] * f[3] * float(f[14]))
-                cx = (best[0] + best[2] / 2.0) * sx
+                box = (best[0], best[1], best[2], best[3])
         else:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = det.detectMultiScale(gray, 1.1, 5, minSize=(36, 36))
             if len(faces):
-                x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
-                cx = (x + w / 2.0) * sx
-        track.append((t, cx))
+                box = max(faces, key=lambda f: f[2] * f[3])
+        if box is None:
+            boxes.append((t, None, None, None))
+        else:
+            x, y, w, h = box
+            boxes.append((t, (x + w / 2.0) / float(dw),
+                          (y + h / 2.0) / float(dh), float(h) / float(dh)))
         i += 1
     cap.release()
     try:
         det_path.unlink()
     except OSError:
         pass
-    return track
+    return boxes
+
+def detect_track(source, start, dur, W, workdir):
+    """Low-res detection pass -> [(t_rel, center_x_source_px or None)]."""
+    return [(t, None if cx is None else cx * W)
+            for t, cx, _cy, _fh in _detect_boxes(source, start, dur, workdir)]
 
 
 def smooth_track(track, W, crop_w):
@@ -199,6 +231,93 @@ def build_sendcmd(track, crop_w, path):
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def compute_zoom_keyframes(source, start, dur, W, H, workdir, aspect="9:16", zoom_manual=None):
+    """Kotak crop per detik yang mengikuti wajah -> [{t, x, y, w, h}] (0..1, koordinat sumber).
+
+    zoom_manual (1.0..ZOOM_MAX) memaksa tingkat zoom; None = zoom diturunkan dari
+    ukuran wajah (target ZOOM_FACE_FRAC tinggi crop). Tanpa wajah: kotak tengah.
+    """
+    tw, th = ASPECTS[aspect][0], ASPECTS[aspect][1]
+    cw, ch, _x0, _y0 = crop_for(W, H, tw, th)
+    samples = _detect_boxes(source, start, dur, workdir) or [(0.0, None, None, None)]
+    fixed = min(ZOOM_MAX, max(ZOOM_MIN, float(zoom_manual))) if zoom_manual else None
+    out = []
+    cx_s = cy_s = zoom_s = None
+    for t, cx, cy, fh in samples:
+        cx, cy, fh = float(cx) if cx is not None else None, float(cy) if cy is not None else None, float(fh) if fh is not None else None
+        if cx is None:
+            cx = cx_s if cx_s is not None else 0.5
+            cy = cy_s if cy_s is not None else 0.5
+            z = zoom_s if zoom_s is not None else (fixed or ZOOM_MIN)
+        else:
+            z = fixed if fixed else (ZOOM_FACE_FRAC * ch) / (fh * H) if fh else ZOOM_MIN
+            z = min(ZOOM_MAX, max(ZOOM_MIN, z))
+        if zoom_s is None:
+            cx_s, cy_s, zoom_s = cx, cy, z
+        else:
+            cx_s += ZOOM_EMA * (cx - cx_s)
+            cy_s += ZOOM_EMA * (cy - cy_s)
+            zoom_s += ZOOM_EMA * (z - zoom_s)
+        bw = cw / zoom_s / float(W)
+        bh = ch / zoom_s / float(H)
+        out.append({
+            "t": float(round(float(t), 2)),
+            "x": float(round(min(max(cx_s - bw / 2.0, 0.0), 1.0 - bw), 5)),
+            "y": float(round(min(max(cy_s - bh / 2.0, 0.0), 1.0 - bh), 5)),
+            "w": float(round(bw, 5)),
+            "h": float(round(bh, 5)),
+        })
+    return out
+
+def _kf_ramp(values, frames):
+    """Ekspresi piecewise-linear pada `on` (nomor frame output) untuk satu properti."""
+    if len(values) == 1:
+        return f"{values[0]:.6f}"
+    expr = f"{values[-1]:.6f}"
+    for i in range(len(values) - 2, -1, -1):
+        span = max(1, frames[i + 1] - frames[i])
+        seg = (f"{values[i]:.6f}+({values[i + 1] - values[i]:.6f})"
+               f"*min(max(on-{frames[i]},0),{span})/{span}")
+        expr = f"if(lt(on,{frames[i + 1]}),{seg},{expr})"
+    return expr
+
+def build_crop_cmd(keyframes, cw, ch, W, H, path):
+    """sendcmd: geser crop dasar (cw:ch) supaya pusat kotak zoom ikut wajah."""
+    lines = []
+    last = None
+    for kf in keyframes:
+        bw = min(1.0, max(1e-4, float(kf.get("w") or 0)))
+        bh = min(1.0, max(1e-4, float(kf.get("h") or 0)))
+        x = int(round((float(kf.get("x") or 0) + bw / 2.0) * W - cw / 2.0))
+        y = int(round((float(kf.get("y") or 0) + bh / 2.0) * H - ch / 2.0))
+        x = max(0, min(W - cw, x))
+        y = max(0, min(H - ch, y))
+        if last is None or abs(x - last[0]) >= 2 or abs(y - last[1]) >= 2:
+            lines.append(f"{float(kf.get('t') or 0):.2f} crop x {x}, crop y {y};")
+            last = (x, y)
+    if not lines:
+        lines = ["0.00 crop x 0, crop y 0;"]
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+def zoompan_filter(keyframes, cw, W, tw, th, fps):
+    """Filter `zoompan` di atas crop dasar yang sudah berasio benar.
+
+    z = cw / (w * W) = tingkat punch-in kotak zoom (1.0–1.6); x/y tetap di tengah
+    karena crop dasar sudah mengikuti wajah (lihat build_crop_cmd).
+    """
+    frames, zs = [], []
+    for kf in keyframes:
+        bw = min(1.0, max(1e-4, float(kf.get("w") or 0)))
+        frames.append(int(round(float(kf.get("t") or 0) * fps)))
+        zs.append(min(ZOOM_MAX, max(ZOOM_MIN, cw / (bw * W))))
+    for i in range(1, len(frames)):
+        if frames[i] <= frames[i - 1]:
+            frames[i] = frames[i - 1] + 1
+    return (f"zoompan=z='{_kf_ramp(zs, frames)}'"
+            f":x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2'"
+            f":d=1:s={tw}x{th}:fps={fps:.6f}")
+
+
 def ass_time(t):
     t = max(0.0, t)
     h = int(t // 3600)
@@ -235,9 +354,12 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
            do_tighten=False, loudnorm=False, preview=False, crop_mode="auto",
            hook_title=None, watermark=None, crop_rect=None,
            subtitle_style=None, candidate_index=None, raw_subdir="raw",
-           res_scale=1.0, fps=None, burn_caption=False, out_name=None):
+           res_scale=1.0, fps=None, burn_caption=False, out_name=None,
+           zoom_auto=False, zoom_manual=None, zoom_keyframes=None):
     """Render one clip. res_scale/fps size and pace the output, burn_caption adds
-    the word-level captions from `words`, out_name overrides the file name."""
+    the word-level captions from `words`, out_name overrides the file name.
+    zoom_auto/zoom_manual (100–160) mengaktifkan punch-in `zoompan`; `zoom_keyframes`
+    (kotak crop per detik dari compute_zoom_keyframes()) dipakai kalau sudah dihitung pemanggil."""
     base_out = Path(out_dir) if out_dir else default_out()
     out_dir = base_out / raw_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -307,6 +429,28 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
                        f"scale={tw}:{th}:force_original_aspect_ratio=increase,"
                        f"crop={tw}:{th},ass=_overlay.ass{cap}")
         mode = "manual-crop"
+    elif zoom_keyframes or zoom_auto or (zoom_manual and int(zoom_manual) > 100):
+        kfs = zoom_keyframes
+        if not kfs:
+            kfs = compute_zoom_keyframes(render_src, start, dur, W, H, workdir, aspect,
+                                         zoom_manual=None if zoom_auto
+                                         else (int(zoom_manual) / 100.0 if zoom_manual else None))
+            if not zoom_auto:
+                # zoom manual tanpa deteksi wajah: satu kotak tengah
+                z = min(ZOOM_MAX, max(ZOOM_MIN, int(zoom_manual) / 100.0 if zoom_manual else ZOOM_MIN))
+                bw, bh = cw / z / float(W), ch / z / float(H)
+                kfs = [{"t": 0.0, "x": (1.0 - bw) / 2.0, "y": (1.0 - bh) / 2.0,
+                        "w": bw, "h": bh}]
+        first = kfs[0]
+        init_x = max(0, min(W - cw, int(round((float(first.get("x") or 0)
+                                              + float(first.get("w") or 0) / 2.0) * W - cw / 2.0))))
+        init_y = max(0, min(H - ch, int(round((float(first.get("y") or 0)
+                                              + float(first.get("h") or 0) / 2.0) * H - ch / 2.0))))
+        build_crop_cmd(kfs, cw, ch, W, H, out_dir / "_zoom.cmd")
+        filter_expr = (f"sendcmd=f=_zoom.cmd,crop={cw}:{ch}:{init_x}:{init_y},"
+                       + zoompan_filter(kfs, cw, W, tw, th, ffprobe_fps(render_src))
+                       + f",ass=_overlay.ass{cap}")
+        mode = "auto-zoom"
     elif crop_mode == "blur" and aspect == "9:16":
         # Blurred background padding
         is_complex = True
@@ -359,7 +503,8 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
     print(">", " ".join(cmd), flush=True)
     subprocess.run(cmd, check=True, cwd=str(out_dir))
 
-    for tmpf in (out_dir / "_overlay.ass", out_dir / "_captions.ass", out_dir / "_crop.cmd"):
+    for tmpf in (out_dir / "_overlay.ass", out_dir / "_captions.ass",
+                 out_dir / "_crop.cmd", out_dir / "_zoom.cmd"):
         try:
             tmpf.unlink()
         except OSError:

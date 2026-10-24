@@ -57,7 +57,7 @@ Responsif: `<1280px` → rail 56px (ikon saja), panel tool jadi overlay 320px. `
 |---|---|---|
 | Header | logo, undo/redo (disabled kalau kosong), judul editable, indikator "Tersimpan/ Menyimpan…", tombol Save, avatar | `saved`/`saving`/`error` |
 | Transcript | search, toggle Transcript/Edit subtitles, daftar kata `kata [3.0s]` | `loading`/`empty`/`loaded`/`searching`/`selection` |
-| Stage | preview 9:16, safe-zone overlay, pill toolbar (Ratio/Background/Layout/fullscreen) | `no-source`/`ready`/`playing` |
+| Stage | preview 9:16, safe-zone overlay (88% x 80%), pill toolbar (Ratio 9:16/1:1/4:5/16:9 · Background · Layout · Layar penuh), panel Layout: Auto zoom + Zoom manual 100–160% | `no-source`/`ready`/`playing` |
 | Rail | 4 tool berlabel | `idle`/`active` |
 | Panel tool | isi tool aktif | `idle`/`loaded` |
 | Timeline | ruler, 3 track, playhead, zoom | `empty`/`collapsed`/`playing`/`trimming` |

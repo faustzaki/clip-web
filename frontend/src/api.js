@@ -104,6 +104,16 @@ export async function renderClip(projectId, params) {
   return res.json();
 }
 
+export async function computeZoomKeyframes(projectId, params) {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/zoom-keyframes`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.reason || data.detail || 'Gagal menghitung auto zoom');
+  return data;
+}
+
 export async function fetchClips(projectId) {
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips?_t=${Date.now()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch clips');

@@ -65,6 +65,31 @@ CLIPS = [
 ]
 
 
+def build_timeline():
+    dur, caps = 82_200, []
+    for i in range(14):
+        start = i * 5_600
+        if start + 2_800 > dur:
+            break
+        caps.append({"id": f"d2-{i}", "kind": "caption", "start_ms": start, "end_ms": start + 2_800,
+                     "payload": {"text": f"Kalimat caption {i + 1}"}})
+    return {"duration_ms": dur, "tracks": [
+        {"track": 1, "items": [{"id": "d1-0", "kind": "video", "start_ms": 0, "end_ms": dur, "payload": {}}]},
+        {"track": 2, "items": caps},
+        {"track": 3, "items": [{"id": "d3-0", "kind": "audio", "start_ms": 0, "end_ms": dur, "payload": {}}]},
+    ]}
+
+
+TIMELINE = build_timeline()
+
+
+def mock_zoom_keyframes():
+    """Kotak zoom mock: zigzag 9:16 (w 0.317, tinggi penuh) — cukup untuk menguji UI."""
+    return [{"t": round(0.2 * i, 2),
+             "x": round(0.34 + 0.31 * (1 if i % 8 < 4 else -1) * (i % 8) / 8, 5),
+             "y": 0.0, "w": 0.317, "h": 1.0} for i in range(20)]
+
+
 class H(SimpleHTTPRequestHandler):
     extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
                       ".js": "text/javascript", ".mjs": "text/javascript",
@@ -89,6 +114,7 @@ class H(SimpleHTTPRequestHandler):
             return self._json({"languages": [{"code": "id", "label": "Indonesia"}, {"code": "en", "label": "English"}],
                                "models": ["ocf/deepseek-v4.1-flash-free", "nara/glm-5.3", "cbai/kimi-k2.7"],
                                "clip_lengths": [30, 45, 60, 90],
+                               "aspect_ratios": ["9:16", "1:1", "4:5", "16:9"],
                                "caption_presets": CAPTION_PRESETS})
         if p == "/api/settings":
             return self._json({"base_url": "http://127.0.0.1:20128/v1", "model": "ocf/deepseek-v4.1-flash-free",
@@ -111,18 +137,7 @@ class H(SimpleHTTPRequestHandler):
                 for i, (w, s, e) in enumerate(WORDS)
             ], "language": "id", "duration_ms": 12_000})
         if p.startswith("/api/projects/") and p.endswith("/timeline"):
-            dur, caps = 82_200, []
-            for i in range(14):
-                start = i * 5_600
-                if start + 2_800 > dur:
-                    break
-                caps.append({"id": f"d2-{i}", "kind": "caption", "start_ms": start, "end_ms": start + 2_800,
-                             "payload": {"text": f"Kalimat caption {i + 1}"}})
-            return self._json({"duration_ms": dur, "tracks": [
-                {"track": 1, "items": [{"id": "d1-0", "kind": "video", "start_ms": 0, "end_ms": dur, "payload": {}}]},
-                {"track": 2, "items": caps},
-                {"track": 3, "items": [{"id": "d3-0", "kind": "audio", "start_ms": 0, "end_ms": dur, "payload": {}}]},
-            ]})
+            return self._json(TIMELINE)
         if p.startswith("/mock/"):
             f = MEDIA / p.split("/")[-1]
             if f.exists():
@@ -149,6 +164,19 @@ class H(SimpleHTTPRequestHandler):
         if p.endswith("/tighten"):
             return self._json({"ok": True, "saved_ms": 3200, "deleted": 3, "new_duration_ms": 8800,
                                "silence_ms": body.get("silence_ms", 400), "filler": bool(body.get("filler", True))})
+        if p.endswith("/zoom-keyframes"):
+            kfs = mock_zoom_keyframes()
+            return self._json({"ok": True, "candidate_index": body.get("candidate_index", 0),
+                               "aspect": "9:16", "zoom_manual": body.get("zoom_manual", 100),
+                               "keyframes": kfs})
+        if p.endswith("/timeline"):
+            tracks = {}
+            for it in body.get("items") or []:
+                tracks.setdefault(int(it.get("track") or 1), []).append(it)
+            TIMELINE["tracks"] = [{"track": t, "items": tracks.get(t, [])} for t in (1, 2, 3)]
+            return self._json({"ok": True, "items": sum(len(v) for v in tracks.values())})
+        if p.endswith("/render"):
+            return self._json({"status": "ok", "clip": CLIPS[0]})
         return self._json({"error": "not found"}, 404)
 
     def do_PUT(self):

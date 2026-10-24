@@ -109,9 +109,62 @@ export default function useEditorState({ projectId, state, videoRef }) {
     return true;
   };
 
+  /**
+   * Sisipkan b-roll (T10) di posisi playhead: track 2, kind='broll', 2500 ms, opacity 1.0.
+   * `item` = entri index b-roll (`{path,name,tags}`) dari panel.
+   */
+  const insertBroll = async (item, atMs, durationMs = 2500) => {
+    const tracks = timeline?.tracks || [];
+    if (!tracks.length || !item?.path) return false;
+    const items = tracks.flatMap((t) => (t.items || []).map((it) => ({ ...it, track: t.track })));
+    const dur = timelineDuration || 0;
+    const start = Math.max(0, Math.min(Math.round(Number(atMs) || 0), Math.max(0, dur - 500)));
+    const end = Math.min(dur || start + durationMs, start + durationMs);
+    items.push({
+      id: `broll-${Date.now().toString(36)}`,
+      track: 2,
+      kind: 'broll',
+      start_ms: start,
+      end_ms: Math.max(start + 500, end),
+      payload: { src: item.path, name: item.name, tags: item.tags || [], opacity: 1.0 },
+    });
+    await saveTimeline(projectId, items);
+    setTimeline(await fetchTimeline(projectId));
+    return true;
+  };
+
+  /** Geser item b-roll `deltaMs` di timeline (tombol ‹ › di kartu, bukan drag). */
+  const moveBroll = async (itemId, deltaMs) => {
+    const tracks = timeline?.tracks || [];
+    const items = tracks.flatMap((t) => (t.items || []).map((it) => ({ ...it, track: t.track })));
+    const dur = timelineDuration || 0;
+    let touched = false;
+    const next = items.map((it) => {
+      if (String(it.id) !== String(itemId)) return it;
+      touched = true;
+      const len = Math.max(500, Number(it.end_ms) - Number(it.start_ms));
+      const start = Math.max(0, Math.min(Number(it.start_ms) + deltaMs, Math.max(0, dur - len)));
+      return { ...it, start_ms: Math.round(start), end_ms: Math.round(start + len) };
+    });
+    if (!touched) return false;
+    await saveTimeline(projectId, next);
+    setTimeline(await fetchTimeline(projectId));
+    return true;
+  };
+
+  /** Hapus item b-roll dari timeline. */
+  const removeBroll = async (itemId) => {
+    const tracks = timeline?.tracks || [];
+    const items = tracks.flatMap((t) => (t.items || []).map((it) => ({ ...it, track: t.track })));
+    const next = items.filter((it) => String(it.id) !== String(itemId));
+    if (next.length === items.length) return false;
+    await saveTimeline(projectId, next);
+    setTimeline(await fetchTimeline(projectId));
+    return true;
+  };
+
   const clips = state?.clips || [];
   const candidates = state?.candidates || [];
-
   return {
     currentTime,
     setCurrentTime,
@@ -133,6 +186,9 @@ export default function useEditorState({ projectId, state, videoRef }) {
     speakers: transcript?.speakers || [],
     diarizeModel: transcript?.diarize_model || null,
     saveZoomKeyframes,
+    insertBroll,
+    moveBroll,
+    removeBroll,
     clips,
     candidates,
   };

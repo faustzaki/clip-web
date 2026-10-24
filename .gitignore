@@ -48,3 +48,7 @@ _studio_shot*.py
 _tokens*.py
 _mockmedia/
 __pycache__/
+
+# B-roll lokal (T10): media user, bukan kode
+data/broll/*
+!data/broll/.gitkeep

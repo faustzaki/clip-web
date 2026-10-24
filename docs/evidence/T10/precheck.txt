@@ -1,0 +1,13 @@
+# PRECHECK T10 — b-roll folder lokal
+
+$ ls data/broll 2>/dev/null | head -3 || echo NO_BROLL_DIR
+(baris di atas kosong = folder belum ada)
+
+$ test -d data/broll && echo EXISTS || echo NO_BROLL_DIR
+NO_BROLL_DIR
+
+$ ffmpeg -version | head -1
+ffmpeg version 9.0-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+
+$ ffprobe -version | head -1
+ffprobe version 9.0-full_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers

@@ -111,6 +111,25 @@ def crop_for(W, H, tw, th):
     return cw, ch, x0, y0
 
 
+def _kept_time(t, keeps):
+    """Waktu klip-relatif di sumber → waktu di timeline hasil tighten (snap ke keep terdekat)."""
+    acc = 0.0
+    for a, b in keeps:
+        if t < a:
+            return acc
+        if t <= b:
+            return acc + (t - a)
+        acc += b - a
+    return acc
+
+def _remap_broll(span, keeps):
+    """Geser rentang b-roll (T10) setelah tighten memotong bagian klip."""
+    s = _kept_time(float(span["start"]), keeps)
+    e = _kept_time(float(span["end"]), keeps)
+    if e - s < 0.2:
+        return None
+    return {**span, "start": round(s, 3), "end": round(e, 3)}
+
 def _make_detector(workdir):
     import cv2
     model = Path(workdir).parent / "yunet.onnx"
@@ -355,12 +374,14 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
            hook_title=None, watermark=None, crop_rect=None,
            subtitle_style=None, candidate_index=None, raw_subdir="raw",
            res_scale=1.0, fps=None, burn_caption=False, out_name=None,
-           zoom_auto=False, zoom_manual=None, zoom_keyframes=None, dual_lines=None):
+           zoom_auto=False, zoom_manual=None, zoom_keyframes=None, dual_lines=None,
+           brolls=None):
     """Render one clip. res_scale/fps size and pace the output, burn_caption adds
     the word-level captions from `words`, out_name overrides the file name.
     zoom_auto/zoom_manual (100–160) mengaktifkan punch-in `zoompan`; `zoom_keyframes`
     (kotak crop per detik dari compute_zoom_keyframes()) dipakai kalau sudah dihitung pemanggil.
-    `dual_lines` = baris terjemahan (T9), sejajar dengan potongan caption `words_per_line`."""
+    `dual_lines` = baris terjemahan (T9), sejajar dengan potongan caption `words_per_line`.
+    `brolls` = [{"path","start","end"}] detik relatif klip; di-overlay penuh frame (T10)."""
     base_out = Path(out_dir) if out_dir else default_out()
     out_dir = base_out / raw_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -382,6 +403,8 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
 
     cap_words = words
     render_src = source
+    broll_spans = list(brolls or [])
+    keeps = None
     if do_tighten:
         keeps = tighten.plan_cuts(words, start, end)
         render_src = out_dir / "_tight_source.mp4"
@@ -390,6 +413,9 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         print(f"  tightened: {len(keeps)} keep-ranges, "
               f"{(end - start) - dur:.1f}s removed", flush=True)
         start = 0.0
+    if keeps and broll_spans:
+        # waktu item b-roll di timeline ikut digeser oleh tighten
+        broll_spans = [sp for sp in (_remap_broll(br, keeps) for br in broll_spans) if sp]
 
     actual_hook = hook_title
     subtitle_burn.build_overlay_ass(
@@ -427,9 +453,9 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         ch = max(2, int(round(float(crop_rect["h"]) * H))); ch -= ch % 2
         cx = max(0, min(int(round(float(crop_rect["x"]) * W)), W - cw))
         cy = max(0, min(int(round(float(crop_rect["y"]) * H)), H - ch))
-        filter_expr = (f"crop={cw}:{ch}:{cx}:{cy},"
+        video_chain = (f"crop={cw}:{ch}:{cx}:{cy},"
                        f"scale={tw}:{th}:force_original_aspect_ratio=increase,"
-                       f"crop={tw}:{th},ass=_overlay.ass{cap}")
+                       f"crop={tw}:{th}")
         mode = "manual-crop"
     elif zoom_keyframes or zoom_auto or (zoom_manual and int(zoom_manual) > 100):
         kfs = zoom_keyframes
@@ -449,18 +475,17 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         init_y = max(0, min(H - ch, int(round((float(first.get("y") or 0)
                                               + float(first.get("h") or 0) / 2.0) * H - ch / 2.0))))
         build_crop_cmd(kfs, cw, ch, W, H, out_dir / "_zoom.cmd")
-        filter_expr = (f"sendcmd=f=_zoom.cmd,crop={cw}:{ch}:{init_x}:{init_y},"
-                       + zoompan_filter(kfs, cw, W, tw, th, ffprobe_fps(render_src))
-                       + f",ass=_overlay.ass{cap}")
+        video_chain = (f"sendcmd=f=_zoom.cmd,crop={cw}:{ch}:{init_x}:{init_y},"
+                       + zoompan_filter(kfs, cw, W, tw, th, ffprobe_fps(render_src)))
         mode = "auto-zoom"
     elif crop_mode == "blur" and aspect == "9:16":
         # Blurred background padding
         is_complex = True
-        filter_expr = (
+        video_chain = (
             f"[0:v]split[bg][fg];"
             f"[bg]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=10:10,scale={tw}:{th}[bgb];"
             f"[fg]scale={tw}:-1[fgv];"
-            f"[bgb][fgv]overlay=(W-w)/2:(H-h)/2,ass=_overlay.ass{cap}[v]"
+            f"[bgb][fgv]overlay=(W-w)/2:(H-h)/2[vbase]"
         )
         mode = "blur-background"
     elif crop_mode == "split" and aspect == "9:16":
@@ -468,27 +493,52 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         is_complex = True
         top_h = int(th * 0.45)
         bot_h = th - top_h
-        filter_expr = (
+        video_chain = (
             f"[0:v]crop={int(W*0.6)}:{int(H*0.6)}:{int(W*0.2)}:0,scale={tw}:{top_h}[top];"
             f"[0:v]crop={W}:{int(H*0.7)}:0:{int(H*0.3)},scale={tw}:{bot_h}[bot];"
-            f"[top][bot]vstack,ass=_overlay.ass{cap}[v]"
+            f"[top][bot]vstack[vbase]"
         )
         mode = "split-gaming"
     elif crop_mode == "speaker-tracked" or (crop_mode == "auto" and cw < W * 0.95):
         track = smooth_track(detect_track(render_src, start, dur, W, workdir), W, cw)
         build_sendcmd(track, cw, out_dir / "_crop.cmd")
         init_x = max(0, min(int(round(track[0][1] - cw / 2.0)), W - cw))
-        filter_expr = (f"sendcmd=f=_crop.cmd,crop={cw}:{ch}:{init_x}:{y0},"
-                       f"scale={tw}:{th},ass=_overlay.ass{cap}")
+        video_chain = (f"sendcmd=f=_crop.cmd,crop={cw}:{ch}:{init_x}:{y0},"
+                       f"scale={tw}:{th}")
         mode = "speaker-tracked"
     else:
-        filter_expr = f"crop={cw}:{ch}:{x0}:{y0},scale={tw}:{th},ass=_overlay.ass{cap}"
+        video_chain = f"crop={cw}:{ch}:{x0}:{y0},scale={tw}:{th}"
         mode = "center-crop"
+
+    # overlay b-roll (T10) menempel setelah crop, sebelum caption dibakar
+    if broll_spans:
+        parts = [video_chain if is_complex else f"[0:v]{video_chain}[vbase]"]
+        cur = "vbase"
+        for i, br in enumerate(broll_spans):
+            parts.append(
+                f"[{i + 1}:v]scale={tw}:{th}:force_original_aspect_ratio=increase,"
+                f"crop={tw}:{th},setpts=PTS-STARTPTS+{float(br['start']):.3f}/TB[b{i}]")
+            parts.append(
+                f"[{cur}][b{i}]overlay=0:0:eof_action=repeat:"
+                f"enable='between(t,{float(br['start']):.3f},{float(br['end']):.3f})'[o{i}]")
+            cur = f"o{i}"
+        parts.append(f"[{cur}]ass=_overlay.ass{cap}[v]")
+        filter_expr = ";".join(parts)
+        is_complex = True
+    elif is_complex:
+        filter_expr = f"{video_chain};[vbase]ass=_overlay.ass{cap}[v]"
+    else:
+        filter_expr = video_chain + f",ass=_overlay.ass{cap}"
 
     suffix = ".preview" if preview else ""
     out = out_dir / (out_name or sanitize(seg.get("hook", "clip")) + suffix + ".mp4")
 
-    cmd = ["ffmpeg", "-y", "-ss", f"{start:.3f}", "-i", str(render_src), "-t", f"{dur:.3f}"]
+    cmd = ["ffmpeg", "-y", "-ss", f"{start:.3f}", "-i", str(render_src)]
+    if broll_spans:
+        for br in broll_spans:
+            # gambar diam perlu loop; `-t` dipindah ke opsi output supaya durasi klip tetap
+            cmd += (["-loop", "1", "-framerate", "25"] if br.get("image") else []) + ["-i", br["path"]]
+    cmd += ["-t", f"{dur:.3f}"]
     if is_complex:
         cmd += ["-filter_complex", filter_expr, "-map", "[v]", "-map", "0:a?"]
     else:

@@ -15,7 +15,7 @@ await page.waitForSelector('[data-region="timeline"]', { timeout: 20000 });
 const tl = page.locator('[data-region="timeline"]');
 const box = await tl.boundingBox();
 ck("timeline tampil", !!box, box ? `${Math.round(box.width)}x${Math.round(box.height)}` : "tidak ada");
-ck("tinggi 240 atau 320", box && (Math.abs(box.height - 240) < 12 || Math.abs(box.height - 320) < 12), `${Math.round(box?.height || 0)}px`);
+ck("tinggi ringkas 180 atau expand 300", box && (Math.abs(box.height - 180) < 12 || Math.abs(box.height - 300) < 12), `${Math.round(box?.height || 0)}px`);
 
 const dur = await page.evaluate(async () => {
   const r = await fetch("/api/projects/" + (window.__pid || "") + "/timeline").catch(() => null);
@@ -55,7 +55,7 @@ if (await colBtn.count()) {
   await page.waitForTimeout(700);
   const h2 = (await tl.boundingBox())?.height || 0;
   const stored = await page.evaluate(() => localStorage.getItem("vz.timeline.collapsed"));
-  ck("collapse 240/320 + tersimpan", Math.abs(h2 - 240) < 15 || Math.abs(h2 - 320) < 15, `h=${Math.round(h2)} stored=${stored}`);
+  ck("collapse 180/300 + tersimpan", Math.abs(h2 - 180) < 15 || Math.abs(h2 - 300) < 15, `h=${Math.round(h2)} stored=${stored}`);
   await colBtn.click({ force: true }).catch(() => {});
   await page.waitForTimeout(500);
 }

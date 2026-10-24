@@ -1,0 +1,28 @@
+PASS panel transkrip tampil — 13 kata
+PASS kata ragu bergaris bawah kuning #E0A800 — 3 kata
+PASS tombol filter 'Hanya perlu dicek (3)' ada — Hanya perlu dicek (3)
+PASS filter menyisakan hanya kata ragu — 3 kata · 3 kata perlu dicek / Hanya perlu dicek (3) / Total 00:05
+PASS kata 'eee' (idx 1) ada — eee
+[1.0s]
+PASS klik dua kali membuka input edit
+PASS input edit tertutup setelah Enter
+PASS tidak ada pesan gagal simpan kata — GENERATE CLIP
+Pilih Model AI untuk Generate
+Gemini 3.8 Flash (9Router)
+Min & Max Durasi
+Min:
+15s
+Max:
+60s
+Mode Framing &
+PASS tab Akurasi ASR memuat daftar model Whisper — Pengaturan Global /  / Atur AI engine LLM, koneksi gateway, dan penyimpanan render /  / 1. Engine & Koneksi / 2. Storage & Render / 3. Akurasi ASR / Model Whisper untuk Trans
+PASS model aktif = medium
+PASS disk bebas ditampilkan — Disk bebas 23.5 GB
+PASS editor glosarium terisi dari data/glossary.txt — # Satu istilah per baris. | Koperasi Merah Putih | Mixue | Cakung | Mio J | 
+PASS tabel WER punya 2 baris (sebelum & sesudah) — Sebelum — Whisper base, beam 1, bahasa auto	62.1%	100/161 | Sesudah — Whisper medium, beam 5, VAD 400 ms, glosarium, bahasa id	37.9%	61/161
+PASS WER sesudah lebih kecil dari sebelum — 62.1 → 37.9
+PASS ringkasan perubahan WER tampil — Selisih turun 24.2 poin persen. Sampel: work/261e5b42f5 — 60 detik (28–88 s) audio Indonesia. Diukur 2026-10-24.
+PASS simpan glosarium memberi konfirmasi Indonesia — Glosarium tersimpan (4 istilah).
+PASS tidak ada error runtime halaman
+
+PASS 17 / FAIL 0

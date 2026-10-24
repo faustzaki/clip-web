@@ -4,7 +4,9 @@ Core Engine for AutoClip: Combines YouTube ingestion, fast transcription,
 """
 import os
 import sys
+import math
 import json
+import shutil
 import collections
 import re
 import urllib.request
@@ -23,6 +25,55 @@ from score_clips import sentenceize, is_arc_complete, _nearest, make_hook, build
 from render_clips import render, ffprobe_dims, ASPECTS
 
 NINEROUTER_API = "http://127.0.0.1:20128/v1/chat/completions"
+
+# --- ASR (T7) -------------------------------------------------------------
+DEFAULT_ASR_MODEL = "medium"        # dari setting `whisper_model`; 'auto' → lihat resolve_model_size
+ASR_COMPUTE_TYPE = "int8"
+ASR_BEAM_SIZE = 5
+ASR_LANGUAGE = "id"                 # dikunci; 'auto' tetap dipaksa ke id (audio target = Indonesia)
+ASR_VAD_MIN_SILENCE_MS = 400
+LARGE_MODEL_MIN_FREE_GB = 10.0
+GLOSSARY_FILE = HERE / "data" / "glossary.txt"
+GLOSSARY_PROMPT_MAX = 720           # prompt Whisper dibatasi ~224 token
+CONFIDENCE_MIN_LOGPROB = -1.0       # ln(probability) < -1.0 → kata ditandai "perlu cek"
+
+
+def read_glossary(path: Path = None) -> list:
+    """Istilah glosarium: satu per baris; baris kosong dan komentar '#' diabaikan."""
+    p = Path(path) if path else GLOSSARY_FILE
+    if not p.is_file():
+        return []
+    terms = []
+    for line in p.read_text(encoding="utf-8-sig").splitlines():
+        term = line.strip()
+        if term and not term.startswith("#"):
+            terms.append(term)
+    return terms
+
+
+def glossary_initial_prompt(path: Path = None) -> str | None:
+    """Gabungkan glosarium jadi `initial_prompt` Whisper. None kalau file kosong/absen."""
+    terms = read_glossary(path)
+    if not terms:
+        return None
+    return ("Istilah yang sering muncul: " + ", ".join(terms))[:GLOSSARY_PROMPT_MAX]
+
+
+def disk_free_gb(path: Path = None) -> float:
+    """Ruang bebas (GB) di drive tempat model ASR disimpan."""
+    try:
+        drive = Path(path).anchor if path else HERE.anchor
+        return shutil.disk_usage(drive or str(HERE)).free / (1024 ** 3)
+    except Exception:
+        return 0.0
+
+
+def resolve_model_size(requested: str = None) -> str:
+    """'auto'/kosong → large-v3 kalau disk ≥ 10 GB bebas, selain itu medium (default)."""
+    req = (requested or "").strip()
+    if req and req.lower() != "auto":
+        return req
+    return "large-v3" if disk_free_gb() >= LARGE_MODEL_MIN_FREE_GB else DEFAULT_ASR_MODEL
 
 # scoring guidance appended to the LLM system prompt when a search logic is picked
 SEARCH_LOGIC_HINTS = {
@@ -299,7 +350,10 @@ def get_transcript(video_path: Path, workdir: Path, yt_url: str = None,
         except Exception:
             pass
 
-    lang_code = language if (language and language.lower() not in ("auto", "none")) else None
+    model_size = resolve_model_size(model_size)
+    # Dikunci ke ASR_LANGUAGE: pilihan 'auto'/kosong pada audio Indonesia bikin Whisper salah deteksi.
+    lang_code = language if (language and language.lower() not in ("auto", "none")) else ASR_LANGUAGE
+    initial_prompt = glossary_initial_prompt()
 
     # Method 1: Try youtube-transcript-api if URL provided
     if yt_url:
@@ -314,21 +368,38 @@ def get_transcript(video_path: Path, workdir: Path, yt_url: str = None,
 
     # Method 2: Local faster-whisper
     from faster_whisper import WhisperModel
-    model = WhisperModel(model_size, device="cpu", compute_type="int8", cpu_threads=os.cpu_count() or 4)
-    segments, info = model.transcribe(str(video_path), language=lang_code, word_timestamps=True,
-                                      vad_filter=True, beam_size=1, condition_on_previous_text=False)
+    print(f"faster-whisper model={model_size} language={lang_code} beam={ASR_BEAM_SIZE} "
+          f"glossary={len(read_glossary())} istilah", flush=True)
+    model = WhisperModel(model_size, device="cpu", compute_type=ASR_COMPUTE_TYPE,
+                         cpu_threads=os.cpu_count() or 4)
+    segments, info = model.transcribe(
+        str(video_path),
+        language=lang_code,
+        beam_size=ASR_BEAM_SIZE,
+        word_timestamps=True,
+        vad_filter=True,
+        vad_parameters=dict(min_silence_duration_ms=ASR_VAD_MIN_SILENCE_MS),
+        condition_on_previous_text=False,
+        initial_prompt=initial_prompt,
+    )
 
     seg_list, words = [], []
     for seg in segments:
-        seg_list.append({"start": seg.start, "end": seg.end, "text": seg.text})
+        seg_list.append({"start": seg.start, "end": seg.end, "text": seg.text,
+                         "avg_logprob": round(float(seg.avg_logprob), 3)})
         for w in (seg.words or []):
-            words.append({"word": w.word, "start": w.start, "end": w.end})
+            words.append({"word": w.word, "start": w.start, "end": w.end,
+                          "avg_logprob": round(math.log(max(float(w.probability), 1e-6)), 3)})
 
     transcript = {
         "video": str(video_path) if video_path else "",
         "language": info.language,
         "duration": info.duration,
         "model": model_size,
+        "params": {"beam_size": ASR_BEAM_SIZE, "compute_type": ASR_COMPUTE_TYPE,
+                   "vad_min_silence_ms": ASR_VAD_MIN_SILENCE_MS,
+                   "condition_on_previous_text": False,
+                   "glossary_terms": len(read_glossary())},
         "segments": seg_list,
         "words": words,
     }

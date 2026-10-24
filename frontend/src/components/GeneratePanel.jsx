@@ -76,6 +76,7 @@ export default function GeneratePanel({
   transcriptError,
   loadTranscript,
   handleTranscriptCut,
+  handleWordEdit,
   seekToMs,
   currentTime,
 }) {
@@ -500,6 +501,7 @@ export default function GeneratePanel({
                 current={Math.round(currentTime * 1000)}
                 onSeek={seekToMs}
                 onCut={handleTranscriptCut}
+                onEditWord={handleWordEdit}
                 loading={transcriptLoading}
                 error={transcriptError}
                 onRetry={loadTranscript}

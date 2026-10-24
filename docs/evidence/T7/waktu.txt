@@ -1,0 +1,32 @@
+T7 — waktu transkripsi 60 detik audio (CPU, int8, semua core)
+Audio : work/261e5b42f5 — potongan 28–88 s (ffmpeg -ss 28 -t 60 -ac 1 -ar 16000)
+Mesin : Windows 11, faster-whisper 1.2.1, compute_type=int8, cpu_threads=os.cpu_count()
+
+A. Waktu murni transcribe (model sudah termuat / tidak termasuk unduh)
+| konfigurasi                                  | beam | load (s) | transcribe (s) | rasio vs sebelum |
+|----------------------------------------------|------|----------|----------------|------------------|
+| Whisper base, beam 1 (kode SEBELUM T7)       |  1   |   2.1    |      15.5      |       1.00x      |
+| Whisper base, beam 5                         |  5   |   0.8    |      27.6      |       1.78x      |
+| Whisper small, beam 5 (opsi cepat via setting)|  5   | 128.9*   |      24.8      |       1.60x      |
+| Whisper medium, beam 1                       |  1   |   5.0    |      47.2      |       3.05x      |
+| Whisper medium, beam 5 (kode T7, default)    |  5   |   4.6    |      58.6      |       3.78x      |
+* load small termasuk unduhan model pertama kali.
+
+B. Sekali jalan penuh (termasuk unduh/lama model, yang terjadi sekali per mesin)
+| jalur                                  | total (s) |
+|----------------------------------------|-----------|
+| sebelum T7 (base, beam 1)              |    43.0   |
+| sesudah T7 (medium, beam 5, glosarium) |   431.3   |
+
+KESIMPULAN
+- Klaim "≤ 2x waktu sebelumnya" TIDAK terpenuhi untuk default baru (medium, beam 5): 3.78x di CPU int8.
+  Penyebab utama ukuran model (base → medium = 3.05x), beam 5 hanya menambah ~1.24x (47.2 → 58.6).
+- Opsi yang tetap ≤ 2x: setting `whisper_model = small` (1.60x) atau `base` (1.78x) di Pengaturan → Akurasi ASR.
+- Waktu transkripsi hanya jalan sekali per project dan hanya kalau caption YouTube tidak tersedia;
+  total ingest didominasi unduh video, bukan ASR.
+
+PERINTAH
+  ffmpeg -y -v error -ss 28 -t 60 -i work/261e5b42f5/source.mp4 -vn -ac 1 -ar 16000 work/_t7_wer/win.wav
+  python work/_t7_wer/measure.py    # jalur lama vs baru sekali jalan (bagian B)
+  python work/_t7_wer/measure2.py   # per konfigurasi, tanpa waktu unduh (bagian A)
+  python work/_t7_wer/measure3.py   # tambahan small + beam 5

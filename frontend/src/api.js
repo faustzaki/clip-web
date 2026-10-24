@@ -61,7 +61,7 @@ export async function fetchState(projectId) {
   return res.json();
 }
 
-export async function ingestUrl(projectId, url, model_size = 'base', language = null, quality = 'proxy') {
+export async function ingestUrl(projectId, url, model_size = null, language = null, quality = 'proxy') {
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/ingest`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url, model_size, language: language === 'auto' ? null : language, quality })
@@ -70,10 +70,11 @@ export async function ingestUrl(projectId, url, model_size = 'base', language = 
   return res.json();
 }
 
-export async function uploadVideoFile(projectId, file, model_size = 'base', language = null) {
+// model_size null = server pakai setting whisper_model (T7)
+export async function uploadVideoFile(projectId, file, model_size = null, language = null) {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('model_size', model_size);
+  if (model_size) formData.append('model_size', model_size);
   if (language && language !== 'auto') formData.append('language', language);
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/upload`, { method: 'POST', body: formData });
   if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.detail || 'Upload failed'); }
@@ -209,6 +210,26 @@ export async function updateSettings(data) {
   return res.json();
 }
 
+// Glosarium ASR (T7): 1 istilah per baris, dipakai sebagai initial_prompt Whisper
+export async function fetchGlossary() {
+  const res = await apiFetch(`${BASE_URL}/api/glossary`);
+  if (!res.ok) throw new Error('Gagal memuat glosarium');
+  return res.json();
+}
+
+export async function updateGlossary(text) {
+  const res = await apiFetch(`${BASE_URL}/api/glossary`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Gagal menyimpan glosarium');
+  }
+  return res.json();
+}
+
 export async function testConnection(data) {
   const res = await apiFetch(`${BASE_URL}/api/settings/test-connection`, {
     method: 'POST',
@@ -274,7 +295,27 @@ export async function cutTranscript(projectId, fromIdx, toIdx) {
   return res.json();
 }
 
-// Buang jeda sunyi + kata pengisi; server balas {ok:false,reason,hint} kalau transkrip belum siap
+// Ganti teks satu kata; timing lama dibagi proporsional per karakter (T7)
+export async function editTranscriptWord(projectId, idx, text) {
+  const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/transcript/word`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idx, text }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.reason || err.detail || 'Gagal menyimpan kata');
+  }
+  return res.json();
+}
+
+// WER sampel 60 detik; balas {ok:false,reason,hint} kalau sampel belum ada (bukan error)
+export async function fetchAccuracy() {
+  const res = await apiFetch(`${BASE_URL}/api/accuracy`);
+  if (!res.ok) throw new Error('Gagal memuat skor akurasi');
+  return res.json();
+}
+
 export async function applyTighten(projectId, body = {}) {
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/tighten`, {
     method: 'POST',

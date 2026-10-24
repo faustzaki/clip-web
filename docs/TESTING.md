@@ -66,13 +66,16 @@ Unblock nanti = isi prasyarat (token/dependency), tanpa ubah kode lain.
 | T2/T3/T4 | FastAPI jalan, ffmpeg | `curl -s localhost:8000/api/health`; `ffmpeg -version` | BLOCKED, jangan ngoding BE |
 | T5 | `chopify/tighten.py` ada | `ls chopify/tighten.py` | tulis sendiri, 60 baris maks |
 | T6 | `zoompan` + yunet | `ffmpeg -filters \| grep zoompan`; `ls chopify/*yunet*` | zoom tanpa face-track (center crop) |
-| T7 | faster-whisper | `python -c "import faster_whisper"` | BLOCKED (ASR inti) |
+| T7 | faster-whisper | `python -c "import faster_whisper"`; `ls data/glossary.txt` | glosarium absen → berkas kosong + UI editor; `data/wer_sample.json` absen → halaman Akurasi tampil `{ok:false,reason,hint}` |
 | T8 | torch + pyannote + `HF_TOKEN` | `python -c "import torch, pyannote.audio"`; `test -n "$HF_TOKEN"` | **jalur B** (VAD+pitch), label `(perkiraan)` |
 | T9 | 9Router hidup | `curl -s $NINE_ROUTER_URL/models -H "Authorization: Bearer $NINE_ROUTER_API_KEY"` | BLOCKED translate, sisanya jalan |
 | T10 | folder b-roll | `ls data/broll` | empty state + tombol buat folder |
 | T11 | — | — | selalu bisa |
 | T12 | `boxblur` | `ffmpeg -filters \| grep boxblur` | latar warna solid |
 | T13 | OAuth platform | `env \| grep -i "TIKTOK_CLIENT\|IG_CLIENT\|YT_CLIENT"` | queue lokal saja + status `Belum terhubung` |
+
+Cek T7: `python scripts/check_t7.py` (TestClient, tanpa server hidup) dan
+`cd frontend && node tools/verify-t7.mjs` (mock `_mock.py` + screenshot ke `docs/evidence/T7/after/`).
 
 ## 6. Bukti yang harus ada per tugas di `docs/evidence/<T>/`
 ```

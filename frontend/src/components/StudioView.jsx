@@ -160,6 +160,7 @@ export default function StudioView({
     currentTime, setCurrentTime, duration, setDuration,
     transcript, transcriptLoading, transcriptError, loadTranscript,
     timelineError, timelineItems, timelineDuration, seekToMs, handleTranscriptCut,
+    handleWordEdit,
     saveZoomKeyframes,
     clips, candidates,
   } = useEditorState({ projectId, state, videoRef });
@@ -231,6 +232,7 @@ export default function StudioView({
               transcriptError={transcriptError}
               loadTranscript={loadTranscript}
               handleTranscriptCut={handleTranscriptCut}
+              handleWordEdit={handleWordEdit}
               seekToMs={seekToMs}
               currentTime={currentTime}
             />

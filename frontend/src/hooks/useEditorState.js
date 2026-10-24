@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchTranscript, cutTranscript, fetchTimeline, saveTimeline } from '../api';
+import { fetchTranscript, cutTranscript, editTranscriptWord, fetchTimeline, saveTimeline } from '../api';
 
 /**
  * State inti editor studio: transkrip (kata), timeline, klip/kandidat, posisi putar (detik),
@@ -61,6 +61,12 @@ export default function useEditorState({ projectId, state, videoRef }) {
     await loadTranscript();
   };
 
+  /** Perbaiki teks satu kata (T7); timing dibagi proporsional di server. */
+  const handleWordEdit = async (idx, text) => {
+    await editTranscriptWord(projectId, idx, text);
+    await loadTranscript();
+  };
+
   /** Tulis kotak zoom (T6) ke payload item track 1, kunci per candidate_index. */
   const saveZoomKeyframes = async (candidateIndex, keyframes) => {
     const tracks = timeline?.tracks || [];
@@ -105,6 +111,7 @@ export default function useEditorState({ projectId, state, videoRef }) {
     loadTranscript,
     seekToMs,
     handleTranscriptCut,
+    handleWordEdit,
     saveZoomKeyframes,
     clips,
     candidates,

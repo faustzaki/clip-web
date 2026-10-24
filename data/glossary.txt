@@ -1,0 +1,6 @@
+# Glosarium ASR — satu istilah per baris, satu baris = satu istilah.
+# Baris diawali '#' diabaikan. Istilah di sini digabung ke initial_prompt Whisper.
+Koperasi Merah Putih
+Mixue
+Cakung
+Mio J

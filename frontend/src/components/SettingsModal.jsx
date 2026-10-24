@@ -15,6 +15,8 @@ import {
   Key,
   FolderCheck,
   Layers,
+  BookOpen,
+  AlertTriangle,
   ArrowRight
 } from 'lucide-react';
 import {
@@ -23,7 +25,11 @@ import {
   testConnection,
   fetchEndpointModels,
   clearCache,
-  openRenderDir
+  openRenderDir,
+  fetchOptions,
+  fetchGlossary,
+  updateGlossary,
+  fetchAccuracy
 } from '../api';
 
 const ENDPOINT_PRESETS = [
@@ -35,7 +41,7 @@ const ENDPOINT_PRESETS = [
 ];
 
 export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved, projectId, onResetWorkspace, isResetting }) {
-  const [activeTab, setActiveTab] = useState('engine'); // 'engine' | 'storage'
+  const [activeTab, setActiveTab] = useState('engine'); // 'engine' | 'storage' | 'accuracy'
 
   // Settings State
   const [endpoint, setEndpoint] = useState('');
@@ -45,6 +51,18 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
   const [newModel, setNewModel] = useState('');
   const [renderDir, setRenderDir] = useState('');
   const [storage, setStorage] = useState(null);
+
+  // Akurasi ASR (T7)
+  const [asrModel, setAsrModel] = useState('medium');
+  const [asrModels, setAsrModels] = useState([]);
+  const [diskFreeGb, setDiskFreeGb] = useState(null);
+  const [glossaryText, setGlossaryText] = useState('');
+  const [glossaryTerms, setGlossaryTerms] = useState([]);
+  const [glossaryMsg, setGlossaryMsg] = useState(null);
+  const [isSavingGlossary, setIsSavingGlossary] = useState(false);
+  const [accuracy, setAccuracy] = useState(null);
+  const [accuracyError, setAccuracyError] = useState(null);
+  const [isLoadingAccuracy, setIsLoadingAccuracy] = useState(false);
 
   // Status & Loaders
   const [isLoading, setIsLoading] = useState(false);
@@ -60,12 +78,51 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
   useEffect(() => {
     if (isOpen) {
       loadSettings();
+      loadAccuracyTab();
       setTestResult(null);
       setClearResult(null);
       setSaveSuccess(false);
       setOpenFolderMsg(null);
     }
   }, [isOpen]);
+
+  const loadAccuracyTab = async () => {
+    try {
+      const [glossary, opts] = await Promise.all([fetchGlossary(), fetchOptions()]);
+      setGlossaryText(glossary.text || '');
+      setGlossaryTerms(glossary.terms || []);
+      setAsrModels(opts.asr_models || []);
+    } catch (err) {
+      setGlossaryMsg({ ok: false, text: err.message || 'Gagal memuat glosarium.' });
+    }
+    loadAccuracy();
+  };
+
+  const loadAccuracy = async () => {
+    try {
+      setIsLoadingAccuracy(true);
+      setAccuracyError(null);
+      setAccuracy(await fetchAccuracy());
+    } catch (err) {
+      setAccuracyError(err.message || 'Gagal memuat skor akurasi.');
+    } finally {
+      setIsLoadingAccuracy(false);
+    }
+  };
+
+  const handleSaveGlossary = async () => {
+    try {
+      setIsSavingGlossary(true);
+      setGlossaryMsg(null);
+      const res = await updateGlossary(glossaryText);
+      setGlossaryTerms(res.terms || []);
+      setGlossaryMsg({ ok: true, text: `Glosarium tersimpan (${(res.terms || []).length} istilah).` });
+    } catch (err) {
+      setGlossaryMsg({ ok: false, text: err.message || 'Gagal menyimpan glosarium.' });
+    } finally {
+      setIsSavingGlossary(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -77,6 +134,8 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
       setAvailableModels(data.available_models || []);
       setRenderDir(data.render_dir || '');
       setStorage(data.storage || null);
+      setAsrModel(data.whisper_model || 'medium');
+      setDiskFreeGb(data.asr_disk_free_gb ?? null);
     } catch (err) {
       console.error('Failed to load settings:', err);
     } finally {
@@ -94,6 +153,7 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
         llm_model: model,
         available_models: availableModels,
         render_dir: renderDir,
+        whisper_model: asrModel,
       });
       setStorage(updated.storage);
       setSaveSuccess(true);
@@ -241,7 +301,19 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
             }`}
           >
             <HardDrive className="w-3.5 h-3.5" />
-            <span>2. Storage & Render</span>
+            <span>2. Storage &amp; Render</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('accuracy')}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold border-b-2 transition-all ${
+              activeTab === 'accuracy'
+                ? 'border-[var(--vz-accent)] text-[var(--vz-accent)]'
+                : 'border-transparent text-[var(--vz-text-muted)] hover:text-[var(--vz-text)]'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>3. Akurasi ASR</span>
           </button>
         </div>
 
@@ -431,7 +503,7 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
                 )}
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'storage' ? (
             /* TAB 2: STORAGE & RENDER */
             <div className="space-y-5">
               {/* Storage Capacity Overview */}
@@ -553,6 +625,144 @@ export default function SettingsModal({ isOpen, onClose, health, onSettingsSaved
                   </div>
                 </div>
               )}
+            </div>
+          ) : (
+            /* TAB 3: AKURASI ASR (T7) */
+            <div className="space-y-5">
+              {/* Model ASR */}
+              <div className="space-y-2">
+                <label className="font-bold text-[var(--vz-text-strong)] flex items-center justify-between">
+                  <span>Model Whisper untuk Transkripsi</span>
+                  <span className="text-[10px] text-[var(--vz-text-faint)] font-normal">
+                    Disk bebas {diskFreeGb ?? '—'} GB
+                  </span>
+                </label>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {(asrModels.length ? asrModels : [{ id: 'medium', label: 'Medium — default' }]).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setAsrModel(m.id)}
+                      aria-pressed={asrModel === m.id}
+                      className={`text-left px-3 py-2 rounded-xl border text-xs font-bold transition-all ${
+                        asrModel === m.id
+                          ? 'border-[var(--vz-accent)] bg-[var(--vz-accent-tint)] text-[var(--vz-accent)]'
+                          : 'border-[var(--vz-border)] text-[var(--vz-text)] hover:border-[var(--vz-accent)]'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-[var(--vz-text-muted)] leading-relaxed">
+                  Bahasa dikunci ke Indonesia, beam 5, VAD 400 ms, tanpa condition_on_previous_text.
+                  Tekan Simpan Pengaturan untuk menerapkan ke transkripsi berikutnya.
+                </p>
+              </div>
+
+              {/* Glosarium */}
+              <div className="space-y-2 pt-3 border-t border-[var(--vz-border)]">
+                <label className="font-bold text-[var(--vz-text-strong)] flex items-center justify-between">
+                  <span>Glosarium Istilah</span>
+                  <span className="text-[10px] text-[var(--vz-text-faint)] font-normal">
+                    {glossaryTerms.length} istilah aktif · data/glossary.txt
+                  </span>
+                </label>
+                <textarea
+                  value={glossaryText}
+                  onChange={(e) => setGlossaryText(e.target.value)}
+                  rows={5}
+                  spellCheck={false}
+                  aria-label="Daftar istilah glosarium"
+                  placeholder={'Satu istilah per baris, contoh:\nKoperasi Merah Putih\nMixue'}
+                  className="w-full bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] rounded-xl px-3 py-2 text-xs font-mono text-[var(--vz-text)] focus:outline-none focus:border-[var(--vz-accent)] transition-colors"
+                />
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-[11px] text-[var(--vz-text-muted)] leading-relaxed">
+                    Istilah digabung ke prompt awal Whisper supaya nama brand, produk, dan istilah teknis ikut dikenali.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSaveGlossary}
+                    disabled={isSavingGlossary}
+                    className="px-3.5 py-2 rounded-xl bg-[var(--vz-accent)] hover:bg-[var(--vz-accent-hover)] text-white text-xs font-extrabold shrink-0 disabled:opacity-50"
+                  >
+                    {isSavingGlossary ? 'Menyimpan...' : 'Simpan Glosarium'}
+                  </button>
+                </div>
+                {glossaryMsg && (
+                  <p className={`text-[11px] font-bold ${
+                    glossaryMsg.ok ? 'text-[var(--vz-success-fg)]' : 'text-[var(--vz-danger-fg)]'
+                  }`}>
+                    {glossaryMsg.text}
+                  </p>
+                )}
+              </div>
+
+              {/* WER */}
+              <div className="space-y-2 pt-3 border-t border-[var(--vz-border)]">
+                <label className="font-bold text-[var(--vz-text-strong)] flex items-center justify-between">
+                  <span>WER Sampel 60 Detik</span>
+                  <button
+                    type="button"
+                    onClick={loadAccuracy}
+                    className="text-[10px] font-bold text-[var(--vz-accent)] flex items-center gap-1"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoadingAccuracy ? 'animate-spin' : ''}`} />
+                    Muat ulang
+                  </button>
+                </label>
+
+                {accuracyError && <p className="text-[11px] text-[var(--vz-danger-fg)]">{accuracyError}</p>}
+
+                {!accuracyError && accuracy?.ok === false && (
+                  <div className="p-3 rounded-xl border border-[var(--vz-border)] bg-[var(--vz-surface-muted)] space-y-1">
+                    <p className="text-xs font-bold text-[var(--vz-text-strong)] flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" style={{ color: '#E0A800' }} />
+                      {accuracy.reason}
+                    </p>
+                    <p className="text-[11px] text-[var(--vz-text-muted)]">{accuracy.hint}</p>
+                  </div>
+                )}
+
+                {!accuracyError && accuracy?.ok && (
+                  <div className="space-y-2">
+                    <div className="rounded-xl border border-[var(--vz-border)] overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead className="bg-[var(--vz-surface-muted)] text-[var(--vz-text-muted)]">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-bold">Pengaturan</th>
+                            <th className="text-right px-3 py-2 font-bold">WER</th>
+                            <th className="text-right px-3 py-2 font-bold">Salah</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {accuracy.rows.map((row) => (
+                            <tr key={row.id} className="border-t border-[var(--vz-border)]">
+                              <td className="px-3 py-2 text-[var(--vz-text)]">{row.label}</td>
+                              <td className="px-3 py-2 text-right font-mono font-bold text-[var(--vz-text-strong)]">
+                                {row.wer == null ? '—' : `${(row.wer * 100).toFixed(1)}%`}
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono text-[var(--vz-text-muted)]">
+                                {row.errors}/{row.words}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[11px] text-[var(--vz-text-muted)] leading-relaxed">
+                      Selisih {accuracy.improvement >= 0 ? 'turun' : 'naik'}{' '}
+                      {Math.abs((accuracy.improvement || 0) * 100).toFixed(1)} poin persen.
+                      {accuracy.source ? ` Sampel: ${accuracy.source}.` : ''}
+                      {accuracy.measured_at ? ` Diukur ${accuracy.measured_at}.` : ''}
+                    </p>
+                    {accuracy.reference_note && (
+                      <p className="text-[10px] text-[var(--vz-text-faint)]">{accuracy.reference_note}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

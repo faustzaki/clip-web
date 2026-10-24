@@ -21,40 +21,37 @@ await page.waitForSelector('[data-region="transcript-count"]', { timeout: 20000 
 const wordCount = await page.locator('[data-idx]').count();
 ck("kata transkrip ter-render", wordCount > 20, `${wordCount} elemen`);
 
-const words = await page.evaluate(() => [...document.querySelectorAll("[data-idx]")].map(e => ({ idx: Number(e.dataset.idx), text: e.innerText })));
-const targetIdx = words[Math.floor(words.length / 2)].idx;
+const words = await page.evaluate(() => [...document.querySelectorAll("[data-idx]")].map(e => Number(e.dataset.idx)));
+const targetIdx = words[Math.floor(words.length / 2)];
 
-// ambil start_ms dari API untuk kata target
 const api = await page.evaluate(async (idx) => {
   const pid = location.pathname.split("/").filter(Boolean).pop();
   const r = await fetch(`/api/projects/${pid}/transcript?word=1`);
   const j = await r.json();
   const w = (j.words || []).find(x => x.idx === idx);
-  return w ? { start: w.start_ms, dur: j.duration_ms } : null;
+  return w ? { start: w.start_ms } : null;
 }, targetIdx).catch(() => null);
 
-// tunggu video punya metadata (loadedmetadata), kalau belum seek tidak jalan
-await page.waitForFunction(() => {
-  const v = document.querySelector("video");
-  return v && v.readyState >= 1;
-}, { timeout: 15000 }).catch(() => {});
+await page.waitForFunction(() => { const v = document.querySelector("video"); return v && v.readyState >= 1; }, { timeout: 20000 }).catch(() => {});
 
+const before = await page.evaluate(() => document.querySelector("video")?.currentTime ?? -1);
 const box = await page.locator(`[data-idx="${targetIdx}"]`).first().boundingBox();
-if (box) await page.mouse.click(box.x + Math.min(12, box.width / 2), box.y + box.height / 2);
+if (box) await page.mouse.click(box.x + 4, box.y + box.height / 2);
 else await page.locator(`[data-idx="${targetIdx}"]`).first().click({ force: true }).catch(() => {});
-await page.waitForTimeout(1500);
-const seek = await page.evaluate(() => {
+
+// tunggu currentTime berubah (maks 6s), jangan pakai sleep tetap
+await page.waitForFunction((t0) => {
   const v = document.querySelector("video");
-  return { ok: !!v, current: v ? v.currentTime : -1, ready: v ? v.readyState : 0 };
-});
+  return v && Math.abs(v.currentTime - t0) > 0.2;
+}, before, { timeout: 6000 }).catch(() => {});
+const after = await page.evaluate(() => document.querySelector("video")?.currentTime ?? -1);
 
 if (api) {
-  const expected = api.start / 1000;
-  const delta = Math.abs(seek.current - expected);
+  const delta = Math.abs(after - api.start / 1000);
   ck("klik kata -> video.currentTime = start_ms kata itu", delta < 1.5,
-     `kata #${targetIdx} start ${expected.toFixed(2)}s, video ${seek.current.toFixed(2)}s`);
+     `kata #${targetIdx} start ${(api.start / 1000).toFixed(1)}s, video ${after.toFixed(1)}s`);
 } else {
-  ck("klik kata -> video bergerak", seek.current > 0.2, `video ${seek.current.toFixed(2)}s`);
+  ck("klik kata -> video bergerak", Math.abs(after - before) > 0.2, `${before.toFixed(1)}s -> ${after.toFixed(1)}s`);
 }
 
 // pencarian: hitung hasil (panel boleh menyorot saja, bukan menyembunyikan)

@@ -1,0 +1,10 @@
+PASS GET /api/post/status 200 + 3 platform belum terhubung — status=200 platforms=['tiktok', 'reels', 'shorts']
+PASS caption = judul + hashtag keywords, < 2200 karakter — len=69 hashtags=['#koperasi', '#merah', '#putih', '#uji', '#posting']
+PASS POST /api/post/queue → tersimpan status queued — status=200 item={'id': 1, 'project_id': 'abcdef1301', 'clip_id': 'clip_01', 'platform': 'shorts', 'caption': 'Kenapa Hook 3 Detik Menentukan\n\n#koperasi #merah #putih #uji #posting', 'scheduled_at': 1792860067863, 'status': 'queued', 'error': None, 'created_at': 1792856467969}
+PASS GET /api/post/queue?project_id menampilkan jadwal + server_time_ms — items=[1]
+PASS jadwal lampau & platform tak dikenal → 400 — lampau=400 platform=400
+PASS DELETE /api/post/queue/{id} menghapus jadwal dari berkas — status=200 sisa=0
+PASS GET /api/analytics/{clip_id} → 200 {ok:false,reason Belum tersedia,hint} — status=200 body={'ok': False, 'reason': 'Belum tersedia', 'detail': 'Belum terhubung ke akun platform', 'hint': 'Isi kredensial aplikasi platform di environment (TIKTOK_CLIENT_ID/TIKTOK_CLIENT_SECRET, IG_CLIENT_ID/IG_CLIENT_SECRET, YT_CLIENT_ID/YT_CLIENT_SECRET), hubungkan akun lewat izin OAuth, lalu simpan token di data/oauth_tokens.json (payload terenkripsi FERNET_KEY). Tanpa itu jadwal tetap tersimpan lokal.', 'metrics': None, 'days': []}
+PASS frontend/src/components/PostQueue.jsx ada + bersih dari TODO/console.log/dark/gradien — pelanggaran=[]
+
+0 gagal

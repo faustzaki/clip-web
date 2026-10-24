@@ -1,0 +1,5 @@
+# precheck T13 Sat Oct 24 22:34:19 +07 2026
+0
+2655:@app.post("/api/projects/{project_id}/clips/{slug}/publish")
+2656:def publish_clip(project_id: str, slug: str):
+2679:    # Auto-copy published clip to global render_dir

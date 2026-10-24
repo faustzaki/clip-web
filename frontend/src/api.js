@@ -199,6 +199,59 @@ export async function publishClip(projectId, slug) {
   return res.json();
 }
 
+// T13: antrian posting (data/post_queue.json) + caption platform + analitik.
+// Balasan {ok:false,reason,hint} = prasyarat OAuth platform absen, bukan error → tidak dilempar.
+export async function fetchPostQueue(projectId) {
+  const q = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+  const res = await apiFetch(`${BASE_URL}/api/post/queue${q}`);
+  if (!res.ok) throw new Error('Gagal memuat antrian posting');
+  return res.json();
+}
+
+export async function schedulePost({ projectId, clipId, platform, caption, scheduledAt }) {
+  const res = await apiFetch(`${BASE_URL}/api/post/queue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      project_id: projectId,
+      clip_id: clipId,
+      platform,
+      caption,
+      scheduled_at: scheduledAt,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.detail || data.reason || 'Gagal menjadwalkan posting');
+  return data;
+}
+
+export async function cancelPost(itemId) {
+  const res = await apiFetch(`${BASE_URL}/api/post/queue/${itemId}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.detail || data.reason || 'Gagal membatalkan jadwal');
+  return data;
+}
+
+export async function fetchPostCaption(projectId, clipId, platform) {
+  const q = new URLSearchParams({ project_id: projectId, clip_id: clipId, platform });
+  const res = await apiFetch(`${BASE_URL}/api/post/caption?${q.toString()}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || data.reason || 'Gagal membuat caption');
+  return data;
+}
+
+export async function fetchPostStatus() {
+  const res = await apiFetch(`${BASE_URL}/api/post/status`);
+  if (!res.ok) throw new Error('Gagal memeriksa status koneksi platform');
+  return res.json();
+}
+
+export async function fetchAnalytics(clipId) {
+  const res = await apiFetch(`${BASE_URL}/api/analytics/${encodeURIComponent(clipId)}`);
+  if (!res.ok) throw new Error('Gagal memuat analitik');
+  return res.json();
+}
+
 export async function fetchSettings() {
   const res = await apiFetch(`${BASE_URL}/api/settings`);
   if (!res.ok) {

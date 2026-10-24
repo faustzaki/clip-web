@@ -10,6 +10,7 @@ import ToolRail from './ToolRail';
 import ToolPanel from './ToolPanel';
 import ClipStrip from './ClipStrip';
 import ExportModal from './ExportModal';
+import PostQueue from './PostQueue';
 import Timeline from './Timeline';
 
 export default function StudioView({
@@ -53,6 +54,7 @@ export default function StudioView({
   };
 
   const [exportClip, setExportClip] = useState(null);
+  const [postQueueOpen, setPostQueueOpen] = useState(false);
   const exportTriggerRef = useRef(null);
 
   const handleOpenExport = (clip, triggerEl) => {
@@ -198,6 +200,7 @@ export default function StudioView({
         saveState={saveState}
         onSave={handleTitle}
         onBackToProjects={onBackToProjects}
+        onOpenPostQueue={() => setPostQueueOpen(true)}
       />
 
       <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
@@ -381,6 +384,13 @@ export default function StudioView({
         clip={exportClip}
         onClose={handleCloseExport}
         onStart={onClipRendered}
+      />
+
+      <PostQueue
+        open={postQueueOpen}
+        projectId={projectId}
+        clips={clips}
+        onClose={() => setPostQueueOpen(false)}
       />
     </div>
   );

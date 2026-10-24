@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Captions, Loader2, X } from 'lucide-react';
-import { applyTighten } from '../api';
+import { Captions, Loader2, Languages, X } from 'lucide-react';
+import { applyTighten, translateClip } from '../api';
 import SubtitlePreview from './SubtitlePreview';
 
 const TOOL_LABELS = { subtitles: 'Subtitles', audio: 'Audio', broll: 'B-roll', text: 'Text' };
@@ -21,17 +21,57 @@ export default function ToolPanel({
   savePrefs,
   transcript,
   loadTranscript,
+  clips,
+  selectedClip,
 }) {
   const [cutSilence, setCutSilence] = useState(true);
   const [silenceMs, setSilenceMs] = useState(400);
   const [cutFiller, setCutFiller] = useState(true);
   const [applying, setApplying] = useState(false);
   const [result, setResult] = useState(null);
+  const [translating, setTranslating] = useState(false);
+  const [trResult, setTrResult] = useState(null);
 
   const presets = options?.caption_presets || [];
   const activePreset = prefs?.caption_preset || null;
   const hasWords = (transcript?.words || []).some((w) => !w.deleted);
   const canApply = hasWords && !applying && (cutSilence || cutFiller);
+
+  // T9: terjemahan subtitle
+  const translateOpts = options?.translate || {};
+  const trLangs = translateOpts.langs || [];
+  const targetLang = prefs?.subtitle_lang || '';
+  const dualLang = Boolean(prefs?.subtitle_dual);
+  const clipForTranslate = selectedClip || (clips || [])[0] || null;
+  const routerOk = translateOpts.ok !== false;
+  const canTranslate = Boolean(clipForTranslate) && Boolean(targetLang) && routerOk && !translating;
+
+  const chooseLang = (code) => {
+    savePrefs({ ...(prefs || {}), subtitle_lang: code, ...(code ? {} : { subtitle_dual: false }) });
+    setTrResult(null);
+  };
+
+  const runTranslate = async () => {
+    if (!clipForTranslate || !targetLang) return;
+    setTranslating(true);
+    setTrResult(null);
+    try {
+      const res = await translateClip(clipForTranslate.slug, targetLang);
+      if (res?.ok === false) {
+        setTrResult({ error: res.reason || 'Terjemahan gagal', hint: res.hint || '' });
+      } else {
+        setTrResult({
+          count: (res.lines || []).length,
+          flagged: (res.flagged || []).length,
+          cached: Boolean(res.cached),
+        });
+      }
+    } catch (err) {
+      setTrResult({ error: err?.message || 'Terjemahan gagal', hint: '' });
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   const choosePreset = (preset) => {
     savePrefs({
@@ -229,6 +269,106 @@ export default function ToolPanel({
               <p className="text-[10px] text-[var(--vz-text-faint)]">
                 Tersimpan untuk project ini dan dipakai saat export.
               </p>
+            )}
+          </section>
+
+          {/* T9: terjemahan subtitle */}
+          <section className="space-y-3" data-region="translate-panel">
+            <h3 className="text-[11px] font-bold text-[var(--vz-text)] uppercase tracking-wider flex items-center gap-1.5">
+              <Languages className="w-3.5 h-3.5 text-vz-accent" />
+              Terjemahan subtitle
+            </h3>
+
+            <div className="space-y-1.5">
+              <label htmlFor="t9-lang" className="text-[11px] text-[var(--vz-text-muted)]">
+                Bahasa target
+              </label>
+              <select
+                id="t9-lang"
+                data-testid="t9-lang"
+                value={targetLang}
+                onChange={(e) => chooseLang(e.target.value)}
+                className="w-full h-9 px-2 rounded-vz-lg border border-[var(--vz-border)] bg-vz-surface text-xs text-[var(--vz-text)] focus:outline-none focus:ring-1 focus:ring-[var(--vz-accent-ring)]"
+              >
+                <option value="">Tanpa terjemahan</option>
+                {trLangs.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <label className="flex items-center justify-between gap-3 cursor-pointer bg-[var(--vz-surface-muted)] border border-[var(--vz-border)] p-3 rounded-vz-xl">
+              <span className="min-w-0">
+                <span className="text-xs font-medium text-[var(--vz-text)] block">Dua bahasa</span>
+                <span className="text-[10px] text-[var(--vz-text-faint)] block">
+                  Baris 2 = terjemahan, 80% ukuran baris utama
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                data-testid="t9-dual"
+                checked={dualLang}
+                disabled={!targetLang}
+                onChange={() => savePrefs({ ...(prefs || {}), subtitle_dual: !dualLang })}
+                className="accent-[var(--vz-accent)] w-4 h-4 rounded cursor-pointer shrink-0 disabled:cursor-not-allowed"
+              />
+            </label>
+
+            {clipForTranslate && (
+              <p className="text-[10px] text-[var(--vz-text-faint)]">
+                Klip: {clipForTranslate.name || `${clipForTranslate.slug}.mp4`}
+              </p>
+            )}
+
+            {!routerOk && (
+              <p role="status" data-testid="t9-router-down" className="text-[11px] text-[var(--vz-danger-fg)]">
+                {translateOpts.reason || '9Router tidak merespons'}
+                {translateOpts.hint ? ` — ${translateOpts.hint}` : ''}
+              </p>
+            )}
+
+            {!clipForTranslate && (
+              <p className="text-[11px] text-[var(--vz-text-muted)]">
+                Belum ada klip. Render klip dulu supaya captionnya bisa diterjemahkan.
+              </p>
+            )}
+
+            <button
+              type="button"
+              data-testid="t9-translate"
+              onClick={runTranslate}
+              disabled={!canTranslate}
+              className="vz-btn vz-btn--primary w-full justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {translating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Menerjemahkan…
+                </>
+              ) : (
+                'Terjemahkan klip'
+              )}
+            </button>
+
+            {!targetLang && (
+              <p className="text-[10px] text-[var(--vz-text-faint)]">Pilih bahasa target dulu.</p>
+            )}
+
+            {trResult?.error && (
+              <p role="status" className="text-[11px] text-[var(--vz-danger-fg)]">
+                {trResult.error}
+                {trResult.hint ? ` — ${trResult.hint}` : ''}
+              </p>
+            )}
+
+            {trResult && !trResult.error && (
+              <p role="status" data-testid="t9-translate-result" className="text-[11px] text-[var(--vz-success-fg)]">
+                {trResult.count} baris siap · {trResult.cached ? 'dari cache' : 'baru diterjemahkan'}
+                {trResult.flagged > 0 ? ` · ${trResult.flagged} baris masih panjang (ditandai)` : ''}
+              </p>
+            )}
+
+            {translateOpts.model && (
+              <p className="text-[10px] text-[var(--vz-text-faint)]">Model: {translateOpts.model}</p>
             )}
           </section>
         </div>

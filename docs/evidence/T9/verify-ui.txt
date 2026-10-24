@@ -1,0 +1,10 @@
+PASS panel Terjemahan subtitle tampil
+PASS 6 bahasa target + opsi tanpa terjemahan — Tanpa terjemahan, Indonesia, Inggris, Mandarin, Jepang, Arab, Spanyol
+PASS tombol disabled sebelum bahasa target dipilih
+PASS router hidup: tombol aktif, tidak ada peringatan '9Router tidak merespons' — enabled=true peringatan=false
+PASS toggle 'Dua bahasa' tersimpan aktif
+PASS hasil terjemahan tampil dalam Bahasa Indonesia — 5 baris siap · baru diterjemahkan
+PASS tidak ada error runtime di halaman
+PASS router mati: panel tampil '9Router tidak merespons' + tombol disabled — disabled=true teks="9Router tidak merespons — Jalankan 9Router lalu muat ulang halaman"
+
+8 lulus, 0 gagal

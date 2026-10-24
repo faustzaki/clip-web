@@ -343,6 +343,8 @@ export default function StudioView({
             savePrefs={savePrefs}
             transcript={transcript}
             loadTranscript={loadTranscript}
+            clips={clips}
+            selectedClip={selectedClip}
           />
         )}
 

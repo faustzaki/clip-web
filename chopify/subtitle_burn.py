@@ -11,6 +11,7 @@ from typing import Any
 
 REF_HEIGHT = 1920
 POSITION_ALIGN = {"bottom": 2, "middle": 5, "top": 8}
+DUAL_SCALE = 0.8   # T9: baris kedua (terjemahan) = 80% ukuran baris pertama
 
 DEFAULT_STYLE: dict[str, Any] = {
     "font": "Arial Black",
@@ -142,7 +143,36 @@ def media_duration(path: Path | str) -> float:
         return 0.0
 
 
-def build_caption_ass(words: list[dict[str, Any]], dur: float, path: Path, tw: int, th: int, style: dict[str, Any]) -> Path:
+def clean_words(words: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Buang kata kosong/waktu rusak; teks sudah di-escape ASS, timing sudah dinormalkan."""
+    out: list[dict[str, Any]] = []
+    for w in words or []:
+        txt = ass_escape(str(w.get("word", "")))
+        if not txt:
+            continue
+        try:
+            s = float(w.get("start", 0.0))
+            e = max(s + 0.05, float(w.get("end", s + 0.12)))
+        except (ValueError, TypeError):
+            continue
+        out.append({"word": txt, "start": s, "end": e})
+    return out
+
+def chunk_words(words: list[dict[str, Any]], per_line: int = 3) -> list[list[dict[str, Any]]]:
+    """Potongan caption yang tampil bersamaan; satu sumber untuk burn dan terjemahan (T9)."""
+    clean = clean_words(words)
+    size = max(1, int(per_line))
+    return [clean[i:i + size] for i in range(0, len(clean), size)]
+
+def build_caption_ass(
+    words: list[dict[str, Any]],
+    dur: float,
+    path: Path,
+    tw: int,
+    th: int,
+    style: dict[str, Any],
+    dual_lines: list[str] | None = None,
+) -> Path:
     st = resolved(style, th)
     font = st.get("font", "Arial Black")
     font_size = st["font_size"]
@@ -178,24 +208,19 @@ def build_caption_ass(words: list[dict[str, Any]], dur: float, path: Path, tw: i
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
 
-    clean_words: list[dict[str, Any]] = []
-    for w in words:
-        txt = ass_escape(str(w.get("word", "")))
-        if not txt:
-            continue
-        try:
-            s = float(w.get("start", 0.0))
-            e = max(s + 0.05, float(w.get("end", s + 0.12)))
-        except (ValueError, TypeError):
-            continue
-        clean_words.append({"word": txt.upper() if uppercase else txt, "start": s, "end": e})
+    groups = chunk_words(words, words_per_line)
+    for grp in groups:
+        for item in grp:
+            if uppercase:
+                item["word"] = item["word"].upper()
 
-    groups: list[list[dict[str, Any]]] = []
-    for i in range(0, len(clean_words), words_per_line):
-        groups.append(clean_words[i:i + words_per_line])
+    # Baris kedua (terjemahan) hanya dipakai kalau jumlahnya pas dengan jumlah potongan.
+    dual = [ass_escape(str(x or "")) for x in (dual_lines or [])]
+    use_dual = bool(dual) and len(dual) == len(groups)
+    dual_fs = max(10, round(font_size * DUAL_SCALE))
 
     events: list[str] = []
-    for grp in groups:
+    for k, grp in enumerate(groups):
         n = len(grp)
         for i, curr in enumerate(grp):
             start = curr["start"]
@@ -214,6 +239,8 @@ def build_caption_ass(words: list[dict[str, Any]], dur: float, path: Path, tw: i
                 else:
                     text_parts.append(f"{{\\c{prim_tag}&}}{tok}")
             line_text = " ".join(text_parts)
+            if use_dual and dual[k]:
+                line_text = f"{line_text}\\N{{\\fs{dual_fs}}}{dual[k]}"
             events.append(
                 f"Dialogue: 0,{ass_time(start)},{ass_time(end)},Cap,,0,0,0,,{line_text}"
             )
@@ -351,6 +378,7 @@ def burn_subtitles(
     out_path: Path,
     tw: int,
     th: int,
+    dual_lines: list[str] | None = None,
 ) -> Path:
     master = Path(master).resolve()
     out_path = Path(out_path).resolve()
@@ -358,7 +386,7 @@ def burn_subtitles(
     dur = media_duration(master)
     subs_ass = out_path.parent / "_subs.ass"
     try:
-        build_caption_ass(words, dur, subs_ass, tw, th, style)
+        build_caption_ass(words, dur, subs_ass, tw, th, style, dual_lines=dual_lines)
         # libass in ffmpeg works best with relative path when cwd is set
         cmd = [
             "ffmpeg", "-y",
@@ -390,6 +418,7 @@ def apply_to_clip(
     words: list[dict[str, Any]] | None = None,
     words_cache: Path | None = None,
     regenerate: bool = False,
+    dual_lines: list[str] | None = None,
 ) -> dict[str, Any]:
     master = Path(master)
     out_path = Path(out_path)
@@ -414,7 +443,7 @@ def apply_to_clip(
                 Path(words_cache).write_text(json.dumps(tr, ensure_ascii=False, indent=2), encoding="utf-8")
 
     tw, th = media_dims(master)
-    burn_subtitles(master, final_words, style, out_path, tw, th)
+    burn_subtitles(master, final_words, style, out_path, tw, th, dual_lines=dual_lines)
 
     return {
         "words": final_words,

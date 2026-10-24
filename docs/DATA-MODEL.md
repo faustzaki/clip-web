@@ -119,6 +119,11 @@ CREATE TABLE IF NOT EXISTS subtitle_translations (
   payload TEXT NOT NULL, created_at INTEGER,
   UNIQUE(clip_id, lang)
 );
+-- CATATAN IMPLEMENTASI T9 (repo ini belum punya SQLite; T2/T3/T7/T8 juga file-based):
+--   cache disimpan di `work/<project_id>/translations.json`, kunci `"<clip_id>|<lang>"`,
+--   nilai = {project_id, clip_id, lang, payload:{lines,flagged,per_line,model,lang}, created_at}.
+--   `payload.lines[i]` = {i, source, text, flagged}; satu baris = satu potongan caption
+--   (`words_per_line`), jadi jumlahnya wajib sama dengan jumlah potongan saat burn.
 
 -- T10: index b-roll (file-based, bukan DB berat)
 -- data/broll/index.json = [{path,tags:[],dur_ms,thumb}]

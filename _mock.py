@@ -30,6 +30,8 @@ PREFS = {
     "caption_preset": subtitle_burn.DEFAULT_CAPTION_PRESET,
     "subtitle_style": subtitle_burn.preset_style(subtitle_burn.DEFAULT_CAPTION_PRESET),
     "speaker_names_in_caption": True,   # T8: contoh toggle aktif supaya terlihat di screenshot
+    "subtitle_lang": "",                # T9: bahasa target terjemahan
+    "subtitle_dual": False,             # T9: baris 2 = terjemahan
 }
 WORDS = [
     ("Halo", 0.4, 0.9), ("eee", 1.0, 1.3), ("semua", 1.4, 1.9),
@@ -50,6 +52,11 @@ DIARIZE_MODEL = {
     "hint": "py -3.13 -m pip install pyannote.audio lalu set HF_TOKEN HuggingFace",
 }
 LOW_CONF_IDX = {1, 7, 11}   # kata contoh dengan keyakinan rendah → underline kuning di pratinjau
+# T9: contoh terjemahan id→en per kata, dipakai endpoint /api/clips/<id>/translate di mock
+EN_WORDS = {"Halo": "Hello", "eee": "uh", "semua": "everyone", "apa": "what", "ya": "right",
+            "hari": "day", "ini": "this", "gitu": "like that", "kita": "we", "bahas": "cover",
+            "captions": "captions", "biar": "so", "rapi": "neat"}
+TRANSLATE_MODEL = "ninerouter/T-SOTA/claude-sonnet-5"
 GLOSSARY_TEXT = "# Satu istilah per baris.\nKoperasi Merah Putih\nMixue\nCakung\nMio J\n"
 ROOT = Path(__file__).resolve().parent
 WER_SAMPLE = ROOT / "data" / "wer_sample.json"
@@ -120,6 +127,21 @@ CLIPS = [
 ]
 
 
+def translate_payload(clip_id, lang):
+    """Baris terjemahan contoh (id→en), dipotong 3 kata seperti caption asli."""
+    chunks = [WORDS[i:i + 3] for i in range(0, len(WORDS), 3)]
+    lines, per_line = [], 3
+    for i, grp in enumerate(chunks):
+        text = " ".join(EN_WORDS.get(w[0], w[0]) for w in grp)
+        lines.append({"i": i, "source": " ".join(w[0] for w in grp), "text": text,
+                      "flagged": len(text) > 42})
+    return {
+        "ok": True, "project_id": PROJECTS[0]["id"], "clip_id": clip_id, "lang": lang,
+        "source_lang": "id", "model": TRANSLATE_MODEL, "per_line": per_line,
+        "lines": lines, "flagged": [l["i"] for l in lines if l["flagged"]],
+        "created_at": 1792770000, "cached": False,
+    }
+
 def build_timeline():
     dur, caps = 82_200, []
     for i in range(14):
@@ -167,6 +189,18 @@ class H(SimpleHTTPRequestHandler):
             return self._json({"status": "ok", "ffmpeg": True, "yunet": True, "ninerouter": True})
         if p == "/api/options":
             return self._json({"languages": [{"code": "id", "label": "Indonesia"}, {"code": "en", "label": "English"}],
+                               "translate": {
+                                   "ok": os.environ.get("MOCK_ROUTER_DOWN") != "1",
+                                   "reason": "9Router tidak merespons" if os.environ.get("MOCK_ROUTER_DOWN") == "1" else "",
+                                   "hint": "Jalankan 9Router lalu muat ulang halaman",
+                                   "model": TRANSLATE_MODEL,
+                                   "langs": [{"code": "id", "label": "Indonesia"},
+                                             {"code": "en", "label": "Inggris"},
+                                             {"code": "zh", "label": "Mandarin"},
+                                             {"code": "ja", "label": "Jepang"},
+                                             {"code": "ar", "label": "Arab"},
+                                             {"code": "es", "label": "Spanyol"}],
+                                   "max_chars": 42, "max_lines": 2},
                                "models": ["ocf/deepseek-v4.1-flash-free", "nara/glm-5.3", "cbai/kimi-k2.7"],
                                "clip_lengths": [30, 45, 60, 90],
                                "aspect_ratios": ["9:16", "1:1", "4:5", "16:9"],
@@ -254,6 +288,9 @@ class H(SimpleHTTPRequestHandler):
                 tracks.setdefault(int(it.get("track") or 1), []).append(it)
             TIMELINE["tracks"] = [{"track": t, "items": tracks.get(t, [])} for t in (1, 2, 3)]
             return self._json({"ok": True, "items": sum(len(v) for v in tracks.values())})
+        if p.endswith("/translate"):
+            clip_id = p.split("/")[3] if p.startswith("/api/clips/") else "clip_01"
+            return self._json(translate_payload(clip_id, (body.get("lang") or "en").lower()))
         if p.endswith("/render"):
             return self._json({"status": "ok", "clip": CLIPS[0]})
         if p.endswith("/diarize"):
@@ -303,4 +340,5 @@ class H(SimpleHTTPRequestHandler):
 
 
 os.chdir(DIST)
-ThreadingHTTPServer(("127.0.0.1", 8005), H).serve_forever()
+PORT = int(os.environ.get("MOCK_PORT") or 8005)
+ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()

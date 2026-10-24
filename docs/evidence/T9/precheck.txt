@@ -1,0 +1,10 @@
+# PRECHECK T9 — 2026-10-24T20:13:49+07:00
+## 9Router
+$ curl -s http://127.0.0.1:20128/v1/models -H "Authorization: Bearer $NINEROUTER_API_KEY"
+HTTP 000
+head: cannot open '/tmp/m.json' for reading: The system cannot find the file specified. (os error 2)
+
+## glossary
+-rwxrwxrwx 1 somebody somegroup 200 Oct 24 20:12 data/glossary.txt
+## python libs
+3.11.15 (main, Aug  7 2026, 02:24:19) [MSC v.1944 64 bit (AMD64)]

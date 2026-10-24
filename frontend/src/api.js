@@ -177,6 +177,17 @@ export async function applySubtitles(projectId, slug, body = {}) {
   return res.json();
 }
 
+export async function translateClip(clipId, lang, force = false) {
+  const res = await apiFetch(`${BASE_URL}/api/clips/${encodeURIComponent(clipId)}/translate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lang, force }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.reason || data.detail || 'Translate clip failed');
+  return data;
+}
+
 export async function publishClip(projectId, slug) {
   const res = await apiFetch(`${BASE_URL}/api/projects/${projectId}/clips/${slug}/publish`, {
     method: 'POST',

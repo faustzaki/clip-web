@@ -355,11 +355,12 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
            hook_title=None, watermark=None, crop_rect=None,
            subtitle_style=None, candidate_index=None, raw_subdir="raw",
            res_scale=1.0, fps=None, burn_caption=False, out_name=None,
-           zoom_auto=False, zoom_manual=None, zoom_keyframes=None):
+           zoom_auto=False, zoom_manual=None, zoom_keyframes=None, dual_lines=None):
     """Render one clip. res_scale/fps size and pace the output, burn_caption adds
     the word-level captions from `words`, out_name overrides the file name.
     zoom_auto/zoom_manual (100–160) mengaktifkan punch-in `zoompan`; `zoom_keyframes`
-    (kotak crop per detik dari compute_zoom_keyframes()) dipakai kalau sudah dihitung pemanggil."""
+    (kotak crop per detik dari compute_zoom_keyframes()) dipakai kalau sudah dihitung pemanggil.
+    `dual_lines` = baris terjemahan (T9), sejajar dengan potongan caption `words_per_line`."""
     base_out = Path(out_dir) if out_dir else default_out()
     out_dir = base_out / raw_subdir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -414,6 +415,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
         subtitle_burn.build_caption_ass(
             burn_words, dur, out_dir / "_captions.ass", tw, th,
             subtitle_style or subtitle_burn.DEFAULT_STYLE,
+            dual_lines=dual_lines,
         )
         cap = ",ass=_captions.ass"
 

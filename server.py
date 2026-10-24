@@ -13,6 +13,7 @@ import threading
 import subprocess
 import mimetypes
 import urllib.request
+import urllib.error
 import urllib.parse
 from pathlib import Path
 from typing import List, Optional
@@ -43,6 +44,7 @@ import diarize
 import render_clips
 import subtitle_burn
 import tighten
+import translate
 
 DEFAULT_RENDER_PREFS = {
     "subtitles_enabled": False,
@@ -56,6 +58,8 @@ DEFAULT_RENDER_PREFS = {
     "subtitle_style": dict(subtitle_burn.DEFAULT_STYLE),
     "caption_preset": subtitle_burn.DEFAULT_CAPTION_PRESET,
     "speaker_names_in_caption": False,   # T8: prefix "Nama: " di caption kalau diarisasi aktif
+    "subtitle_lang": "",                 # T9: kode bahasa target terjemahan ("" = tanpa terjemahan)
+    "subtitle_dual": False,              # T9: tampilkan baris 2 (terjemahan, 80% ukuran)
 }
 WORKDIR = ROOT_DIR / "work"
 CLIPS_DIR = ROOT_DIR / "clips"
@@ -78,7 +82,8 @@ DEFAULT_CONFIG = {
         "ag/claude-opus-4-6-thinking",
         "river/deepseek-ai/DeepSeek-V4.1-Flash"
     ],
-    "render_dir": default_render_dir()
+    "render_dir": default_render_dir(),
+    "translate_model": translate.DEFAULT_MODEL,   # T9: model penterjemah subtitle
 }
 
 def load_global_config() -> dict:
@@ -322,6 +327,11 @@ class SubtitlesRequest(BaseModel):
     words: Optional[List[dict]] = None
     model_size: Optional[str] = None
     regenerate: Optional[bool] = False
+    subtitle_lang: Optional[str] = None    # T9: kode bahasa atau dual:<src>+<tgt>
+
+class TranslateRequest(BaseModel):
+    lang: str                              # kode bahasa target (id|en|zh|ja|ar|es)
+    force: Optional[bool] = False          # True = abaikan cache
 
 class WordEditRequest(BaseModel):
     idx: int
@@ -368,6 +378,7 @@ class ExportRequest(BaseModel):
     fps: Optional[int] = 30
     burn_caption: Optional[bool] = True
     name: Optional[str] = None
+    subtitle_lang: Optional[str] = None    # T9: kode bahasa atau dual:<src>+<tgt>
 
 class RenameProjectRequest(BaseModel):
     title: str
@@ -384,6 +395,7 @@ class UpdateSettingsRequest(BaseModel):
     available_models: Optional[List[str]] = None
     render_dir: Optional[str] = None
     whisper_model: Optional[str] = None
+    translate_model: Optional[str] = None   # T9: model penterjemah subtitle
 
 class TestConnectionRequest(BaseModel):
     endpoint: str
@@ -408,9 +420,101 @@ def health_check():
     return {"status": "ok", "ffmpeg": ffmpeg_ok, "yunet": yunet_ok, "ninerouter": ninerouter_ok}
 
 
+# --- Terjemahan subtitle (T9) ----------------------------------------------
+# Cache: work/<project_id>/translations.json, kunci "<clip_id>|<lang>", bentuk kolom
+# mengikuti tabel subtitle_translations (project_id, clip_id, lang, payload, created_at).
+TRANSLATION_LOCK = threading.Lock()
+
+def _translation_cfg() -> dict:
+    """Endpoint/kunci/model penterjemah dari Settings global."""
+    cfg = load_global_config()
+    return {
+        "endpoint": (cfg.get("llm_endpoint") or "http://127.0.0.1:20128/v1").strip(),
+        "api_key": (cfg.get("llm_api_key") or "").strip() or core_engine.get_9router_key(),
+        "model": (cfg.get("translate_model") or translate.DEFAULT_MODEL).strip(),
+    }
+
+def ninerouter_reachable(timeout: float = 1.5) -> bool:
+    endpoint = _translation_cfg()["endpoint"].rstrip("/")
+    base = endpoint.split("/v1")[0] or endpoint
+    try:
+        with urllib.request.urlopen(urllib.request.Request(base), timeout=timeout) as res:
+            return int(res.status) in (200, 307, 404)
+    except urllib.error.HTTPError:
+        return True      # server menjawab, hanya statusnya bukan 200
+    except Exception:
+        return False
+
+def _translations_path(pid: str) -> Path:
+    return project_dir(pid) / "translations.json"
+
+def _load_translations(pid: str) -> dict:
+    p = _translations_path(pid)
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+def _cached_translation(pid: str, clip_id: str, lang: str) -> Optional[dict]:
+    entry = _load_translations(pid).get(f"{clip_id}|{lang}")
+    return entry if isinstance(entry, dict) else None
+
+def _save_translation(pid: str, clip_id: str, lang: str, result: dict) -> dict:
+    entry = {
+        "project_id": pid, "clip_id": clip_id, "lang": lang,
+        "payload": {k: result.get(k) for k in ("lines", "flagged", "per_line", "model", "lang")},
+        "created_at": int(time.time()),
+    }
+    with TRANSLATION_LOCK:
+        data = _load_translations(pid)
+        data[f"{clip_id}|{lang}"] = entry
+        p = _translations_path(pid)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    return entry
+
+def _parse_subtitle_lang(spec: str) -> tuple[str, bool]:
+    """'en' -> ('en', False); 'dual:id+en' -> ('en', True)."""
+    s = str(spec or "").strip()
+    if s.lower().startswith("dual:"):
+        pair = s[5:].split("+", 1)
+        tgt = pair[1] if len(pair) > 1 else pair[0]
+        return tgt.strip().lower(), True
+    return s.lower(), False
+
+def _prefs_subtitle_lang(prefs: dict, source_lang: str) -> str:
+    tgt = str(prefs.get("subtitle_lang") or "").strip().lower()
+    if not tgt:
+        return ""
+    return f"dual:{source_lang or 'id'}+{tgt}" if prefs.get("subtitle_dual") else tgt
+
+def _dual_lines_for(pid: str, clip_id: str, lang: str, per_line: int) -> list[str]:
+    """Baris terjemahan tersimpan untuk burn; [] kalau belum ada / jumlah potongan beda."""
+    payload = (_cached_translation(pid, clip_id, lang) or {}).get("payload") or {}
+    if not lang or not payload.get("lines"):
+        return []
+    if int(payload.get("per_line") or 0) != int(per_line):
+        return []
+    return [str(l.get("text") or "") for l in payload["lines"]]
+
+def _translation_response(pid: str, clip_id: str, lang: str, source_lang: str,
+                          entry: dict, cached: bool) -> dict:
+    payload = entry.get("payload") or {}
+    return {
+        "ok": True, "project_id": pid, "clip_id": clip_id, "lang": lang,
+        "source_lang": source_lang, "model": payload.get("model") or _translation_cfg()["model"],
+        "per_line": payload.get("per_line"), "lines": payload.get("lines") or [],
+        "flagged": payload.get("flagged") or [],
+        "created_at": entry.get("created_at"), "cached": bool(cached),
+    }
+
 @app.get("/api/options")
 def get_options():
     cfg = load_global_config()
+    router_ok = ninerouter_reachable()
     models = [{"id": m, "label": m} for m in cfg.get("available_models", [])]
     if not any(m["id"] == "heuristic" for m in models):
         models.append({"id": "heuristic", "label": "Offline Heuristic (Tanpa LLM, Rp0)"})
@@ -457,6 +561,15 @@ def get_options():
         ],
         "asr_glossary_file": str(core_engine.GLOSSARY_FILE.relative_to(ROOT_DIR)),
         "asr_confidence_threshold": core_engine.CONFIDENCE_MIN_LOGPROB,
+        "translate": {
+            "ok": router_ok,
+            "reason": "" if router_ok else translate.ROUTER_DOWN["reason"],
+            "hint": translate.ROUTER_DOWN["hint"],
+            "model": _translation_cfg()["model"],
+            "langs": translate.LANGS,
+            "max_chars": translate.MAX_CHARS,
+            "max_lines": translate.MAX_LINES,
+        },
     }
 
 
@@ -496,6 +609,8 @@ def update_settings(payload: UpdateSettingsRequest):
             raise HTTPException(400, f"Folder render tidak valid: {e}")
     if payload.whisper_model is not None:
         updates["whisper_model"] = core_engine.resolve_model_size(payload.whisper_model.strip() or "auto")
+    if payload.translate_model is not None:
+        updates["translate_model"] = payload.translate_model.strip() or translate.DEFAULT_MODEL
     save_global_config(updates)
     return get_settings()
 
@@ -1805,6 +1920,15 @@ def update_prefs(project_id: str, payload: PrefsRequest):
             raise HTTPException(400, "Zoom manual tidak valid: pakai 100–160")
         merged["zoom_manual"] = zm
 
+    # Terjemahan subtitle (T9): bahasa target + toggle dua bahasa.
+    if "subtitle_lang" in new_prefs:
+        lang_in = str(new_prefs["subtitle_lang"] or "").strip().lower()
+        if lang_in and lang_in not in translate.lang_codes():
+            raise HTTPException(400, f"Bahasa target tidak dikenal: {new_prefs['subtitle_lang']}")
+        merged["subtitle_lang"] = lang_in
+    if "subtitle_dual" in new_prefs:
+        merged["subtitle_dual"] = bool(new_prefs["subtitle_dual"])
+
     if "caption_preset" in new_prefs:
         preset_name = str(new_prefs["caption_preset"] or "")
         if preset_name and preset_name not in subtitle_burn.CAPTION_PRESETS:
@@ -1955,6 +2079,61 @@ def get_thumbnail(project_id: str, index: int):
     return FileResponse(cache, media_type="image/jpeg")
 
 
+@app.post("/api/clips/{clip_id}/translate")
+def translate_clip(clip_id: str, payload: TranslateRequest):
+    """Terjemahkan caption klip ke satu bahasa; hasil kedua dipakai cache (tanpa panggil LLM)."""
+    lang = str(payload.lang or "").strip().lower()
+    if lang not in translate.lang_codes():
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": f"Bahasa target tidak dikenal: {payload.lang or '-'}",
+            "hint": "Pilih salah satu: " + ", ".join(translate.lang_codes())})
+    found = _find_clip_owner(clip_id)
+    if not found:
+        return JSONResponse(status_code=404, content={
+            "ok": False, "reason": f"Klip '{clip_id}' tidak ditemukan",
+            "hint": "Render klip dulu, baru terjemahkan captionnya"})
+    pid, clip_path = found
+    slug = clip_path.stem
+    source_lang = (load_transcript_file(pid) or {}).get("language") or "id"
+
+    words_file = project_clips_dir(pid) / f"{slug}.words.json"
+    if not words_file.exists():
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": "Transkrip klip belum ada",
+            "hint": "Klik Transkripsi klip dulu supaya caption punya teks"})
+    try:
+        raw = json.loads(words_file.read_text(encoding="utf-8"))
+    except Exception:
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": "Berkas transkrip klip rusak",
+            "hint": f"Transkripsi ulang klip {slug}"})
+    words = raw.get("words") if isinstance(raw, dict) else raw
+    if not words:
+        return JSONResponse(status_code=200, content={
+            "ok": False, "reason": "Transkrip klip kosong",
+            "hint": "Transkripsi ulang klip ini"})
+    if isinstance(raw, dict) and raw.get("language"):
+        source_lang = raw["language"]
+
+    cached = _cached_translation(pid, slug, lang)
+    if cached and not payload.force:
+        return _translation_response(pid, slug, lang, source_lang, cached, cached=True)
+
+    if not ninerouter_reachable():
+        return JSONResponse(status_code=200, content=dict(translate.ROUTER_DOWN))
+
+    prefs = read_project_meta(pid).get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
+    per_line = int((prefs.get("subtitle_style") or {}).get("words_per_line") or 3)
+    cfg = _translation_cfg()
+    result = translate.translate_words(
+        words, lang, per_line=per_line, glossary=core_engine.read_glossary(),
+        model=cfg["model"], endpoint=cfg["endpoint"], api_key=cfg["api_key"],
+    )
+    if not result.get("ok"):
+        return JSONResponse(status_code=200, content=result)
+    entry = _save_translation(pid, slug, lang, result)
+    return _translation_response(pid, slug, lang, source_lang, entry, cached=False)
+
 @app.post("/api/projects/{project_id}/clips/{slug}/transcribe")
 def transcribe_clip(project_id: str, slug: str, force: bool = False):
     _validate_pid(project_id)
@@ -1996,6 +2175,11 @@ def apply_subtitles(project_id: str, slug: str, payload: SubtitlesRequest):
     tr_proj = load_transcript_file(project_id) or {}
     lang = tr_proj.get("language")
 
+    # T9: baris kedua (terjemahan) kalau bahasa target di set dan hasilnya sudah di-cache.
+    spec = payload.subtitle_lang or _prefs_subtitle_lang(prefs, lang)
+    tgt_lang, dual = _parse_subtitle_lang(spec)
+    dual_lines = _dual_lines_for(project_id, slug, tgt_lang, style.get("words_per_line", 3)) if dual else []
+
     try:
         subtitle_burn.apply_to_clip(
             master=master,
@@ -2006,6 +2190,7 @@ def apply_subtitles(project_id: str, slug: str, payload: SubtitlesRequest):
             words=payload.words,
             words_cache=cache,
             regenerate=bool(payload.regenerate),
+            dual_lines=dual_lines,
         )
     except Exception as e:
         raise HTTPException(500, f"Gagal membakar subtitle: {e}")
@@ -2194,6 +2379,11 @@ def _run_export(pid: str, job_id: str) -> None:
         cdir.mkdir(parents=True, exist_ok=True)
         W, H = render_clips.ffprobe_dims(src)
         upd(progress=15)
+        # T9: baris kedua (terjemahan) dari cache; export tanpa terjemahan -> daftar kosong.
+        tgt_lang, dual = _parse_subtitle_lang(job.get("subtitle_lang") or "")
+        dual_lines = _dual_lines_for(
+            pid, job["clip_id"], tgt_lang,
+            (prefs.get("subtitle_style") or {}).get("words_per_line", 3)) if dual else []
         render_clips.render(
             seg=seg, words=_caption_words(pid, transcript["words"], prefs), source=src, W=W, H=H,
             workdir=project_dir(pid), aspect=prefs.get("aspect") or "9:16",
@@ -2210,6 +2400,7 @@ def _run_export(pid: str, job_id: str) -> None:
             res_scale=EXPORT_RES[job["resolution"]], fps=int(job["fps"]),
             burn_caption=bool(job.get("burn_caption")),
             out_name=Path(job["path"]).name,
+            dual_lines=dual_lines,
         )
         upd(status="done", progress=100, finished_at=time.time())
     except Exception as e:
@@ -2229,6 +2420,16 @@ def start_export(payload: ExportRequest):
             "ok": False, "reason": f"Klip '{payload.clip_id}' tidak ditemukan"})
     pid, clip_path = found
 
+    # T9: parameter subtitle_lang (kode bahasa atau dual:<src>+<tgt>); kosong = pakai prefs project.
+    export_prefs = read_project_meta(pid).get("render_prefs") or dict(DEFAULT_RENDER_PREFS)
+    lang_spec = (payload.subtitle_lang or "").strip() or _prefs_subtitle_lang(
+        export_prefs, (load_transcript_file(pid) or {}).get("language"))
+    tgt_lang, _dual = _parse_subtitle_lang(lang_spec)
+    if tgt_lang and tgt_lang not in translate.lang_codes():
+        return JSONResponse(status_code=400, content={
+            "ok": False, "reason": f"Bahasa subtitle tidak dikenal: {tgt_lang}",
+            "hint": "Pakai kode bahasa (id|en|zh|ja|ar|es) atau dual:<src>+<tgt>"})
+
     clip_meta = {}
     meta_file = clip_path.with_suffix('.meta.json')
     if meta_file.exists():
@@ -2242,6 +2443,7 @@ def start_export(payload: ExportRequest):
         "burn_caption": bool(payload.burn_caption),
         "name": (payload.name or "").strip() or payload.clip_id,
         "path": f"/clips/{pid}/{payload.clip_id}_{payload.resolution}.mp4",
+        "subtitle_lang": lang_spec,
         "error": None, "progress": 0,
         "candidate_index": clip_meta.get("candidate_index"),
         "created_at": time.time(), "finished_at": None,

@@ -1,0 +1,15 @@
+# T12 — geometri render susunan (source 16:9 640x360 -> 9:16 1080x1920)
+index=0
+codec_type=video
+width=1080
+height=1920
+index=1
+codec_type=audio
+duration=4.000000
+size=70222
+
+# t12-tengah.mp4 (Tengah): video utama y [656]..[1263]
+# t12-kotak-warna.mp4 (Kotak): video utama y [686]..[1232]
+# t12-offset-0.mp4 (Atas-bawah, offset_y=0): video utama mulai y [0]
+# t12-offset-20.mp4 (Atas-bawah, offset_y=20%): video utama mulai y [384]
+# geser terukur: 384 px (20% x 1920 = 384 px)

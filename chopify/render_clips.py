@@ -420,7 +420,7 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
            subtitle_style=None, candidate_index=None, raw_subdir="raw",
            res_scale=1.0, fps=None, burn_caption=False, out_name=None,
            zoom_auto=False, zoom_manual=None, zoom_keyframes=None, dual_lines=None,
-           brolls=None, brand=None):
+           brolls=None, brand=None, layout=None, bg_fill=None, bg_color=None, offset_y=0):
     """Render one clip. res_scale/fps size and pace the output, burn_caption adds
     the word-level captions from `words`, out_name overrides the file name.
     zoom_auto/zoom_manual (100–160) mengaktifkan punch-in `zoompan`; `zoom_keyframes`
@@ -428,7 +428,11 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
     `dual_lines` = baris terjemahan (T9), sejajar dengan potongan caption `words_per_line`.
     `brolls` = [{"path","start","end"}] detik relatif klip; di-overlay penuh frame (T10).
     `brand` (T11) = {"logo","intro","outro","corner","size_pct"} dari brand kit global;
-    logo ditempel di sudut pilihan, intro/outro di-concat di depan/belakang klip."""
+    logo ditempel di sudut pilihan, intro/outro di-concat di depan/belakang klip.
+    `layout` (T12) = "off"|"center"|"stack"|"box" (default off = perilaku lama). Kalau diisi,
+    frame disusun: latar (bg_fill "blur"|"color"|"black", bg_color "#RRGGBB") + video utama
+    di atasnya; `offset_y` (-30..30 % tinggi frame) menggeser subjek naik/turun. Susunan
+    menang atas zoom/crop_mode, tapi kalah dari crop_rect manual (Crop Studio)."""
     brand = brand or {}
     brand_logo = Path(brand["logo"]) if brand.get("logo") else None
     brand_intro = Path(brand["intro"]) if brand.get("intro") else None
@@ -508,6 +512,44 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
                        f"scale={tw}:{th}:force_original_aspect_ratio=increase,"
                        f"crop={tw}:{th}")
         mode = "manual-crop"
+    elif layout in ("center", "stack", "box"):
+        # T12: susunan ulang — latar (blur/warna/hitam) + video utama di atasnya.
+        is_complex = True
+        fill = (bg_fill or "blur").lower()
+        off_px = int(round(max(-30, min(30, int(offset_y or 0))) / 100.0 * th))
+        if fill == "color":
+            col = str(bg_color or "").lstrip("#")
+            col = col if re.fullmatch(r"[0-9A-Fa-f]{6}", col) else "4822A5"
+            bg_tail = (f"scale=2:2,drawbox=x=0:y=0:w=2:h=2:color=0x{col}:t=fill,"
+                       f"scale={tw}:{th},setsar=1")
+        elif fill == "black":
+            bg_tail = ("scale=2:2,drawbox=x=0:y=0:w=2:h=2:color=black:t=fill,"
+                       f"scale={tw}:{th},setsar=1")
+        else:
+            # 24 px pada frame 1080x1920 — angka yang sama dengan `blur(24px)` di pratinjau.
+            rad = max(4, int(round(24 * th / 1920.0)))
+            bg_tail = (f"scale={tw}:{th}:force_original_aspect_ratio=increase,"
+                       f"crop={tw}:{th},boxblur={rad}:2,setsar=1")
+        fg_round = ""
+        if layout == "box":
+            # Kotak: video 90% frame + sudut membulat (alpha per piksel dari jarak ke sudut).
+            r = max(8, int(round(32 * th / 1920.0)))
+            fg_round = (",format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)'"
+                        f":a='if(lte(sqrt(pow(max(0\\,{r}-min(X\\,W-1-X))\\,2)"
+                        f"+pow(max(0\\,{r}-min(Y\\,H-1-Y))\\,2))\\,{r})\\,255\\,0)'")
+            base_y = "(H-h)/2"
+        else:
+            # Atas-bawah: video menempel atas, latar terlihat di bawahnya.
+            base_y = "0" if layout == "stack" else "(H-h)/2"
+        fg_scale = (f"{tw}:{th}:force_original_aspect_ratio=decrease" if layout != "box"
+                    else f"{int(tw * 0.9) & ~1}:{int(th * 0.9) & ~1}:force_original_aspect_ratio=decrease")
+        video_chain = (
+            f"[0:v]split=2[bgsrc][fgsrc];[bgsrc]{bg_tail}[bg];"
+            f"[fgsrc]scale={fg_scale}:flags=lanczos,setsar=1{fg_round}[fg];"
+            f"[bg][fg]overlay=x=(W-w)/2:y=max(0\\,min(H-h\\,({base_y})+{off_px}))"
+            f":format=auto[vbase]"
+        )
+        mode = f"layout-{layout}-{fill}"
     elif zoom_keyframes or zoom_auto or (zoom_manual and int(zoom_manual) > 100):
         kfs = zoom_keyframes
         if not kfs:
@@ -558,7 +600,9 @@ def render(seg, words, source, W, H, workdir, aspect, out_dir=None,
                        f"scale={tw}:{th}")
         mode = "speaker-tracked"
     else:
-        video_chain = f"crop={cw}:{ch}:{x0}:{y0},scale={tw}:{th}"
+        # offset_y (T12): geser jendela crop vertikal, tetap di dalam frame sumber.
+        oy = y0 + int(round(max(-30, min(30, int(offset_y or 0))) / 100.0 * th))
+        video_chain = f"crop={cw}:{ch}:{x0}:{max(0, min(H - ch, oy))},scale={tw}:{th}"
         mode = "center-crop"
 
     # overlay b-roll (T10) menempel setelah crop, sebelum caption dibakar

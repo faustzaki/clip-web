@@ -1,0 +1,16 @@
+# T12 precheck — 2026-10-24 (branch t12-background)
+
+$ ffmpeg -filters | grep -c boxblur
+2
+
+$ ffmpeg -filters | grep boxblur
+ T. boxblur           V->V       Blur the input.
+ .. boxblur_opencl    V->V       Apply boxblur filter to input video
+
+$ grep -n 'ratio' server.py | head -3
+374:        'duration': tr.get('duration') if tr else None,
+679:        "aspect_ratios": ["9:16", "1:1", "4:5", "16:9"],
+1209:            "duration": transcript.get("duration"),
+
+# baca: boxblur ADA (2 entri: boxblur + boxblur_opencl) -> opsi 'Blur' aktif.
+# ratio: aspect_ratios 9:16|1:1|4:5|16:9 di /api/options; crop_for() di chopify/render_clips.py.

@@ -262,6 +262,7 @@ export default function StudioView({
               prefs={prefs}
               prefsRef={prefsRef}
               savePrefs={savePrefs}
+              options={options}
               aspect={aspect}
               currentVideo={currentVideo}
               videoRef={videoRef}

@@ -1,0 +1,4 @@
+# T12 — tiga susunan, source 16:9 640x360 -> 9:16 1080x1920 (isi latar Hitam)
+152cf3a041b792550f8eb3ce96e250f54e7f808abd6174524cf5345af6d5fb16  t12-tengah.mp4
+f02a5607f01d80541f9b7f53c55ffe99abf15ac81864bdc17a99acef28ecf56e  t12-atas-bawah.mp4
+7333a813b114c1a71361177aa3b214d66d9ffbb00fe1747b0b3ebe4b28125ea9  t12-kotak.mp4
